@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   # Pre Flux kustomizations
    - namespace.yaml
-  # Flux kustomizatflux reconcile ks flux-systemions
+  # Flux kustomizatflux reconcile ks argocdions

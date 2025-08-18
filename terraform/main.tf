@@ -180,9 +180,9 @@ resource "helm_release" "cilium" {
   ]
 }
 
-resource "kubernetes_namespace" "flux-system" {
+resource "kubernetes_namespace" "argocd" {
   metadata {
-    name = "flux-system"
+    name = "argocd"
   }
   depends_on = [
     talos_machine_bootstrap.bootstrap
@@ -192,13 +192,13 @@ resource "kubernetes_namespace" "flux-system" {
 resource "kubernetes_secret" "sops" {
   metadata {
     name      = "sops-age"
-    namespace = "flux-system"
+    namespace = "argocd"
   }
   data = {
     "age.agekey" = file(var.sops_private_key)
   }
   depends_on = [
-    kubernetes_namespace.flux-system
+    kubernetes_namespace.argocd
   ]
 }
 
