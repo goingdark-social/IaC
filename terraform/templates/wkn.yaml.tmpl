@@ -1,4 +1,7 @@
 machine:
+  sysctls:
+    net.core.somaxconn: 65535
+    net.core.netdev_max_backlog: 4096
   kernel:
     modules:
       - name: drbd
@@ -18,7 +21,7 @@ machine:
 
 cluster:
   externalCloudProvider:
-    enabled: true
+    enabled: false
   network:
     cni:
       name: none
