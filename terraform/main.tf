@@ -173,11 +173,64 @@ resource "helm_release" "cilium" {
   chart      = "cilium"
   namespace  = "kube-system"
   repository = "https://helm.cilium.io/"
-  version    = "1.14.0"
+  version    = "1.18.1"
 
   values = [
     file("manifests/cilium.yaml")
   ]
+}
+
+# --- Hetzner Cloud Controller Manager (CCM) ---
+resource "helm_release" "hcloud_ccm" {
+  name             = "hcloud-cloud-controller-manager"
+  repository       = "https://charts.hetzner.cloud"
+  chart            = "hcloud-cloud-controller-manager"
+  namespace        = "kube-system"
+  create_namespace = false
+
+  # CCM needs the 'hcloud' Secret in kube-system. You already create it in TF.
+  # Tolerate the bootstrap taint so it can run immediately.
+  values = [<<YAML
+tolerations:
+  - key: "node.cloudprovider.kubernetes.io/uninitialized"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+YAML
+  ]
+
+  depends_on = [
+    helm_release.cilium  # ensure CNI first
+  ]
+}
+
+# --- ArgoCD bootstrap ---
+resource "helm_release" "argocd" {
+  name             = "argocd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = "8.3.0"
+  namespace        = "argocd"
+  create_namespace = true
+  # reuse your full values so Helm state == Git state from day 1
+  values = [file("${path.module}/../kubernetes/apps/argocd/values.yaml")]
+
+  depends_on = [
+    helm_release.hcloud_ccm  # CCM clears taint so Argo can schedule
+  ]
+}
+
+# Apply Argo project + appset from your repo so it starts syncing immediately
+resource "kubernetes_manifest" "argocd_project" {
+  manifest   = yamldecode(file("${path.module}/../kubernetes/project.yaml"))
+  depends_on = [helm_release.argocd]
+}
+
+resource "kubernetes_manifest" "argocd_appset" {
+  manifest   = yamldecode(file("${path.module}/../kubernetes/application-set.yaml"))
+  depends_on = [helm_release.argocd]
 }
 
 resource "kubernetes_namespace" "argocd" {

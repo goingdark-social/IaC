@@ -38,21 +38,6 @@ wkn_count    = 0
 EOF
 ```
 
-### 2. Create private and public key for SOPS
-
-```shell
-age-keygen -o age.agekey &&
-age_pubkey=$(awk '/^# public key:/{print $NF}' age.agekey) &&
-echo "
-creation_rules:
-  - path_regex: .*.ya?ml
-    encrypted_regex: ^(data|stringData)$
-    age: $age_pubkey" > .sops.yaml
-```
-
-Next, you'll need to include `.sops.yaml` in your repository. This step is crucial to allow other project contributors
-to encrypt their secrets using the public key. Remember, keep the `age.agekey` private key secure.
-
 ### 3. Create k8s cluster
 
 Before enter command below you need prepare Talos snapshot in Hetzner Cloud. For this, you can use
@@ -72,7 +57,7 @@ Prerequisites:
 ```shell
 # fulfill the prerequisites, then run:
 cd /tmp
-wget -O /tmp/talos.raw.xz https://factory.talos.dev/image/1c924f0d41b37542e63612149946f0a62094ea88e1e0e3ae93a15246625e6775/v1.9.3/hcloud-amd64.raw.xz
+wget -O /tmp/talos.raw.xz https://factory.talos.dev/image/e048aaf4461ff9f9576c9a42f760f2fef566559bd4933f322853ac291e46f238/v1.10.6/hcloud-amd64.raw.xz
 xz -d -c /tmp/talos.raw.xz | dd of=/dev/sda && sync
 shutdown -h now
 ```

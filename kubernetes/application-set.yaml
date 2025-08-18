@@ -14,13 +14,13 @@ spec:
         repoURL: https://github.com/goingdark-social/IaC.git
         revision: main
         directories:
-          - path: argocd
-          - path: base-system
-          - path: database
-          - path: crds
-          - path: default
-          - path: deployment
-          - path: kube-system
+          - path: kubernetes/apps/argocd
+          - path: kubernetes/apps/base-system
+          - path: kubernetes/apps/database
+          - path: kubernetes/apps/crds
+          - path: kubernetes/apps/default
+          - path: kubernetes/apps/deployment
+          - path: kubernetes/apps/kube-system
   template:
     metadata:
       name: 'infra-{{ path.basename }}'
@@ -34,10 +34,9 @@ spec:
         repoURL: https://github.com/goingdark-social/IaC.git
         targetRevision: main
         path: '{{ path }}'
-        kustomize: {} # Let Kustomize handle naming
       destination:
-        namespace: infrastructure-system
         server: https://kubernetes.default.svc
+        namespace: argocd
       syncPolicy:
         automated:
           prune: true

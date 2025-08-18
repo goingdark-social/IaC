@@ -72,10 +72,10 @@ k8sClientRateLimit:
   burst: 100
 
 l2announcements:
-  enabled: true
+  enabled: false
 
 externalIPs:
-  enabled: true
+  enabled: false
 
 #enableCiliumEndpointSlice: true
 

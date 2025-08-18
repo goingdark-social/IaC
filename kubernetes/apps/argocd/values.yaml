@@ -59,6 +59,10 @@ crds:
 
 controller:
   replicas: 1
+  tolerations:
+    - key: node.cloudprovider.kubernetes.io/uninitialized
+      operator: Exists
+      effect: NoSchedule
   resources:
     requests:
       cpu: 100m
@@ -69,6 +73,10 @@ controller:
 
 dex:
   enabled: true
+  tolerations:
+    - key: node.cloudprovider.kubernetes.io/uninitialized
+      operator: Exists
+      effect: NoSchedule
   resources:
     requests:
       cpu: 10m
@@ -78,15 +86,23 @@ dex:
 
 redis-ha:
   enabled: true
+  tolerations:
+    - key: node.cloudprovider.kubernetes.io/uninitialized
+      operator: Exists
+      effect: NoSchedule
 
 server:
   autoscaling:
     enabled: true
     minReplicas: 2
+  tolerations:
+    - key: node.cloudprovider.kubernetes.io/uninitialized
+      operator: Exists
+      effect: NoSchedule
   extensions:
     enabled: true
   service:
-    type: LoadBalancer
+    type: ClusterIP
     httpsPort: 443
     httpsTargetPort: 8443
 
@@ -101,6 +117,10 @@ repoServer:
   autoscaling:
     enabled: true
     minReplicas: 2
+  tolerations:
+    - key: node.cloudprovider.kubernetes.io/uninitialized
+      operator: Exists
+      effect: NoSchedule
   pdb:
     enabled: true
     minAvailable: 1
@@ -146,6 +166,10 @@ repoServer:
 
 applicationSet:
   replicas: 2
+  tolerations:
+    - key: node.cloudprovider.kubernetes.io/uninitialized
+      operator: Exists
+      effect: NoSchedule
   pdb:
     enabled: true
     minAvailable: 1
