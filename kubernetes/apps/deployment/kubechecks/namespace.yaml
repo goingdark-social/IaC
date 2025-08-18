@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubechecks
+  labels:
+    app.kubernetes.io/part-of: infrastructure
+    app.kubernetes.io/managed-by: argocd
+    dev.goingdark: deployment
+    kubernetes.io/metadata.name: kubechecks
+    # enforce baseline policy (allows root, disallows privileged/host namespaces/hostPath, etc)
+    pod-security.kubernetes.io/enforce: baseline

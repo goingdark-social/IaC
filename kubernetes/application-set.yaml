@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  namespace: argocd
+  name: infrastructure
+  labels:
+    app.kubernetes.io/part-of: infrastructure
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        revision: main
+        directories:
+          - path: k8s/infrastructure/controllers
+          - path: k8s/infrastructure/network
+          - path: k8s/infrastructure/storage
+          - path: k8s/infrastructure/crds
+          - path: k8s/infrastructure/monitoring
+          - path: k8s/infrastructure/deployment
+          - path: k8s/infrastructure/auth
+          - path: k8s/infrastructure/database
+  template:
+    metadata:
+      name: 'infra-{{ path.basename }}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/component: 'static-infrastructure'
+        app.kubernetes.io/part-of: infrastructure
+    spec:
+      project: infrastructure
+      source:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        targetRevision: main
+        path: '{{ path }}'
+        kustomize: {} # Let Kustomize handle naming
+      destination:
+        namespace: infrastructure-system
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 1
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - RespectIgnoreDifferences=true

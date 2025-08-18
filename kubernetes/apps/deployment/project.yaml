@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: deployment
+  namespace: argocd
+  labels:
+    dev.goingdark: deployment
+spec:
+  description: Project for core infrastructure deployment
+  sourceRepos:
+    - 'https://github.com/goingdark-social/IaC'
+  destinations:
+    - namespace: 'argocd'
+      server: '*'
+    - namespace: 'kube-system'
+      server: '*'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

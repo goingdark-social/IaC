@@ -1,0 +1,23 @@
+tunnel: gauss-k8s
+credentials-file: /etc/cloudflared/credentials/credentials.json
+metrics: 0.0.0.0:2000
+no-autoupdate: true
+
+warp-routing:
+  enabled: true
+
+ingress:
+
+  - hostname: ittools.goingdark.social
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+  - hostname: argocd.goingdark.social
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+  - hostname: "*.goingdark.social"
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originRequest:
+      originServerName: "*.goingdark.social"
+  - hostname: goingdark.social
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originRequest:
+      originServerName: goingdark.social
+  - service: http_status:404

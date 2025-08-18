@@ -46,7 +46,11 @@ resource "hcloud_load_balancer_service" "main-talosctl" {
 }
 
 # Talos OS base configuration
-resource "talos_machine_secrets" "this" {}
+resource "talos_machine_secrets" "this" {
++  lifecycle {
++    prevent_destroy = true
++  }
++}
 
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
