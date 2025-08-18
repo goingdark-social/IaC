@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - app.yaml
   - linstor.yaml
+  - linstor-talos-loader-override.yaml
