@@ -14,14 +14,13 @@ spec:
         repoURL: https://github.com/goingdark-social/IaC.git
         revision: main
         directories:
-          - path: k8s/infrastructure/controllers
-          - path: k8s/infrastructure/network
-          - path: k8s/infrastructure/storage
-          - path: k8s/infrastructure/crds
-          - path: k8s/infrastructure/monitoring
-          - path: k8s/infrastructure/deployment
-          - path: k8s/infrastructure/auth
-          - path: k8s/infrastructure/database
+          - path: argocd
+          - path: base-system
+          - path: database
+          - path: crds
+          - path: default
+          - path: deployment
+          - path: kube-system
   template:
     metadata:
       name: 'infra-{{ path.basename }}'

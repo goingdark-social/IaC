@@ -3,13 +3,7 @@ kind: Kustomization
 
 resources:
 - project.yaml
-- application-set.yaml
-- network
-- storage
-- controllers
-- deployment
-- auth
-- database
+- apps
 
 generatorOptions:
   disableNameSuffixHash: true
