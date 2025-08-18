@@ -71,7 +71,7 @@ resource "hcloud_server" "cpn" {
   name        = "cpn-${format("%02d", count.index)}"
   image       = var.hcloud_image
   count       = var.cpn_count
-  server_type = "cx22"
+  server_type = "cpx21"
   location    = var.hcloud_location
   labels = {
     type = "cpn"
@@ -121,7 +121,7 @@ resource "hcloud_server" "wkn" {
   name        = "wkn-${format("%02d", count.index)}"
   image       = var.hcloud_image
   count       = var.wkn_count
-  server_type = "cx22"
+  server_type = "cpx21"
   location    = var.hcloud_location
   labels = {
     type = "wkn"
@@ -194,55 +194,55 @@ resource "helm_release" "argocd" {
 }
 
 # Apply Argo project + appset from your repo so it starts syncing immediately
-resource "kubernetes_manifest" "argocd_project" {
-  manifest   = yamldecode(file("${path.module}/../kubernetes/project.yaml"))
-  depends_on = [helm_release.argocd]
-}
-
-resource "kubernetes_manifest" "argocd_appset" {
-  manifest   = yamldecode(file("${path.module}/../kubernetes/application-set.yaml"))
-  depends_on = [helm_release.argocd]
-}
-
-resource "kubernetes_manifest" "argocd_app_hcloud_ccm" {
-  manifest = yamldecode(<<YAML
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: infra-hcloud-ccm
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "-20"
-spec:
-  project: infrastructure
-  source:
-    repoURL: https://charts.hetzner.cloud
-    chart: hcloud-cloud-controller-manager
-    targetRevision: 1.16.0
-    helm:
-      values: |
-        tolerations:
-          - key: node.cloudprovider.kubernetes.io/uninitialized
-            operator: Exists
-            effect: NoSchedule
-          - key: node-role.kubernetes.io/control-plane
-            operator: Exists
-            effect: NoSchedule
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: kube-system
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
-      - ApplyOutOfSyncOnly=true
-YAML
-  )
-  depends_on = [helm_release.argocd]
-}
+#resource "kubernetes_manifest" "argocd_project" {
+#  manifest   = yamldecode(file("${path.module}/../kubernetes/project.yaml"))
+#  depends_on = [helm_release.argocd]
+#}
+#
+#resource "kubernetes_manifest" "argocd_appset" {
+#  manifest   = yamldecode(file("${path.module}/../kubernetes/application-set.yaml"))
+#  depends_on = [helm_release.argocd]
+#}
+#
+#resource "kubernetes_manifest" "argocd_app_hcloud_ccm" {
+#  manifest = yamldecode(<<YAML
+#apiVersion: argoproj.io/v1alpha1
+#kind: Application
+#metadata:
+#  name: infra-hcloud-ccm
+#  namespace: argocd
+#  annotations:
+#    argocd.argoproj.io/sync-wave: "-20"
+#spec:
+#  project: infrastructure
+#  source:
+#    repoURL: https://charts.hetzner.cloud
+#    chart: hcloud-cloud-controller-manager
+#    targetRevision: 1.16.0
+#    helm:
+#      values: |-
+#        tolerations:
+#          - key: node.cloudprovider.kubernetes.io/uninitialized
+#            operator: Exists
+#            effect: NoSchedule
+#          - key: node-role.kubernetes.io/control-plane
+#            operator: Exists
+#            effect: NoSchedule
+#  destination:
+#    server: https://kubernetes.default.svc
+#    namespace: kube-system
+#  syncPolicy:
+#    automated:
+#      prune: true
+#      selfHeal: true
+#    syncOptions:
+#      - CreateNamespace=true
+#      - ServerSideApply=true
+#      - ApplyOutOfSyncOnly=true
+#YAML
+#  )
+#  depends_on = [helm_release.argocd]
+#}
 
 resource "kubernetes_namespace" "argocd" {
   metadata {
@@ -253,18 +253,18 @@ resource "kubernetes_namespace" "argocd" {
   ]
 }
 
-resource "kubernetes_secret" "sops" {
-  metadata {
-    name      = "sops-age"
-    namespace = "argocd"
-  }
-  data = {
-    "age.agekey" = file(var.sops_private_key)
-  }
-  depends_on = [
-    kubernetes_namespace.argocd
-  ]
-}
+#resource "kubernetes_secret" "sops" {
+#  metadata {
+#    name      = "sops-age"
+#    namespace = "argocd"
+#  }
+#  data = {
+#    "age.agekey" = file(var.sops_private_key)
+#  }
+#  depends_on = [
+#    kubernetes_namespace.argocd
+#  ]
+#}
 
 resource "kubernetes_namespace" "base-system" {
   metadata {

@@ -57,7 +57,7 @@ Prerequisites:
 ```shell
 # fulfill the prerequisites, then run:
 cd /tmp
-wget -O /tmp/talos.raw.xz https://factory.talos.dev/image/e048aaf4461ff9f9576c9a42f760f2fef566559bd4933f322853ac291e46f238/v1.10.6/hcloud-amd64.raw.xz
+wget -O /tmp/talos.raw.xz https://factory.talos.dev/image/6adc7e7fba27948460e2231e5272e88b85159da3f3db980551976bf9898ff64b/v1.10.6/hcloud-amd64.raw.xz
 xz -d -c /tmp/talos.raw.xz | dd of=/dev/sda && sync
 shutdown -h now
 ```
