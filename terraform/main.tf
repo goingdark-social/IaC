@@ -169,7 +169,7 @@ resource "helm_release" "cilium" {
   chart      = "cilium"
   namespace  = "kube-system"
   repository = "https://helm.cilium.io/"
-  version    = "1.14.0"
+  version    = "1.18.1"
 
   values = [
     file("manifests/cilium.yaml")
@@ -211,8 +211,7 @@ resource "kubernetes_secret" "hcloud" {
 }
 
 # Talos OS and Kubernetes admin config
-data "talos_cluster_kubeconfig" "this" {
+resource "talos_cluster_kubeconfig" "this" {
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = hcloud_server.cpn[0].ipv4_address
-  wait                 = true
 }
