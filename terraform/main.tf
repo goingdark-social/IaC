@@ -163,6 +163,15 @@ resource "talos_machine_bootstrap" "bootstrap" {
   ]
 }
 
+
+data "talos_cluster_health" "ready" {
+  client_configuration = talos_machine_secrets.this.client_configuration
+  endpoints            = [hcloud_server.cpn[0].ipv4_address]
+  control_plane_nodes  = [for s in hcloud_server.cpn : s.ipv4_address]
+  worker_nodes         = [for s in hcloud_server.wkn : s.ipv4_address]
+  depends_on           = [talos_machine_bootstrap.bootstrap]
+}
+
 # Configure Kubernetes cluster
 resource "helm_release" "cilium" {
   name       = "cilium"
@@ -174,15 +183,14 @@ resource "helm_release" "cilium" {
   values = [
     file("manifests/cilium.yaml")
   ]
+  depends_on = [data.talos_cluster_health.ready]
 }
 
 resource "kubernetes_namespace" "argocd" {
   metadata {
     name = "argocd"
   }
-  depends_on = [
-    talos_machine_bootstrap.bootstrap
-  ]
+  depends_on = [data.talos_cluster_health.ready]
 }
 
 
@@ -190,9 +198,7 @@ resource "kubernetes_namespace" "base-system" {
   metadata {
     name = "base-system"
   }
-  depends_on = [
-    talos_machine_bootstrap.bootstrap
-  ]
+  depends_on = [data.talos_cluster_health.ready]
 }
 
 resource "kubernetes_secret" "hcloud" {
@@ -205,9 +211,7 @@ resource "kubernetes_secret" "hcloud" {
     image   = var.hcloud_image
     network = hcloud_network.this.id
   }
-  depends_on = [
-    talos_machine_bootstrap.bootstrap
-  ]
+  depends_on = [data.talos_cluster_health.ready]
 }
 
 # Talos OS and Kubernetes admin config
