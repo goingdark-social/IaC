@@ -1,23 +1,18 @@
-variable "hcloud_token" {
-  default = ""
+variable "hcloud_token"    { type = string }
+variable "hcloud_image"    { type = string }
+variable "cluster_name"    {
+    type = string
+    default = "mbrc"
+    }
+variable "hcloud_location" { 
+    type = string
+    default = "hel1"
 }
-
-variable "hcloud_image" {
-  default = ""
+variable "cpn_count"       {
+     type = number  
+     default = 3
 }
-
-variable "cluster_name" {
-  default = "mbrc"
-}
-
-variable "hcloud_location" {
-  default = "hel1" # https://docs.hetzner.com/cloud/general/locations/
-}
-
-variable "cpn_count" {
-  default = 1
-}
-
-variable "wkn_count" {
-  default = 0
+variable "wkn_count"       {
+    type = number
+    default = 0
 }
