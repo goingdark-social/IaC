@@ -37,18 +37,20 @@ provider "hcloud" {
   token = var.hcloud_token
 }
 
+
+
 provider "kubernetes" {
-  host                   = data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
-  client_certificate     = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
-  client_key             = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
-  cluster_ca_certificate = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
+  host                   = local.kcfg.clusters[0].cluster.server
+  cluster_ca_certificate = base64decode(local.kcfg.clusters[0].cluster["certificate-authority-data"])
+  client_certificate     = base64decode(local.kcfg.users[0].user["client-certificate-data"])
+  client_key             = base64decode(local.kcfg.users[0].user["client-key-data"])
 }
 
 provider "helm" {
   kubernetes = {
-    host                   = data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
-    client_certificate     = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
-    client_key             = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
-    cluster_ca_certificate = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
+    host                   = local.kcfg.clusters[0].cluster.server
+    cluster_ca_certificate = base64decode(local.kcfg.clusters[0].cluster["certificate-authority-data"])
+    client_certificate     = base64decode(local.kcfg.users[0].user["client-certificate-data"])
+    client_key             = base64decode(local.kcfg.users[0].user["client-key-data"])
   }
 }

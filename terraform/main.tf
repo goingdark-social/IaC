@@ -48,6 +48,11 @@ resource "hcloud_load_balancer_service" "main-talosctl" {
 # Talos OS base configuration
 resource "talos_machine_secrets" "this" {}
 
+locals {
+  kubeconfig_raw = talos_cluster_kubeconfig.this.kubeconfig_raw
+  kcfg           = yamldecode(local.kubeconfig_raw)
+}
+
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
   client_configuration = talos_machine_secrets.this.client_configuration
@@ -149,9 +154,10 @@ resource "hcloud_server" "wkn" {
 resource "talos_machine_configuration_apply" "wkn" {
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.wkn.machine_configuration
-  count = length(hcloud_server.wkn)
+  count                       = length(hcloud_server.wkn)
   node                        = hcloud_server.wkn[count.index].ipv4_address
 }
+
 
 # Bootstrap the cluster
 resource "talos_machine_bootstrap" "bootstrap" {
@@ -163,8 +169,15 @@ resource "talos_machine_bootstrap" "bootstrap" {
   ]
 }
 
-# Configure Kubernetes cluster
+data "talos_cluster_health" "ready" {
+  client_configuration = data.talos_client_configuration.this.client_configuration
+  endpoints            = [hcloud_load_balancer.main.ipv4]
+  control_plane_nodes  = [for s in hcloud_server.cpn : s.ipv4_address]
+}
+
+
 resource "helm_release" "cilium" {
+  depends_on = [talos_cluster_health.ready]
   name       = "cilium"
   chart      = "cilium"
   namespace  = "kube-system"
@@ -177,24 +190,21 @@ resource "helm_release" "cilium" {
 }
 
 resource "kubernetes_namespace" "argocd" {
+  depends_on = [talos_cluster_health.ready]
   metadata {
     name = "argocd"
   }
-  depends_on = [
-    talos_machine_bootstrap.bootstrap
-  ]
 }
 
 resource "kubernetes_namespace" "base-system" {
+  depends_on = [talos_cluster_health.ready]
   metadata {
     name = "base-system"
   }
-  depends_on = [
-    talos_machine_bootstrap.bootstrap
-  ]
 }
 
 resource "kubernetes_secret" "hcloud" {
+  depends_on = [talos_cluster_health.ready]
   metadata {
     name      = "hcloud"
     namespace = "kube-system"
@@ -204,14 +214,10 @@ resource "kubernetes_secret" "hcloud" {
     image   = var.hcloud_image
     network = hcloud_network.this.id
   }
-  depends_on = [
-    talos_machine_bootstrap.bootstrap
-  ]
+}
+resource "talos_cluster_kubeconfig" "this" {
+  endpoint             = hcloud_load_balancer.main.ipv4
+  client_configuration = data.talos_client_configuration.this.client_configuration
+  node                 = hcloud_server.cpn[0].ipv4_address
 }
 
-# Talos OS and Kubernetes admin config
-data "talos_cluster_kubeconfig" "this" {
-  client_configuration = talos_machine_secrets.this.client_configuration
-  node                 = hcloud_server.cpn[0].ipv4_address
-  wait                 = true
-}
