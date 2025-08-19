@@ -33,26 +33,22 @@ terraform {
 }
 
 
-
-
 provider "hcloud" {
   token = var.hcloud_token
 }
 
-resource "local_sensitive_file" "kubeconfig" {
-  content  = talos_cluster_kubeconfig.this.kubeconfig_raw
-  filename = "${path.module}/kubeconfig"
-}
-
-
 provider "kubernetes" {
-  config_path = local_sensitive_file.kubeconfig.filename
+  host                   = data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
+  client_certificate     = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
+  client_key             = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
+  cluster_ca_certificate = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
 }
 
 provider "helm" {
   kubernetes = {
-    config_path = local_sensitive_file.kubeconfig.filename
+    host                   = data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
+    client_certificate     = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
+    client_key             = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
+    cluster_ca_certificate = base64decode(data.talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
   }
 }
-
-
