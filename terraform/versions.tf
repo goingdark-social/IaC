@@ -39,11 +39,11 @@ provider "hcloud" {
   token = var.hcloud_token
 }
 
-# write kubeconfig to disk for providers to consume
 resource "local_sensitive_file" "kubeconfig" {
-  content  = talos_cluster_kubeconfig.this.kubeconfig
+  content  = talos_cluster_kubeconfig.this.kubeconfig_raw
   filename = "${path.module}/kubeconfig"
 }
+
 
 provider "kubernetes" {
   config_path = local_sensitive_file.kubeconfig.filename
