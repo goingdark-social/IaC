@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  namespace: argocd
+  name: infrastructure
+  labels:
+    app.kubernetes.io/part-of: infrastructure
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '-10'
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        revision: main
+        directories:
+          - path: kubernetes/apps/argocd
+          - path: kubernetes/apps/base-system
+          - path: kubernetes/apps/database
+          - path: kubernetes/apps/crds
+          - path: kubernetes/apps/default
+          - path: kubernetes/apps/deployment
+          - path: kubernetes/apps/kube-system
+  template:
+    metadata:
+      name: 'infra-{{ path.basename }}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/component: 'static-infrastructure'
+        app.kubernetes.io/part-of: infrastructure
+    spec:
+      project: infrastructure
+      source:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        targetRevision: main
+        path: '{{ path }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 1
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - RespectIgnoreDifferences=true

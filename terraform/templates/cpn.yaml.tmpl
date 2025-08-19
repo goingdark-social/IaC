@@ -2,6 +2,12 @@ machine:
   sysctls:
     net.core.somaxconn: 65535
     net.core.netdev_max_backlog: 4096
+  kernel:
+    modules:
+      - name: drbd
+        parameters:
+          - usermode_helper=disabled
+      - name: drbd_transport_tcp
   systemDiskEncryption:
     state:
       provider: luks2
@@ -39,7 +45,7 @@ machine:
 
 cluster:
   externalCloudProvider:
-    enabled: true
+    enabled: false
   network:
     cni:
       name: none

@@ -1,0 +1,164 @@
+# values.yaml for kubechecks v0.5.4
+
+argocd:
+  namespace: argocd
+
+
+configMap:
+  create: false
+  env: {}
+
+deployment:
+  env:
+    - name: HOME
+      value: /home/kubechecks
+    - name: KUBECHECKS_FALLBACK_K8S_VERSION
+      value: "1.32.0"
+    - name: KUBECHECKS_MONITOR_ALL_APPLICATIONS
+      value: "true"
+    - name: KUBECHECKS_ENABLE_HOOKS_RENDERER
+      value: "true"
+    - name: KUBECHECKS_WEBHOOK_URL_BASE
+      value: "https://kubechecks.goingdark.social"
+    - name: KUBECHECKS_ENSURE_WEBHOOKS
+      value: "true"
+    # - name: KUBECHECKS_OPENAI_API_TOKEN
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: kubechecks-combined-secret
+    #       key: openai_key
+    - name: KUBECHECKS_WEBHOOK_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: kubechecks-combined-secret
+          key: webhook_hmac
+    - name: KUBECHECKS_VCS_TYPE
+      value: "github"
+    # - name: KUBECHECKS_VCS_TOKEN
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: kubechecks-combined-secret
+    #       key: github_token
+    - name: KUBECHECKS_ARGOCD_API_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: kubechecks-combined-secret
+          key: argocd_api_token
+    - name: KUBECHECKS_ARGOCD_API_INSECURE
+      value: "true"
+    - name: KUBECHECKS_ARGOCD_API_SERVER_ADDR
+      value: "argocd-server.argocd.svc.cluster.local"
+    - name: KUBECHECKS_ARGOCD_API_PLAINTEXT
+      value: "true"
+    - name: KUBECHECKS_ARGOCD_REPOSITORY_INSECURE
+      value: "true"
+    - name: KUBECHECKS_LOG_LEVEL
+      value: "debug"
+    - name: KUBECHECKS_SCHEMAS_LOCATION
+      value: "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json,https://raw.githubusercontent.com/cdloh/provider-cloudflare/refs/heads/main/package/crds/cloudflare.upbound.io_providerconfigs.yaml,https://raw.githubusercontent.com/cdloh/provider-cloudflare/refs/heads/main/package/crds/account.cloudflare.upbound.io_accounts.yaml,https://raw.githubusercontent.com/cdloh/provider-cloudflare/refs/heads/main/package/crds/zone.cloudflare.upbound.io_zones.yaml,https://raw.githubusercontent.com/cdloh/provider-cloudflare/refs/heads/main/package/crds/dns.cloudflare.upbound.io_records.yaml, https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/{{.NormalizedKubernetesVersion}}/{{.ResourceKind}}.json"
+    - name: KUBECHECKS_GITHUB_APP_ID
+      value: "1243453"
+    - name: KUBECHECKS_GITHUB_INSTALLATION_ID
+      value: "65970314"
+    - name: KUBECHECKS_WORST_KUBECONFORM_STATE
+      value: "error"
+    - name: KUBECHECKS_GITHUB_PRIVATE_KEY
+      valueFrom:
+        secretKeyRef:
+          name: kubechecks-combined-secret
+          key: github_token
+  volumes:
+    - name: home
+      emptyDir: {}
+
+  volumeMounts:
+    - name: home
+      mountPath: /home/kubechecks
+    - name: home
+      mountPath: /tmp
+
+  annotations: {}
+  podAnnotations: {}
+  args: []
+
+  resources:
+    limits:
+      memory: 512Mi
+      cpu: 500m
+    requests:
+      memory: 256Mi
+      cpu: 200m
+
+  revisionHistoryLimit: 10
+  replicaCount: 1
+
+  image:
+    pullPolicy: IfNotPresent
+    name: "ghcr.io/zapier/kubechecks" # renovate: docker=ghcr.io/zapier/kubechecks
+    tag: "v2.4.2"
+
+  imagePullSecrets: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 32123
+    fsGroup: 32123
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    privileged: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  envFrom: []
+
+  startupProbe:
+    initialDelaySeconds: 30
+    failureThreshold: 30
+    periodSeconds: 10
+
+  livenessProbe:
+    failureThreshold: 30
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 10
+
+  readinessProbe:
+    failureThreshold: 30
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 10
+
+secrets:
+  create: false
+
+serviceAccount:
+  create: true
+  enabled: true
+  name: '{{ include "kubechecks.fullname" . }}'
+  annotations: {}
+
+service:
+  create: true
+  type: ClusterIP
+  port: 8080
+  name: http
+
+ingress:
+  create: false
+  className: ""
+  hosts:
+    kubechecks.local:
+      paths:
+        - path: "/hooks"
+          pathType: Prefix
+
+autoscaling:
+  create: false

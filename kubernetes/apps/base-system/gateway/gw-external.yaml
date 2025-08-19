@@ -1,0 +1,32 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external
+  namespace: gateway
+spec:
+  gatewayClassName: cilium
+  
+  listeners:
+    - protocol: HTTPS
+      port: 443
+      name: https-goingdark-gateway
+      hostname: goingdark.social
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: cert-goingdark
+      allowedRoutes:
+        namespaces:
+          from: All
+    - protocol: HTTPS
+      port: 443
+      name: https-domain-goingdark-gateway
+      hostname: "*.goingdark.social"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: cert-goingdark
+      allowedRoutes:
+        namespaces:
+          from: All
+

@@ -1,0 +1,46 @@
+crds:
+  enabled: true
+  keep: true
+
+extraArgs:
+  - --v=2
+  - --cluster-resource-namespace=$(POD_NAMESPACE)
+  - --leader-election-namespace=kube-system
+  - --dns01-recursive-nameservers=10.96.0.10:53
+  - --dns01-recursive-nameservers-only=true
+
+resources:
+  limits:
+    cpu: 75m
+    memory: 96Mi
+  requests:
+    cpu: 75m
+    memory: 96Mi
+replicaCount: 2
+
+webhook:
+  securePort: 10250
+  hostNetwork: false
+  serviceType: ClusterIP
+  extraArgs:
+    - --secure-port=10250
+  resources:
+    limits:
+      cpu: 125m
+      memory: 144Mi
+    requests:
+      cpu: 125m
+      memory: 144Mi
+  securityContext:
+    runAsNonRoot: true
+  replicaCount: 2
+
+cainjector:
+  resources:
+    limits:
+      cpu: 40m
+      memory: 72Mi
+    requests:
+      cpu: 40m
+      memory: 72Mi
+  replicaCount: 2

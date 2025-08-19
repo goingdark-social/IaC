@@ -46,3 +46,13 @@ cgroup:
 
 k8sServiceHost: localhost
 k8sServicePort: 7445
+agent:
+  tolerations:
+    - key: "node.cloudprovider.kubernetes.io/uninitialized"
+      operator: "Exists"
+      effect: "NoSchedule"
+operator:
+  tolerations:
+    - key: "node.cloudprovider.kubernetes.io/uninitialized"
+      operator: "Exists"
+      effect: "NoSchedule"

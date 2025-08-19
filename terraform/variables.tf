@@ -15,13 +15,9 @@ variable "hcloud_location" {
 }
 
 variable "cpn_count" {
-  default = 3
+  default = 1
 }
 
 variable "wkn_count" {
-  default = 2
-}
-
-variable "sops_private_key" {
-  default = "../age.agekey"
+  default = 0
 }
