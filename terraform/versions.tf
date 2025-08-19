@@ -24,6 +24,11 @@ terraform {
       source  = "hashicorp/helm"
       version = "3.0.2"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = "2.5.1"
+    }
+
   }
 }
 
@@ -34,18 +39,20 @@ provider "hcloud" {
   token = var.hcloud_token
 }
 
+# write kubeconfig to disk for providers to consume
+resource "local_sensitive_file" "kubeconfig" {
+  content  = talos_cluster_kubeconfig.this.kubeconfig
+  filename = "${path.module}/kubeconfig"
+}
+
 provider "kubernetes" {
-  host                   = talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
-  client_certificate     = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
-  client_key             = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
-  cluster_ca_certificate = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
+  config_path = local_sensitive_file.kubeconfig.filename
 }
 
 provider "helm" {
   kubernetes = {
-    host                   = talos_cluster_kubeconfig.this.kubernetes_client_configuration.host
-    client_certificate     = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_certificate)
-    client_key             = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.client_key)
-    cluster_ca_certificate = base64decode(talos_cluster_kubeconfig.this.kubernetes_client_configuration.ca_certificate)
+    config_path = local_sensitive_file.kubeconfig.filename
   }
 }
+
+
