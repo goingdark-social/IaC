@@ -72,6 +72,7 @@ data "talos_machine_configuration" "cpn" {
   machine_secrets  = talos_machine_secrets.this.machine_secrets
   config_patches = [
     templatefile("${path.module}/templates/cpn.yaml.tmpl", {
+      node_ip      = local.cpn_private_ip
       lb_ip        = hcloud_load_balancer_network.main.ip
       lb_ip_public = hcloud_load_balancer.main.ipv4
     })

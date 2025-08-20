@@ -6,10 +6,12 @@ cluster:
   apiServer:
     extraArgs:
       bind-address: 0.0.0.0
-      advertise-address: ${lb_ip}
+      advertise-address: ${node_ip}
     certSANs:
-      - ${lb_ip}        # private 10.0.1.x
-      - ${lb_ip_public} # NEW: the public IPv4 of the LB
+      - 127.0.0.1
+      - ${node_ip}      # node private IP
+      - ${lb_ip}        # LB private IP
+      - ${lb_ip_public} # LB public IP
   etcd:
     advertisedSubnets:
       - 10.0.1.0/24
@@ -19,9 +21,11 @@ cluster:
     disabled: true
   allowSchedulingOnControlPlanes: true
 
-# Add LB IP into Talos API cert SANs and restore features
+# Add all IPs into Talos API cert SANs
 machine:
   certSANs:
+    - 127.0.0.1
+    - ${node_ip}
     - ${lb_ip}
     - ${lb_ip_public}
   sysctls:
