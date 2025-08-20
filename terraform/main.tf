@@ -12,6 +12,11 @@ resource "hcloud_network_subnet" "nodes" {
   ip_range     = "10.0.1.0/24"
 }
 
+# Local values for single-node cluster
+locals {
+  cpn_private_ip = cidrhost(hcloud_network_subnet.nodes.ip_range, 100)
+}
+
 # Load balancer for Talos API and kube-apiserver
 resource "hcloud_load_balancer" "main" {
   name               = "cpn"
@@ -59,13 +64,7 @@ resource "hcloud_load_balancer_service" "main-talosctl" {
 # Talos base
 resource "talos_machine_secrets" "this" {}
 
-data "talos_client_configuration" "this" {
-  cluster_name         = var.cluster_name
-  client_configuration = talos_machine_secrets.this.client_configuration
-  endpoints            = [hcloud_load_balancer.main.ipv4]
-}
-
-# Control plane config
+# Control plane config - use load balancer IP for cluster endpoint
 data "talos_machine_configuration" "cpn" {
   cluster_name     = var.cluster_name
   cluster_endpoint = "https://${hcloud_load_balancer.main.ipv4}:6443"
@@ -77,8 +76,8 @@ data "talos_machine_configuration" "cpn" {
       lb_ip_public = hcloud_load_balancer.main.ipv4
     })
   ]
+  depends_on = [hcloud_load_balancer.main, hcloud_load_balancer_network.main]
 }
-
 
 # Control plane servers
 resource "hcloud_server" "cpn" {
@@ -102,11 +101,19 @@ resource "hcloud_server" "cpn" {
     ipv6_enabled = true
   }
 
-  depends_on = [data.talos_machine_configuration.cpn, hcloud_network_subnet.nodes]
+  depends_on = [hcloud_network_subnet.nodes]
 
   lifecycle {
     ignore_changes = [image, user_data, network]
   }
+}
+
+# Client configuration - use load balancer for external access
+data "talos_client_configuration" "this" {
+  cluster_name         = var.cluster_name
+  client_configuration = talos_machine_secrets.this.client_configuration
+  endpoints            = [hcloud_load_balancer.main.ipv4]
+  depends_on           = [hcloud_load_balancer.main]
 }
 
 # Target the LB to control planes over private IPs
@@ -136,6 +143,7 @@ data "talos_machine_configuration" "wkn" {
   config_patches = [
     templatefile("${path.module}/templates/wkn.yaml.tmpl", {})
   ]
+  depends_on = [hcloud_load_balancer.main]
 }
 
 resource "hcloud_server" "wkn" {
@@ -154,7 +162,7 @@ resource "hcloud_server" "wkn" {
     alias_ips  = []
   }
 
-  depends_on = [data.talos_machine_configuration.cpn, hcloud_network_subnet.nodes]
+  depends_on = [hcloud_network_subnet.nodes]
 
   lifecycle {
     ignore_changes = [image, user_data, network]
@@ -171,9 +179,9 @@ resource "talos_machine_configuration_apply" "wkn" {
 # Bootstrap
 resource "talos_machine_bootstrap" "bootstrap" {
   client_configuration = talos_machine_secrets.this.client_configuration
-  endpoint             = hcloud_server.cpn[0].ipv4_address
+  endpoint             = hcloud_load_balancer.main.ipv4
   node                 = hcloud_server.cpn[0].ipv4_address
-  depends_on           = [hcloud_server.cpn]
+  depends_on           = [talos_machine_configuration_apply.cpn]
 }
 
 # Health gate: skip Kubernetes checks and allow realistic startup time

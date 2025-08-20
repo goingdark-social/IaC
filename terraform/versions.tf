@@ -40,15 +40,14 @@ provider "hcloud" {
 
 
 provider "kubernetes" {
-  alias            = "addons"
-  config_path      = var.kubeconfig_path
+  alias       = "addons"
+  config_path = local_sensitive_file.kubeconfig.filename
 }
 
 provider "helm" {
   alias = "addons"
   kubernetes = {
-    config_path      = var.kubeconfig_path
-    load_config_file = true
+    config_path = local_sensitive_file.kubeconfig.filename
   }
 }
 
