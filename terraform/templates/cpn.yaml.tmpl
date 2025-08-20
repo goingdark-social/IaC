@@ -4,18 +4,26 @@ cluster:
     cni:
       name: none
   apiServer:
+    extraArgs:
+      bind-address: 0.0.0.0
+      advertise-address: ${lb_ip}
     certSANs:
-      - ${lb_ip}
+      - ${lb_ip}        # private 10.0.1.x
+      - ${lb_ip_public} # NEW: the public IPv4 of the LB
+  etcd:
+    advertisedSubnets:
+      - 10.0.1.0/24
   externalCloudProvider:
     enabled: true
   proxy:
-    disabled: false
+    disabled: true
   allowSchedulingOnControlPlanes: true
 
 # Add LB IP into Talos API cert SANs and restore features
 machine:
   certSANs:
     - ${lb_ip}
+    - ${lb_ip_public}
   sysctls:
     net.core.somaxconn: 65535
     net.core.netdev_max_backlog: 4096

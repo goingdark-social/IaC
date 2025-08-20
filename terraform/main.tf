@@ -30,6 +30,14 @@ resource "hcloud_load_balancer_service" "main-kubectl" {
   protocol         = "tcp"
   listen_port      = 6443
   destination_port = 6443
+
+  health_check {
+    protocol = "tcp"
+    port     = 6443
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
 }
 
 resource "hcloud_load_balancer_service" "main-talosctl" {
@@ -37,7 +45,16 @@ resource "hcloud_load_balancer_service" "main-talosctl" {
   protocol         = "tcp"
   listen_port      = 50000
   destination_port = 50000
+
+  health_check {
+    protocol = "tcp"
+    port     = 50000
+    interval = 15
+    timeout  = 10
+    retries  = 3
+  }
 }
+
 
 # Talos base
 resource "talos_machine_secrets" "this" {}
@@ -55,9 +72,13 @@ data "talos_machine_configuration" "cpn" {
   machine_type     = "controlplane"
   machine_secrets  = talos_machine_secrets.this.machine_secrets
   config_patches = [
-    templatefile("${path.module}/templates/cpn.yaml.tmpl", { lb_ip = hcloud_load_balancer.main.ipv4 })
+    templatefile("${path.module}/templates/cpn.yaml.tmpl", {
+      lb_ip        = hcloud_load_balancer_network.main.ip
+      lb_ip_public = hcloud_load_balancer.main.ipv4
+    })
   ]
 }
+
 
 # Control plane servers
 resource "hcloud_server" "cpn" {
@@ -156,27 +177,68 @@ resource "talos_machine_bootstrap" "bootstrap" {
 }
 
 # Health gate: skip Kubernetes checks and allow realistic startup time
-data "talos_cluster_health" "ready" {
-  depends_on           = [talos_machine_bootstrap.bootstrap]
-  client_configuration = data.talos_client_configuration.this.client_configuration
-  endpoints            = [hcloud_load_balancer.main.ipv4]
+# data "talos_cluster_health" "ready" {
+#   depends_on           = [talos_machine_bootstrap.bootstrap]
+#   client_configuration = data.talos_client_configuration.this.client_configuration
+#   endpoints            = [hcloud_load_balancer.main.ipv4]
 
-  control_plane_nodes = [for i in range(var.cpn_count) : cidrhost(hcloud_network_subnet.nodes.ip_range, i + 100)]
-  worker_nodes        = [for i in range(var.wkn_count) : cidrhost(hcloud_network_subnet.nodes.ip_range, i + 200)]
+#   control_plane_nodes = [for i in range(var.cpn_count) : cidrhost(hcloud_network_subnet.nodes.ip_range, i + 100)]
+#   worker_nodes        = [for i in range(var.wkn_count) : cidrhost(hcloud_network_subnet.nodes.ip_range, i + 200)]
 
-  skip_kubernetes_checks = true
-  timeouts               = { read = "30s" }
-}
+#   skip_kubernetes_checks = true
+#   timeouts               = { read = "30s" }
+# }
 
 # Kubeconfig from Talos, then write to disk
 resource "talos_cluster_kubeconfig" "this" {
   endpoint             = hcloud_load_balancer.main.ipv4
   client_configuration = data.talos_client_configuration.this.client_configuration
   node                 = hcloud_server.cpn[0].ipv4_address
-  depends_on           = [data.talos_cluster_health.ready]
+  #depends_on           = [data.talos_cluster_health.ready]
 }
 
 resource "local_sensitive_file" "kubeconfig" {
   filename = "${path.module}/kubeconfig"
   content  = talos_cluster_kubeconfig.this.kubeconfig_raw
+}
+
+
+
+resource "helm_release" "cilium" {
+  provider   = helm.addons
+  depends_on = [local_sensitive_file.kubeconfig]
+
+  name       = "cilium"
+  chart      = "cilium"
+  namespace  = "kube-system"
+  repository = "https://helm.cilium.io/"
+  version    = "1.18.1"
+  values     = [file("manifests/cilium.yaml")]
+}
+
+resource "kubernetes_namespace" "argocd" {
+  provider   = kubernetes.addons
+  depends_on = [local_sensitive_file.kubeconfig]
+  metadata { name = "argocd" }
+}
+
+resource "kubernetes_namespace" "base-system" {
+  provider   = kubernetes.addons
+  depends_on = [local_sensitive_file.kubeconfig]
+  metadata { name = "base-system" }
+}
+
+resource "kubernetes_secret" "hcloud" {
+  provider   = kubernetes.addons
+  depends_on = [local_sensitive_file.kubeconfig]
+
+  metadata {
+    name      = "hcloud"
+    namespace = "kube-system"
+  }
+  data = {
+    token   = var.hcloud_token
+    image   = var.hcloud_image
+    network = hcloud_network.this.id
+  }
 }

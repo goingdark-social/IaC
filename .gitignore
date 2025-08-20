@@ -8,3 +8,4 @@ terraform/terraform.tfstate
 terraform.tfstate**
 talosconfig
 **/node_modules/**
+**kubeconfig

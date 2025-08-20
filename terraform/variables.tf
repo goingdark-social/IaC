@@ -16,3 +16,8 @@ variable "wkn_count"       {
     type = number
     default = 0
 }
+
+variable "kubeconfig_path" {
+  type    = string
+  default = ""
+}
