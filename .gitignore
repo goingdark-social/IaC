@@ -7,3 +7,7 @@ terraform/.terraform.tfstate.lock.info
 terraform/terraform.tfstate
 terraform.tfstate**
 talosconfig
+**/node_modules/**
+**kubeconfig
+**/.terraform/**
+opentofu/.terraform.tfstate.lock.info
