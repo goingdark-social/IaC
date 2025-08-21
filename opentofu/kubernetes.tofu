@@ -4,16 +4,19 @@ module "kubernetes" {
 
   cluster_name              = "goingdark"
   hcloud_token              = var.hcloud_token
-  cluster_delete_protection = true
+  cluster_delete_protection = false
+
+  # Configure cluster access for public networking to allow bootstrap
+  cluster_access = "public"
 
   cluster_kubeconfig_path  = "kubeconfig"
   cluster_talosconfig_path = "talosconfig"
 
   control_plane_nodepools = [
-    { name = "control", type = "cpx11", location = "hel1", count = 3 }
+    { name = "control", type = "cx22", location = "hel1", count = 3 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "cpx11", location = "hel1", count = 3 }
+    { name = "worker", type = "cx22", location = "hel1", count = 1 }
   ]
 
   cert_manager_enabled           = true
@@ -21,17 +24,26 @@ module "kubernetes" {
   longhorn_enabled               = true
   longhorn_default_storage_class = true
 
-  firewall_use_current_ipv4      = true
-  firewall_use_current_ipv6      = false
-  kube_api_load_balancer_enabled = false
+  firewall_use_current_ipv4 = false
+  firewall_use_current_ipv6 = false
+  firewall_api_source = [
+    "95.155.200.56/32",
+    "170.62.100.224" 
+  ]
+
+
+
+  # Enable public IPv4 for both internet access and cluster bootstrap
+  talos_public_ipv4_enabled = true
+  talos_public_ipv6_enabled = false
 
   cluster_autoscaler_nodepools = [
     {
       name     = "autoscaler"
-      type     = "cpx11"
+      type     = "cx22"
       location = "hel1"
       min      = 0
-      max      = 3
+      max      = 1
       labels   = { "autoscaler-node" = "true" }
       taints   = ["autoscaler-node=true:NoExecute"]
     }
@@ -66,6 +78,15 @@ module "kubernetes" {
           name: argocd
       EOF
     },
+        {
+      name     = "namespace-eso"
+      contents = <<-EOF
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: external-secrets
+      EOF
+    },
     {
       name     = "bitwarden-secret"
       contents = <<-EOF
@@ -84,7 +105,7 @@ module "kubernetes" {
         apiVersion: v1
         kind: Secret
         metadata:
-          name: cert-manager-secrets
+          name: cloudflare-api-token
           namespace: cert-manager
         data:
           cloudflare-api-token: ${base64encode(var.cloudflare_api_token)}

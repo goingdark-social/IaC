@@ -10,3 +10,4 @@ talosconfig
 **/node_modules/**
 **kubeconfig
 **/.terraform/**
+opentofu/.terraform.tfstate.lock.info
