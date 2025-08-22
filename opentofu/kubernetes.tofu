@@ -80,18 +80,9 @@ module "kubernetes" {
   # cilium_encryption_enabled = true
   # cilium_encryption_type    = "wireguard"
 
-  # talos_extra_remote_manifests = [
-  #   "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
-  #   "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml",
-  #   "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/project.yaml",
-  #   "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/application-set.yaml"
-  # ]
     talos_extra_remote_manifests = [
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
-    "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml",
     "https://raw.githubusercontent.com/external-secrets/external-secrets/v0.19.2/deploy/crds/bundle.yaml",
-    "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/project.yaml",
-    "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/application-set.yaml"
   ]
 
   talos_extra_inline_manifests = [

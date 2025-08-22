@@ -3,25 +3,25 @@ configs:
   cm:
     create: true
     application.resourceTrackingMethod: label
-    admin.enabled: false
+    admin.enabled: true
     url: https://argocd.goingdark.social
     kustomize.buildOptions: '--enable-helm'
     accounts.kubechecks: apiKey
     # OIDC Configuration
-    dex.config: |
-      connectors:
-      - config:
-          issuer: https://sso.goingdark.social/application/o/argocd/
-          clientID: $dex.authentik.clientId
-          clientSecret: $dex.authentik.clientSecret
-          insecureEnableGroups: true
-          scopes:
-            - openid
-            - profile
-            - email
-        name: authentik
-        type: oidc
-        id: authentik
+    # dex.config: |
+    #   connectors:
+    #   - config:
+    #       issuer: https://sso.goingdark.social/application/o/argocd/
+    #       clientID: $dex.authentik.clientId
+    #       clientSecret: $dex.authentik.clientSecret
+    #       insecureEnableGroups: true
+    #       scopes:
+    #         - openid
+    #         - profile
+    #         - email
+    #     name: authentik
+    #     type: oidc
+    #     id: authentik
 
   cmp:
     create: true
