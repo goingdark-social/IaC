@@ -11,3 +11,5 @@ talosconfig
 **kubeconfig
 **/.terraform/**
 opentofu/.terraform.tfstate.lock.info
+opentofu/kubeconfig.bak
+opentofu/talosconfig.bak
