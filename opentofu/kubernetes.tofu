@@ -13,7 +13,7 @@ module "kubernetes" {
   cluster_talosconfig_path = "talosconfig"
 
   control_plane_nodepools = [
-    { name = "control", type = "cx22", location = "hel1", count = 1 }
+    { name = "control", type = "cx22", location = "hel1", count = 3 }
   ]
   worker_nodepools = [
     { name = "worker", type = "cx22", location = "hel1", count = 0 }
@@ -22,7 +22,7 @@ module "kubernetes" {
   cert_manager_enabled           = true
   ingress_nginx_enabled          = false
   longhorn_enabled               = true
-  # longhorn_default_storage_class = true
+  longhorn_default_storage_class = true
 
   firewall_use_current_ipv4 = false
   firewall_use_current_ipv6 = false
@@ -77,21 +77,12 @@ module "kubernetes" {
   #   }
   # }
 
-  # cilium_encryption_enabled = true
-  # cilium_encryption_type    = "wireguard"
+   cilium_encryption_enabled = true
+   cilium_encryption_type    = "wireguard"
 
-  # talos_extra_remote_manifests = [
-  #   "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
-  #   "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml",
-  #   "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/project.yaml",
-  #   "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/application-set.yaml"
-  # ]
     talos_extra_remote_manifests = [
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
-    "https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml",
     "https://raw.githubusercontent.com/external-secrets/external-secrets/v0.19.2/deploy/crds/bundle.yaml",
-    "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/project.yaml",
-    "https://raw.githubusercontent.com/goingdark-social/IaC/refs/heads/main/kubernetes/application-set.yaml"
   ]
 
   talos_extra_inline_manifests = [

@@ -44,6 +44,25 @@ operator:
       cpu: 200m
       memory: 256Mi
 
+  # Fix probe behavior
+  healthPort: 9879
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 9879
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 5
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 9879
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 5
+
+
+
 # Roll out cilium agent pods automatically when ConfigMap is updated.
 rollOutCiliumPods: true
 agent: true

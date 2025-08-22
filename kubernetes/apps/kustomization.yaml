@@ -6,7 +6,7 @@ resources:
   - base-system
   - database
   - default
-  - deployment
-  - development
+ # - deployment
+#  - development
   - kube-system
   - observability
