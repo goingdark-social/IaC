@@ -1,6 +1,6 @@
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
-  version = "2.7.2"
+  version = "2.7.3"
 
   cluster_name              = "goingdark"
   hcloud_token              = var.hcloud_token
