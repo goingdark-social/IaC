@@ -10,7 +10,6 @@ metadata:
     argocd.argoproj.io/sync-wave: '-10'
 spec:
   generators:
-    # Infra: same repo, multiple directories
     - git:
         repoURL: https://github.com/goingdark-social/IaC.git
         revision: main
@@ -22,78 +21,89 @@ spec:
           - path: kubernetes/apps/default
           - path: kubernetes/apps/deployment
           - path: kubernetes/apps/kube-system
-      template:
-        metadata:
-          name: 'infra-{{ path.basename }}'
-          namespace: argocd
-          labels:
-            app.kubernetes.io/component: 'static-infrastructure'
-            app.kubernetes.io/part-of: infrastructure
-          annotations:
-            argocd.argoproj.io/sync-wave: '-10'
-        spec:
-          project: infrastructure
-          source:
-            repoURL: https://github.com/goingdark-social/IaC.git
-            targetRevision: main
-            path: '{{ path }}'
-          destination:
-            server: https://kubernetes.default.svc
-            namespace: argocd
-          syncPolicy:
-            automated:
-              prune: true
-              selfHeal: true
-            retry:
-              limit: 1
-              backoff:
-                duration: 10s
-                factor: 2
-                maxDuration: 3m
-            syncOptions:
-              - CreateNamespace=true
-              - ApplyOutOfSyncOnly=true
-              - ServerSideApply=true
-              - PruneLast=true
-              - RespectIgnoreDifferences=true
-
-    # Remote apps repo: single Application from repo root
-    - git:
-        repoURL: https://github.com/goingdark-social/instance.git
-        revision: main
-        directories:
-          - path: .
-      template:
-        metadata:
-          name: apps-remote
-          namespace: argocd
-          labels:
-            app.kubernetes.io/part-of: apps
-          annotations:
-            argocd.argoproj.io/sync-wave: '0'
-        spec:
-          # Use 'default' so creation does not depend on a project in the remote repo existing first
-          project: default
-          source:
+  template:
+    metadata:
+      name: 'infra-{{path.basename}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/component: 'static-infrastructure'
+        app.kubernetes.io/part-of: infrastructure
+      annotations:
+        argocd.argoproj.io/sync-wave: '-10'
+    spec:
+      project: infrastructure
+      source:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 1
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - RespectIgnoreDifferences=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  namespace: argocd
+  name: apps-remote
+  labels:
+    app.kubernetes.io/part-of: apps
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '0'
+spec:
+  generators:
+    - list:
+        elements:
+          - name: apps-remote
             repoURL: https://github.com/goingdark-social/instance.git
-            targetRevision: main
             path: .
-          destination:
-            server: https://kubernetes.default.svc
-            namespace: argocd
-          syncPolicy:
-            automated:
-              prune: true
-              selfHeal: true
-            retry:
-              limit: 1
-              backoff:
-                duration: 10s
-                factor: 2
-                maxDuration: 3m
-            syncOptions:
-              - CreateNamespace=true
-              - ApplyOutOfSyncOnly=true
-              - ServerSideApply=true
-              - PruneLast=true
-              - RespectIgnoreDifferences=true
+            targetRevision: main
+  template:
+    metadata:
+      name: '{{name}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: apps
+      annotations:
+        argocd.argoproj.io/sync-wave: '0'
+    spec:
+      project: default
+      source:
+        repoURL: '{{repoURL}}'
+        targetRevision: '{{targetRevision}}'
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: argocd
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 1
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - RespectIgnoreDifferences=true

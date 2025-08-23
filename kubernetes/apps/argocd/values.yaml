@@ -72,7 +72,7 @@ controller:
       memory: 2Gi
 
 dex:
-  enabled: true
+  enabled: false
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
@@ -116,7 +116,7 @@ server:
 repoServer:
   autoscaling:
     enabled: true
-    minReplicas: 2
+    minReplicas: 1
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists

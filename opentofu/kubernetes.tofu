@@ -16,7 +16,7 @@ module "kubernetes" {
     { name = "control", type = "cx22", location = "hel1", count = 3 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "cx22", location = "hel1", count = 0 }
+    { name = "worker", type = "cx22", location = "hel1", count = 1 }
   ]
 
   cert_manager_enabled           = true
@@ -27,7 +27,7 @@ module "kubernetes" {
   firewall_use_current_ipv4 = false
   firewall_use_current_ipv6 = false
   firewall_api_source = var.firewall_api_source
-  # kube_api_load_balancer_enabled = true
+  kube_api_load_balancer_enabled = true
   #kube_api_hostname              = "kube-api.goingdark.social"
 # firewall_extra_rules = [
 #   {
@@ -85,50 +85,50 @@ module "kubernetes" {
     "https://raw.githubusercontent.com/external-secrets/external-secrets/v0.19.2/deploy/crds/bundle.yaml",
   ]
 
-  talos_extra_inline_manifests = [
-    {
-      name     = "namespace-argocd"
-      contents = <<-EOF
-        apiVersion: v1
-        kind: Namespace
-        metadata:
-          name: argocd
-      EOF
-    },
-        {
-      name     = "namespace-eso"
-      contents = <<-EOF
-        apiVersion: v1
-        kind: Namespace
-        metadata:
-          name: external-secrets
-      EOF
-    },
-    {
-      name     = "bitwarden-secret"
-      contents = <<-EOF
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: bitwarden-access-token
-        namespace: external-secrets
-      data:
-        token: ${base64encode(var.bitwarden_token)}
-    EOF
-    },
-    {
-      name     = "cloudflare-secret"
-      contents = <<-EOF
-        apiVersion: v1
-        kind: Secret
-        metadata:
-          name: cloudflare-api-token
-          namespace: cert-manager
-        data:
-          cloudflare-api-token: ${base64encode(var.cloudflare_api_token)}
-      EOF
-    }
-  ]
+  # talos_extra_inline_manifests = [
+  #   {
+  #     name     = "namespace-argocd"
+  #     contents = <<-EOF
+  #       apiVersion: v1
+  #       kind: Namespace
+  #       metadata:
+  #         name: argocd
+  #     EOF
+  #   },
+  #       {
+  #     name     = "namespace-eso"
+  #     contents = <<-EOF
+  #       apiVersion: v1
+  #       kind: Namespace
+  #       metadata:
+  #         name: external-secrets
+  #     EOF
+  #   },
+  #   {
+  #     name     = "bitwarden-secret"
+  #     contents = <<-EOF
+  #     apiVersion: v1
+  #     kind: Secret
+  #     metadata:
+  #       name: bitwarden-access-token
+  #       namespace: external-secrets
+  #     data:
+  #       token: ${base64encode(var.bitwarden_token)}
+  #   EOF
+  #   },
+  #   {
+  #     name     = "cloudflare-secret"
+  #     contents = <<-EOF
+  #       apiVersion: v1
+  #       kind: Secret
+  #       metadata:
+  #         name: cloudflare-api-token
+  #         namespace: cert-manager
+  #       data:
+  #         cloudflare-api-token: ${base64encode(var.cloudflare_api_token)}
+  #     EOF
+  #   }
+  # ]
 } # <-- closes module block
 
 # root-level variables
