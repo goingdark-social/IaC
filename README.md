@@ -591,7 +591,7 @@ Here is a table with more example calculations:
 
 #### Hetzner Cloud CSI
 
-The Hetzner Cloud Container Storage Interface (CSI) driver can be flexibly configured through the `hcloud_csi_storage_classes` variable. You can define multiple storage classes for your cluster:
+The Hetzner Cloud Container Storage Interface (CSI) driver is enabled by default with an encrypted ext4 StorageClass. You can add further classes through the `hcloud_csi_storage_classes` variable:
 
 * **name:** The name of the StorageClass (string, required).
 * **encrypted:** Enable LUKS encryption for volumes (bool, required).
@@ -604,13 +604,18 @@ The Hetzner Cloud Container Storage Interface (CSI) driver can be flexibly confi
 ```hcl
 hcloud_csi_storage_classes = [
   {
-    name                = "hcloud-volumes"
-    encrypted           = false
+    name                = "hcloud-volumes-encrypted"
+    encrypted           = true
     defaultStorageClass = true
+    reclaimPolicy       = "Retain"
+    extraParameters     = {
+      "csi.storage.k8s.io/fstype" = "ext4"
+    }
   },
   {
     name                = "hcloud-volumes-encrypted-xfs"
     encrypted           = true
+    defaultStorageClass = false
     reclaimPolicy       = "Retain"
     extraParameters     = {
       "csi.storage.k8s.io/fstype" = "xfs"
@@ -620,10 +625,12 @@ hcloud_csi_storage_classes = [
 ]
 ```
 
+Hetzner CSI does not support volume snapshots and only provides `ReadWriteOnce` volumes. Use application-level or file-level backups, and plan for a separate NFS or Ceph solution if `ReadWriteMany` access is required.
+
 **Other settings:**
 
 * **hcloud\_csi\_encryption\_passphrase:**
-  Optionally provide a custom encryption passphrase for LUKS-encrypted storage classes.
+  Provide the LUKS passphrase used to unlock encrypted volumes.
 
   ```hcl
   hcloud_csi_encryption_passphrase = "<secret-passphrase>"
@@ -637,8 +644,7 @@ For more details, see the [HCloud CSI Driver documentation](https://github.com/h
 
 #### Longhorn
 
-Longhorn is a lightweight, reliable, and easy-to-use distributed block storage system for Kubernetes.
-It is fully independent from the Hetzner Cloud CSI driver.
+Longhorn is a lightweight, reliable, and easy-to-use distributed block storage system for Kubernetes. It is disabled by default and fully independent from the Hetzner Cloud CSI driver.
 
 You can enable Longhorn and configure it as the default StorageClass for your cluster via module variables:
 

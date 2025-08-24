@@ -21,36 +21,62 @@ module "kubernetes" {
 
   cert_manager_enabled           = true
   ingress_nginx_enabled          = false
-  longhorn_enabled               = true
-  longhorn_default_storage_class = true
+  longhorn_enabled               = false
+  longhorn_default_storage_class = false
 
-  firewall_use_current_ipv4 = false
-  firewall_use_current_ipv6 = false
-  firewall_api_source = var.firewall_api_source
+  hcloud_csi_enabled = true
+
+  hcloud_csi_storage_classes = [
+    {
+      name                = "hcloud-volumes-encrypted"
+      encrypted           = true
+      defaultStorageClass = true
+      reclaimPolicy       = "Retain"
+      extraParameters = {
+        "csi.storage.k8s.io/fstype" = "ext4"
+      }
+    },
+    {
+      name                = "hcloud-volumes-encrypted-xfs"
+      encrypted           = true
+      defaultStorageClass = false
+      reclaimPolicy       = "Retain"
+      extraParameters = {
+        "csi.storage.k8s.io/fstype" = "xfs"
+        "fsFormatOption"            = "-i nrext64=1"
+      }
+    }
+  ]
+
+  hcloud_csi_encryption_passphrase = var.hcloud_csi_encryption_passphrase
+
+  firewall_use_current_ipv4      = false
+  firewall_use_current_ipv6      = false
+  firewall_api_source            = var.firewall_api_source
   kube_api_load_balancer_enabled = true
   #kube_api_hostname              = "kube-api.goingdark.social"
-# firewall_extra_rules = [
-#   {
-#     description = "Custom UDP Rule"
-#     direction   = "in"
-#     source_ips  = ["0.0.0.0/0", "::/0"]
-#     protocol    = "udp"
-#     port        = "12345"
-#   },
-#   {
-#     description = "Custom TCP Rule"
-#     direction   = "in"
-#     source_ips  = ["1.2.3.4", "1:2:3:4::"]
-#     protocol    = "tcp"
-#     port        = "8080-9000"
-#   },
-#   {
-#     description = "Allow ICMP"
-#     direction   = "in"
-#     source_ips  = ["0.0.0.0/0", "::/0"]
-#     protocol    = "icmp"
-#   }
-# ]
+  # firewall_extra_rules = [
+  #   {
+  #     description = "Custom UDP Rule"
+  #     direction   = "in"
+  #     source_ips  = ["0.0.0.0/0", "::/0"]
+  #     protocol    = "udp"
+  #     port        = "12345"
+  #   },
+  #   {
+  #     description = "Custom TCP Rule"
+  #     direction   = "in"
+  #     source_ips  = ["1.2.3.4", "1:2:3:4::"]
+  #     protocol    = "tcp"
+  #     port        = "8080-9000"
+  #   },
+  #   {
+  #     description = "Allow ICMP"
+  #     direction   = "in"
+  #     source_ips  = ["0.0.0.0/0", "::/0"]
+  #     protocol    = "icmp"
+  #   }
+  # ]
 
   # Enable public IPv4 for both internet access and cluster bootstrap
   talos_public_ipv4_enabled = true
@@ -77,10 +103,10 @@ module "kubernetes" {
   #   }
   # }
 
-   cilium_encryption_enabled = true
-   cilium_encryption_type    = "wireguard"
+  cilium_encryption_enabled = true
+  cilium_encryption_type    = "wireguard"
 
-    talos_extra_remote_manifests = [
+  talos_extra_remote_manifests = [
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
     "https://raw.githubusercontent.com/external-secrets/external-secrets/v0.19.2/deploy/crds/bundle.yaml",
   ]
@@ -153,4 +179,10 @@ variable "bitwarden_token" {
   type        = string
   sensitive   = true
   description = "Bitwarden access token for External-Secrets"
+}
+
+variable "hcloud_csi_encryption_passphrase" {
+  type        = string
+  sensitive   = true
+  description = "Encryption passphrase for Hetzner CSI (LUKS)."
 }
