@@ -8,5 +8,4 @@ resources:
   - default
  # - deployment
 #  - development
-  - kube-system
   - observability

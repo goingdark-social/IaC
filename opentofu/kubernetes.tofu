@@ -28,20 +28,11 @@ module "kubernetes" {
 
   hcloud_csi_storage_classes = [
     {
-      name                = "hcloud-volumes-encrypted"
+      name                = "hcloud-volumes-encrypted-xfs"
       encrypted           = true
       defaultStorageClass = true
       reclaimPolicy       = "Retain"
-      extraParameters = {
-        "csi.storage.k8s.io/fstype" = "ext4"
-      }
-    },
-    {
-      name                = "hcloud-volumes-encrypted-xfs"
-      encrypted           = true
-      defaultStorageClass = false
-      reclaimPolicy       = "Retain"
-      extraParameters = {
+      extraParameters     = {
         "csi.storage.k8s.io/fstype" = "xfs"
         "fsFormatOption"            = "-i nrext64=1"
       }
