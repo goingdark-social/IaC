@@ -85,8 +85,8 @@ firewall_extra_rules = [
       name     = "autoscaler"
       type     = "ccx13"
       location = "hel1"
-      min      = 1
-      max      = 2
+      min      = 0
+      max      = 1
       labels   = { "autoscaler-node" = "true" }
       #taints   = ["autoscaler-node=true:NoExecute"]
     }
