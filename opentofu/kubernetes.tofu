@@ -16,7 +16,7 @@ module "kubernetes" {
     { name = "control", type = "cx22", location = "hel1", count = 1 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "ccx13", location = "hel1", count = 1 }
+    { name = "worker", type = "cx22", location = "hel1", count = 1 }
   ]
   # Core Components (enabled by default)
   cilium_enabled                     = true
@@ -80,33 +80,36 @@ firewall_extra_rules = [
   talos_public_ipv4_enabled = true
   talos_public_ipv6_enabled = false
 
-  cluster_autoscaler_nodepools = [
-    {
-      name     = "autoscaler"
-      type     = "ccx13"
-      location = "hel1"
-      min      = 0
-      max      = 1
-      labels   = { "autoscaler-node" = "true" }
-      #taints   = ["autoscaler-node=true:NoExecute"]
-    }
-  ]
+  
 
-   cluster_autoscaler_helm_values = {
-     extraArgs = {
-       enforce-node-group-min-size   = true
-       scale-down-delay-after-add    = "45m"
-       scale-down-delay-after-delete = "4m"
-       scale-down-unneeded-time      = "5m"
-     }
-   }
+cluster_autoscaler_nodepools = [
+  {
+    name     = "autoscaler"
+    type     = "cx22"
+    location = "hel1"
+    min      = 0
+    max      = 3
+    labels   = { "autoscaler-node" = "true" }
+    taints   = ["autoscaler-node=true:NoSchedule"]
+  }
+]
+
+cluster_autoscaler_helm_values = {
+  extraArgs = {
+    scale-down-delay-after-add    = "10m"   # Wait longer after scaling up
+    scale-down-delay-after-delete = "10s"   # Quick retry on failed scale-down
+    scale-down-unneeded-time      = "8m"    # Conservative for media/federation bursts
+  }
+}
+
+
+
 
   cilium_encryption_enabled = true
   cilium_encryption_type    = "wireguard"
 
   talos_extra_remote_manifests = [
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
-    "https://raw.githubusercontent.com/external-secrets/external-secrets/v0.19.2/deploy/crds/bundle.yaml",
   ]
 
   # talos_extra_inline_manifests = [
