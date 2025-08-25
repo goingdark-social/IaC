@@ -1,23 +1,35 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  labels:
-    app: cloudflared
   name: cloudflared
   namespace: cloudflared
+  labels:
+    app: cloudflared
 spec:
+  selector:
+    matchLabels:
+      app: cloudflared
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
-  selector:
-    matchLabels:
-      app: cloudflared
   template:
     metadata:
       labels:
         app: cloudflared
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+      tolerations:
+        - key: "node.cloudprovider.kubernetes.io/uninitialized"
+          operator: "Exists"
+          effect: "NoSchedule"
+      nodeSelector:
+        nodepool: worker
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:2025.8.0 # renovate: docker=cloudflare/cloudflared
@@ -27,31 +39,36 @@ spec:
             - --config
             - /etc/cloudflared/config/config.yaml
             - run
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
           startupProbe:
             httpGet:
               path: /ready
               port: 2000
             initialDelaySeconds: 10
             periodSeconds: 10
-            failureThreshold: 12
-          livenessProbe:
-            httpGet:
-              path: /ready
-              port: 2000
-            initialDelaySeconds: 10
-            periodSeconds: 30
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 2000
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            failureThreshold: 1
+            failureThreshold: 30
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 5m
+              memory: 32Mi
             limits:
               cpu: 100m
               memory: 128Mi
@@ -62,11 +79,6 @@ spec:
             - name: credentials
               mountPath: /etc/cloudflared/credentials
               readOnly: true
-      tolerations:
-        - key: "gpu"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
       restartPolicy: Always
       volumes:
         - name: config

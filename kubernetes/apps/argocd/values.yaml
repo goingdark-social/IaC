@@ -65,11 +65,11 @@ controller:
       effect: NoSchedule
   resources:
     requests:
-      cpu: 100m
-      memory: 512Mi
+      cpu: 50m
+      memory: 256Mi
     limits:
-      cpu: 500m
-      memory: 2Gi
+      cpu: 300m
+      memory: 1Gi
 
 dex:
   enabled: false
@@ -84,17 +84,30 @@ dex:
     limits:
       memory: 128Mi
 
+# Disable HA Redis, use single Redis
 redis-ha:
+  enabled: false
+
+redis:
   enabled: true
-  tolerations:
-    - key: node.cloudprovider.kubernetes.io/uninitialized
-      operator: Exists
-      effect: NoSchedule
+  # keep it tiny
+  master:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
 
 server:
   autoscaling:
-    enabled: true
-    minReplicas: 2
+    enabled: false
+  resources:
+    requests:
+      cpu: 30m
+      memory: 128Mi
+    limits:
+      memory: 1Gi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
@@ -106,24 +119,23 @@ server:
     httpsPort: 443
     httpsTargetPort: 8443
 
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      memory: 1Gi
-
+# No HPA or strict PDB for repoServer
 repoServer:
   autoscaling:
-    enabled: true
-    minReplicas: 1
+    enabled: false
+  pdb:
+    enabled: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
       effect: NoSchedule
-  pdb:
-    enabled: true
-    minAvailable: 1
   containerSecurityContext:
     readOnlyRootFilesystem: true
   volumes:
@@ -132,13 +144,6 @@ repoServer:
         name: argocd-cmp-cm
     - name: cmp-tmp
       emptyDir: {}
-  resources:
-    requests:
-      cpu: 200m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
   extraContainers:
     - name: kustomize-build-with-helm
       command:
@@ -165,20 +170,19 @@ repoServer:
           name: cmp-tmp
 
 applicationSet:
-  replicas: 2
+  replicas: 1
+  pdb:
+    enabled: false
+  resources:
+    requests:
+      cpu: 30m
+      memory: 64Mi
+    limits:
+      memory: 512Mi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
       effect: NoSchedule
-  pdb:
-    enabled: true
-    minAvailable: 1
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      memory: 1Gi
 
 notifications:
   enabled: false
