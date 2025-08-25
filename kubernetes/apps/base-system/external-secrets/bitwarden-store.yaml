@@ -20,4 +20,4 @@ spec:
         key: ca.crt
         namespace: external-secrets
       organizationID: 4a014e57-f197-4852-9831-b287013e47b6
-      projectID: d22d5a96-5177-43a4-bdc5-b287015de957
+      projectID: c3db446d-ed3c-4713-82d1-b34000c4a2cf
