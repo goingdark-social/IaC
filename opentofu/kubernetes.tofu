@@ -13,18 +13,31 @@ module "kubernetes" {
   cluster_talosconfig_path = "talosconfig"
 
   control_plane_nodepools = [
-    { name = "control", type = "cx22", location = "hel1", count = 3 }
+    { name = "control", type = "cx22", location = "hel1", count = 1 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "cx22", location = "hel1", count = 1 }
+    { name = "worker", type = "ccx13", location = "hel1", count = 1 }
   ]
+  # Core Components (enabled by default)
+  cilium_enabled                     = true
+  talos_backup_s3_enabled            = true
+  talos_ccm_enabled                  = true
+  talos_coredns_enabled              = true
+  hcloud_ccm_enabled                 = true
+  hcloud_csi_enabled                 = true
+  metrics_server_enabled             = true
+  prometheus_operator_crds_enabled   = true
 
-  cert_manager_enabled           = true
+  # Additional Components (disabled by default)
+  cert_manager_enabled           = false
   ingress_nginx_enabled          = false
   longhorn_enabled               = false
   longhorn_default_storage_class = false
 
-  hcloud_csi_enabled = true
+  # Enable etcd backup by defining one of these variables:
+  #talos_backup_s3_endpoint    = "https://..."
+  #talos_backup_s3_hcloud_url  = "https://<bucket>.<location>.your-objectstorage.com"
+
 
   hcloud_csi_storage_classes = [
     {
@@ -44,30 +57,24 @@ module "kubernetes" {
   firewall_use_current_ipv4      = false
   firewall_use_current_ipv6      = false
   firewall_api_source            = var.firewall_api_source
-  kube_api_load_balancer_enabled = true
+  kube_api_load_balancer_enabled = false
   #kube_api_hostname              = "kube-api.goingdark.social"
-  # firewall_extra_rules = [
-  #   {
-  #     description = "Custom UDP Rule"
-  #     direction   = "in"
-  #     source_ips  = ["0.0.0.0/0", "::/0"]
-  #     protocol    = "udp"
-  #     port        = "12345"
-  #   },
-  #   {
-  #     description = "Custom TCP Rule"
-  #     direction   = "in"
-  #     source_ips  = ["1.2.3.4", "1:2:3:4::"]
-  #     protocol    = "tcp"
-  #     port        = "8080-9000"
-  #   },
-  #   {
-  #     description = "Allow ICMP"
-  #     direction   = "in"
-  #     source_ips  = ["0.0.0.0/0", "::/0"]
-  #     protocol    = "icmp"
-  #   }
-  # ]
+firewall_extra_rules = [
+  {
+    description = "Allow UDP to Cloudflare on port 8443"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "udp"
+    port        = "8443"
+  },
+  {
+    description = "Allow inbound established UDP responses"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "udp"
+    port        = "32768-65535"
+  }
+]
 
   # Enable public IPv4 for both internet access and cluster bootstrap
   talos_public_ipv4_enabled = true
@@ -76,23 +83,23 @@ module "kubernetes" {
   cluster_autoscaler_nodepools = [
     {
       name     = "autoscaler"
-      type     = "cx22"
+      type     = "ccx13"
       location = "hel1"
-      min      = 0
-      max      = 1
+      min      = 1
+      max      = 2
       labels   = { "autoscaler-node" = "true" }
-      taints   = ["autoscaler-node=true:NoExecute"]
+      #taints   = ["autoscaler-node=true:NoExecute"]
     }
   ]
 
-  # cluster_autoscaler_helm_values = {
-  #   extraArgs = {
-  #     enforce-node-group-min-size   = true
-  #     scale-down-delay-after-add    = "45m"
-  #     scale-down-delay-after-delete = "4m"
-  #     scale-down-unneeded-time      = "5m"
-  #   }
-  # }
+   cluster_autoscaler_helm_values = {
+     extraArgs = {
+       enforce-node-group-min-size   = true
+       scale-down-delay-after-add    = "45m"
+       scale-down-delay-after-delete = "4m"
+       scale-down-unneeded-time      = "5m"
+     }
+   }
 
   cilium_encryption_enabled = true
   cilium_encryption_type    = "wireguard"

@@ -5,7 +5,7 @@ metadata:
   namespace: argocd
 spec:
   parentRefs:
-    - name: internal
+    - name: external
       namespace: gateway
   hostnames:
     - "argocd.goingdark.social"
