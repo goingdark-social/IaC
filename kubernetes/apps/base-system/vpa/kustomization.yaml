@@ -1,0 +1,7 @@
+# infrastructure/vpa/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://github.com/kubernetes/autoscaler//vertical-pod-autoscaler/deploy?ref=vpa-release-1.4
+patches:
+  - path: disable-updater-and-admission.yaml
