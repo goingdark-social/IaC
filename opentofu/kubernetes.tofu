@@ -88,7 +88,7 @@ cluster_autoscaler_nodepools = [
     type     = "cx22"
     location = "hel1"
     min      = 0
-    max      = 3
+    max      = 4
     labels   = { "autoscaler-node" = "true" }
     taints   = ["autoscaler-node=true:NoSchedule"]
   }
@@ -97,8 +97,10 @@ cluster_autoscaler_nodepools = [
 cluster_autoscaler_helm_values = {
   extraArgs = {
     scale-down-delay-after-add    = "10m"   # Wait longer after scaling up
-    scale-down-delay-after-delete = "10s"   # Quick retry on failed scale-down
+    scale-down-delay-after-delete = "10m"   # Quick retry on failed scale-down
     scale-down-unneeded-time      = "8m"    # Conservative for media/federation bursts
+    "balance-similar-node-groups" = "true"
+    "expander" = "least-waste"
   }
 }
 
