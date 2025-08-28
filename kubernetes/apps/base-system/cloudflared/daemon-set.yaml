@@ -18,6 +18,11 @@ spec:
       labels:
         app: cloudflared
     spec:
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       securityContext:
         seccompProfile:
           type: RuntimeDefault

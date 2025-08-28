@@ -6,3 +6,4 @@ resources:
 - cloudflared
 - external-secrets
 - gateway
+- cilium
