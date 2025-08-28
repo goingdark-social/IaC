@@ -3,8 +3,8 @@ cluster:
   name: talos
   id: 1
 
-kubeProxyReplacement:
-  true
+# Correct boolean, not a nested map
+kubeProxyReplacement: true
 
   # Talos specific
 k8sServiceHost: localhost
@@ -86,15 +86,14 @@ loadBalancer:
 
 gatewayAPI:
   enabled: true
+
+# Ensure Cilium deploys the Envoy dataplane
 envoy:
-  securityContext:
-    capabilities:
-      keepCapNetBindService: true
-      envoy: [NET_ADMIN, PERFMON, BPF]
+  enabled: true
 
 hubble:
   peerService:
-    clusterDomain: kube.pc-tips.se
+    clusterDomain: cluster.local
   enabled: true
   relay:
     enabled: true
@@ -117,13 +116,9 @@ hubble:
         cpu: 200m
         memory: 256Mi
 
+# Ingress controller stays disabled; remove unused settings.
 ingressController:
   enabled: false
-  default: true
-  loadbalancerMode: shared
-  service:
-    annotations:
-      io.cilium/lb-ipam-ips: 10.25.150.223
 
 # mTLS
 authentication:

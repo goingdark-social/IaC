@@ -23,16 +23,15 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
+        - key: "node.cloudprovider.kubernetes.io/uninitialized"
+          operator: "Exists"
+          effect: "NoSchedule"
       securityContext:
         seccompProfile:
           type: RuntimeDefault
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
-      tolerations:
-        - key: "node.cloudprovider.kubernetes.io/uninitialized"
-          operator: "Exists"
-          effect: "NoSchedule"
       nodeSelector:
         nodepool: worker
       containers:
