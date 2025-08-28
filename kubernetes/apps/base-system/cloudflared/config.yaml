@@ -4,7 +4,7 @@ metrics: 0.0.0.0:2000
 no-autoupdate: true
 
 warp-routing:
-  enabled: true
+  enabled: false
 
 ingress:
 
@@ -12,8 +12,7 @@ ingress:
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
   - hostname: "*.goingdark.social"
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    originRequest:
-      originServerName: "*.goingdark.social"
+    # Let SNI follow the requested host for wildcard
   - hostname: goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
     originRequest:
