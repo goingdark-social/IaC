@@ -4,7 +4,7 @@ metadata:
   name: external
   namespace: gateway
   annotations:
-    io.cilium/lb-ipam-ips: "10.0.96.241"
+    io.cilium/lb-ipam-ips: "10.0.96.240"
 spec:
   gatewayClassName: cilium
   
@@ -17,6 +17,7 @@ spec:
         certificateRefs:
           - kind: Secret
             name: cert-goingdark
+            namespace: gateway
       allowedRoutes:
         namespaces:
           from: All
@@ -28,6 +29,7 @@ spec:
         certificateRefs:
           - kind: Secret
             name: cert-goingdark
+            namespace: gateway
       allowedRoutes:
         namespaces:
           from: All
