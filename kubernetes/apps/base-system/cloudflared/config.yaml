@@ -4,17 +4,22 @@ metrics: 0.0.0.0:2000
 no-autoupdate: true
 
 warp-routing:
-  enabled: false
+  enabled: true
 
 ingress:
-
   - hostname: argocd.goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originRequest:
+      originServerName: goingdark.social
+      
   - hostname: "*.goingdark.social"
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    # Let SNI follow the requested host for wildcard
+    originRequest:
+      originServerName: goingdark.social
+
   - hostname: goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
     originRequest:
       originServerName: goingdark.social
+
   - service: http_status:404
