@@ -9,17 +9,8 @@ warp-routing:
 ingress:
   - hostname: argocd.goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    originRequest:
-      originServerName: goingdark.social
-      
   - hostname: "*.goingdark.social"
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    originRequest:
-      originServerName: goingdark.social
-
   - hostname: goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    originRequest:
-      originServerName: goingdark.social
-
   - service: http_status:404
