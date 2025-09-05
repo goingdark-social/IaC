@@ -7,10 +7,16 @@ warp-routing:
   enabled: true
 
 ingress:
+  - hostname: canary.goingdark.social      # explicit match (optional but safest)
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: goingdark.social
   - hostname: argocd.goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: goingdark.social  
   - hostname: "*.goingdark.social"
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: goingdark.social    
   - hostname: goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: goingdark.social  
   - service: http_status:404
