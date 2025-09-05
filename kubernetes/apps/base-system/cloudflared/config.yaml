@@ -4,17 +4,19 @@ metrics: 0.0.0.0:2000
 no-autoupdate: true
 
 warp-routing:
-  enabled: false
+  enabled: true
 
 ingress:
-
+  - hostname: canary.goingdark.social      # explicit match (optional but safest)
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: goingdark.social
   - hostname: argocd.goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: goingdark.social  
   - hostname: "*.goingdark.social"
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    # Let SNI follow the requested host for wildcard
+    originServerName: goingdark.social    
   - hostname: goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
-    originRequest:
-      originServerName: goingdark.social
+    originServerName: goingdark.social  
   - service: http_status:404

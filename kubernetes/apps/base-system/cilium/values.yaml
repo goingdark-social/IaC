@@ -86,10 +86,16 @@ loadBalancer:
 
 gatewayAPI:
   enabled: true
-
-# Ensure Cilium deploys the Envoy dataplane
+  gatewayClass:
+    create: "true"
+  enableAlpn: true
+  xdsServer:
+    enabled: true
 envoy:
-  enabled: true
+  securityContext:
+    capabilities:
+      keepCapNetBindService: true
+      envoy: [NET_BIND_SERVICE, NET_ADMIN, PERFMON, BPF]
 
 hubble:
   peerService:
@@ -116,9 +122,13 @@ hubble:
         cpu: 200m
         memory: 256Mi
 
-# Ingress controller stays disabled; remove unused settings.
 ingressController:
   enabled: false
+  default: true
+  loadbalancerMode: shared
+  service:
+    annotations:
+      io.cilium/lb-ipam-ips: 10.0.96.243
 
 # mTLS
 authentication:
