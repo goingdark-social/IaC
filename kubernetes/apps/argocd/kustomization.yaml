@@ -8,6 +8,11 @@ resources:
   - argocd-tls.yaml
   - rolebinding.yaml
   - role.yaml
+  - vpa-controller.yaml
+  - vpa-repo-server.yaml
+  - vpa-server.yaml
+  - vpa-applicationset.yaml
+  - resource-quota.yaml
 
 helmCharts:
 - name: argo-cd

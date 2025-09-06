@@ -112,7 +112,7 @@ securityContext:
 
 resources:
   requests:
-    cpu: 80m
+    cpu: 20m
     memory: 100Mi
   limits:
     cpu: 80m
@@ -196,7 +196,7 @@ hostNetwork: false
 webhook:
   resources:
     requests:
-      cpu: 130m
+      cpu: 30m
       memory: 150Mi
     limits:
       cpu: 130m
@@ -388,7 +388,7 @@ webhook:
 certController:
   resources:
     requests:
-      cpu: 60m
+      cpu: 20m
       memory: 128Mi
     limits:
       cpu: 60m

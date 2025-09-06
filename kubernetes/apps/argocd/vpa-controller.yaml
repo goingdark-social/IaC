@@ -1,0 +1,23 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: argocd-application-controller-vpa
+  namespace: argocd
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: argocd-application-controller
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: argocd-application-controller
+      maxAllowed:
+        cpu: 500m
+        memory: 1Gi
+      minAllowed:
+        cpu: 50m
+        memory: 256Mi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits

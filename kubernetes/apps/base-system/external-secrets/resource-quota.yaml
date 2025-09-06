@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: external-secrets-resource-quota
+  namespace: external-secrets
+spec:
+  hard:
+    requests.cpu: "200m"
+    requests.memory: "500Mi"
+    limits.cpu: "500m"
+    limits.memory: "1Gi"
+    pods: "10"

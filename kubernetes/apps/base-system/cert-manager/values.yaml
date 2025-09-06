@@ -8,8 +8,6 @@ extraArgs:
   - --leader-election-namespace=kube-system
   - --dns01-recursive-nameservers=10.0.96.10:53
   - --dns01-recursive-nameservers-only=true
-  - --namespace=cert-manager
-  - --enable-certificates-data-source=false
 
 resources:
   limits:
