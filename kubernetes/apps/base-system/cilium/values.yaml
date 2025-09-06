@@ -56,11 +56,10 @@ agentConfig:
       effect: NoSchedule
   resources:
     requests:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 100m      # Reduced from 500m - now Burstable QoS
+      memory: 128Mi   # Reduced from 512Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      memory: 384Mi   # Remove CPU limit to prevent throttling
 
 
 

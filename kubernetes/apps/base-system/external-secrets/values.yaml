@@ -182,7 +182,7 @@ topologySpreadConstraints: []
 affinity: {}
 
 # -- Pod priority class name.
-priorityClassName: ''
+priorityClassName: 'system-cluster-critical'
 
 # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
 podDisruptionBudget:
@@ -297,7 +297,7 @@ webhook:
     {}
 
     # -- Pod priority class name.
-  priorityClassName: ''
+  priorityClassName: 'system-cluster-critical'
 
   # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   podDisruptionBudget:
@@ -439,14 +439,12 @@ certController:
 
   affinity: {}
 
-  # -- Run the certController on the host network
+    # -- Run the certController on the host network
   hostNetwork:
     false
 
     # -- Pod priority class name.
-  priorityClassName: ''
-
-  # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  priorityClassName: 'system-cluster-critical'  # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   podDisruptionBudget:
     enabled: false
     minAvailable: 1

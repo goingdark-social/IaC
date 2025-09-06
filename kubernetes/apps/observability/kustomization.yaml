@@ -11,4 +11,39 @@ helmCharts:
     releaseName: vm
     namespace: observability
     includeCRDs: true
-    valuesInline: {}
+    valuesInline:
+      # Disable resource-heavy components
+      grafana:
+        enabled: false
+      vmalert:
+        enabled: false
+      
+      # Keep essential monitoring components  
+      kube-state-metrics:
+        enabled: true
+      prometheus-node-exporter:
+        enabled: true
+      
+      # Configure VMSingle with short retention
+      vmsingle:
+        enabled: true
+        spec:
+          retentionPeriod: 7d
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      
+      # Configure VMAgent with longer scrape intervals
+      vmagent:
+        enabled: true
+        vmagentSpec:
+          scrapeInterval: 60s
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
