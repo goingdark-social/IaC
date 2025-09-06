@@ -6,6 +6,4 @@ resources:
   - base-system
   - database
   - default
- # - deployment
-#  - development
   - observability

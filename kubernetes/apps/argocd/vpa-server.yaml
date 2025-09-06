@@ -1,0 +1,23 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: argocd-server-vpa
+  namespace: argocd
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: argocd-server
+  updatePolicy:
+    updateMode: "Initial"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: argocd-server
+      maxAllowed:
+        cpu: 200m
+        memory: 256Mi
+      minAllowed:
+        cpu: 30m
+        memory: 128Mi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits

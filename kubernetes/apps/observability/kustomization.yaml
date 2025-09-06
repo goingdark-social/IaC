@@ -3,12 +3,13 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - resource-quota.yaml
 
 helmCharts:
   - name: victoria-metrics-k8s-stack
     repo: https://victoriametrics.github.io/helm-charts
-    version: 0.59.3
+    version: 0.59.5
     releaseName: vm
     namespace: observability
     includeCRDs: true
-    valuesInline: {}
+    valuesFile: values.yaml

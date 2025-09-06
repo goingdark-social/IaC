@@ -39,10 +39,9 @@ operator:
   rollOutPods: true
   resources:
     requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
-      cpu: 200m
       memory: 256Mi
 
 # Roll out cilium agent pods automatically when ConfigMap is updated.
@@ -56,11 +55,10 @@ agentConfig:
       effect: NoSchedule
   resources:
     requests:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 100m      # Reduced from 500m - now Burstable QoS
+      memory: 128Mi   # Reduced from 512Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      memory: 384Mi   # Remove CPU limit to prevent throttling
 
 
 

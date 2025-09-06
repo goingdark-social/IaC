@@ -69,7 +69,7 @@ controller:
       memory: 256Mi
     limits:
       cpu: 300m
-      memory: 1Gi
+      memory: 512Mi
 
 dex:
   enabled: false
@@ -107,7 +107,7 @@ server:
       cpu: 30m
       memory: 128Mi
     limits:
-      memory: 1Gi
+      memory: 256Mi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
@@ -127,11 +127,11 @@ repoServer:
     enabled: false
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 50m
+      memory: 128Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 200m
+      memory: 256Mi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
@@ -178,7 +178,7 @@ applicationSet:
       cpu: 30m
       memory: 64Mi
     limits:
-      memory: 512Mi
+      memory: 256Mi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists

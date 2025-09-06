@@ -1,0 +1,45 @@
+# Disable resource-heavy components
+grafana:
+  enabled: false
+
+# Keep VMAlert enabled but minimal to avoid template bug
+vmalert:
+  enabled: true
+  spec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+# Keep essential monitoring components  
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
+
+# Configure VMSingle with minimal settings
+vmsingle:
+  enabled: true
+  spec:
+    retentionPeriod: 7d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+
+# Configure VMAgent with minimal settings
+vmagent:
+  enabled: true
+  spec:
+    scrapeInterval: 60s
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi

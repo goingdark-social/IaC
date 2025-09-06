@@ -112,7 +112,7 @@ securityContext:
 
 resources:
   requests:
-    cpu: 80m
+    cpu: 20m
     memory: 100Mi
   limits:
     cpu: 80m
@@ -182,7 +182,7 @@ topologySpreadConstraints: []
 affinity: {}
 
 # -- Pod priority class name.
-priorityClassName: ''
+priorityClassName: 'system-cluster-critical'
 
 # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
 podDisruptionBudget:
@@ -196,7 +196,7 @@ hostNetwork: false
 webhook:
   resources:
     requests:
-      cpu: 130m
+      cpu: 30m
       memory: 150Mi
     limits:
       cpu: 130m
@@ -297,7 +297,7 @@ webhook:
     {}
 
     # -- Pod priority class name.
-  priorityClassName: ''
+  priorityClassName: 'system-cluster-critical'
 
   # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   podDisruptionBudget:
@@ -388,7 +388,7 @@ webhook:
 certController:
   resources:
     requests:
-      cpu: 60m
+      cpu: 20m
       memory: 128Mi
     limits:
       cpu: 60m
@@ -439,14 +439,12 @@ certController:
 
   affinity: {}
 
-  # -- Run the certController on the host network
+    # -- Run the certController on the host network
   hostNetwork:
     false
 
     # -- Pod priority class name.
-  priorityClassName: ''
-
-  # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  priorityClassName: 'system-cluster-critical'  # -- Pod disruption budget - for more details see https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
   podDisruptionBudget:
     enabled: false
     minAvailable: 1
