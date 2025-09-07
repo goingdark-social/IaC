@@ -11,14 +11,29 @@ vmalert:
         cpu: 50m
         memory: 64Mi
       limits:
+        cpu: 200m
         memory: 128Mi
 
 # Keep essential monitoring components  
 kube-state-metrics:
   enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
 
 prometheus-node-exporter:
   enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 # Configure VMSingle with minimal settings
 vmsingle:
@@ -30,6 +45,7 @@ vmsingle:
         cpu: 100m
         memory: 256Mi
       limits:
+        cpu: 500m
         memory: 512Mi
 
 # Configure VMAgent with minimal settings
@@ -42,4 +58,5 @@ vmagent:
         cpu: 50m
         memory: 128Mi
       limits:
+        cpu: 200m
         memory: 256Mi

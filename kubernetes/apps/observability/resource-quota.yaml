@@ -5,9 +5,9 @@ metadata:
   namespace: observability
 spec:
   hard:
-    requests.cpu: "500m"
-    requests.memory: "1Gi"
-    limits.cpu: "1"
-    limits.memory: "2Gi"
-    pods: "15"
+    requests.cpu: "600m"
+    requests.memory: "1.5Gi"
+    limits.cpu: "2"
+    limits.memory: "3Gi"
+    pods: "20"
     persistentvolumeclaims: "5"

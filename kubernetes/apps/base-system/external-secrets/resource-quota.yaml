@@ -5,8 +5,8 @@ metadata:
   namespace: external-secrets
 spec:
   hard:
-    requests.cpu: "200m"
-    requests.memory: "500Mi"
-    limits.cpu: "500m"
-    limits.memory: "1Gi"
+    requests.cpu: "300m"
+    requests.memory: "1Gi"
+    limits.cpu: "800m"
+    limits.memory: "1.5Gi"
     pods: "10"

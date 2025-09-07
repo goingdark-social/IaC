@@ -1,5 +1,12 @@
 bitwarden-sdk-server:
   enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
 # -- If set, install and upgrade CRDs through helm chart.
 installCRDs: false
 
