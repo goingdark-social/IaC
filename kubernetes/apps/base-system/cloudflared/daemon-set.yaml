@@ -32,8 +32,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
-      nodeSelector:
-        nodepool: worker
+      # nodeSelector:
+      #   nodepool: worker
       containers:
         - name: cloudflared
           image: cloudflare/cloudflared:2025.8.0 # renovate: docker=cloudflare/cloudflared
