@@ -91,6 +91,7 @@ redis-ha:
 redis:
   enabled: true
   # keep it tiny
+
   master:
     resources:
       requests:
@@ -153,6 +154,13 @@ repoServer:
       image:
         '{{ default .Values.global.image.repository .Values.repoServer.image.repository }}:{{ default (include
         "argo-cd.defaultTag" .) .Values.repoServer.image.tag }}'
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
       securityContext:
         runAsNonRoot: true
         runAsUser: 999
@@ -198,3 +206,61 @@ notifications:
       memory: 128Mi
 
 
+redisSecretInit:
+  # -- Enable Redis secret initialization. If disabled, secret must be provisioned by alternative methods
+  enabled: true
+  # -- Redis secret-init name
+  name: redis-secret-init
+
+  # -- Resource limits and requests for Redis secret-init Job
+  resources:
+   limits:
+     cpu: 200m
+     memory: 128Mi
+   requests:
+     cpu: 100m
+     memory: 64Mi
+
+  # -- Application controller container-level security context
+  # @default -- See [values.yaml]
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  # -- Redis secret-init Job pod-level security context
+  securityContext: {}
+
+  serviceAccount:
+    # -- Create a service account for the redis pod
+    create: true
+    # -- Service account name for redis pod
+    name: ""
+    # -- Annotations applied to created service account
+    annotations: {}
+    # -- Automount API credentials for the Service Account
+    automountServiceAccountToken: true
+
+  # -- Priority class for Redis secret-init Job
+  # @default -- `""` (defaults to global.priorityClassName)
+  priorityClassName: ""
+
+  # -- Assign custom [affinity] rules to the Redis secret-init Job
+  affinity: {}
+
+  # -- Node selector to be added to the Redis secret-init Job
+  # @default -- `{}` (defaults to global.nodeSelector)
+  nodeSelector: {}
+
+  # -- Tolerations to be added to the Redis secret-init Job
+  # @default -- `[]` (defaults to global.tolerations)
+  tolerations:
+  - key: "autoscaler-node"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

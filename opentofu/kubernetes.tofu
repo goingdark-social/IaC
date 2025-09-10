@@ -16,7 +16,7 @@ module "kubernetes" {
     { name = "control", type = "cx22", location = "hel1", count = 1 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "cx22", location = "hel1", count = 1 }
+    { name = "worker", type = "cx32", location = "hel1", count = 1 }
   ]
   # Core Components (enabled by default)
   cilium_enabled                     = true
@@ -36,8 +36,22 @@ module "kubernetes" {
 
   # Enable etcd backup by defining one of these variables:
   #talos_backup_s3_endpoint    = "https://..."
-  #talos_backup_s3_hcloud_url  = "https://<bucket>.<location>.your-objectstorage.com"
+  #talos_backup_s3_hcloud_url  = var.s3_url
+  talos_backup_s3_region   = var.s3_region
+  talos_backup_s3_endpoint = var.s3_endpoint
+  talos_backup_s3_bucket   = var.s3_bucket
+#  talos_backup_s3_prefix   = var.s3_prefix
 
+  # Use path-style URLs (set true if required by your provider)
+  talos_backup_s3_path_style = true
+
+  # Access credentials
+  talos_backup_s3_access_key = var.s3_access_key
+  talos_backup_s3_secret_key = var.s3_secret_key
+
+
+  # Optional: Change schedule (cron syntax)
+  talos_backup_schedule = "0 * * * *"
 
   hcloud_csi_storage_classes = [
     {
@@ -85,13 +99,12 @@ firewall_extra_rules = [
 cluster_autoscaler_nodepools = [
   {
     name     = "autoscaler"
-    type     = "cx22"
+    type     = "cx32"
     location = "hel1"
     min      = 0
-    max      = 4
+    max      = 2
     labels   = { "autoscaler-node" = "true" }
     taints   = ["autoscaler-node=true:NoSchedule"]
-    nodepool = "worker"
   }
 ]
 
@@ -100,8 +113,8 @@ cluster_autoscaler_helm_values = {
     scale-down-delay-after-add    = "10m"   # Wait longer after scaling up
     scale-down-delay-after-delete = "10m"   # Quick retry on failed scale-down
     scale-down-unneeded-time      = "8m"    # Conservative for media/federation bursts
-    "balance-similar-node-groups" = "true"
-    "expander" = "least-waste"
+    balance-similar-node-groups = "true"
+    expander = "least-waste"
   }
 }
 
@@ -189,4 +202,37 @@ variable "hcloud_csi_encryption_passphrase" {
   type        = string
   sensitive   = true
   description = "Encryption passphrase for Hetzner CSI (LUKS)."
+}
+
+variable "s3_endpoint" {
+  type        = string
+  sensitive   = true
+  description = "s3_endpoint"
+}
+
+variable "s3_region" {
+  type        = string
+  sensitive   = true
+  description = "s3_region"
+}
+
+variable "s3_bucket" {
+  type        = string
+  sensitive   = true
+  description = "s3_bucket"
+}
+# variable "s3_prefix" {
+#   type        = string
+#   sensitive   = true
+#   description = "s3_prefix"
+# }
+variable "s3_access_key" {
+  type        = string
+  sensitive   = true
+  description = "s3_access_key"
+}
+variable "s3_secret_key" {
+  type        = string
+  sensitive   = true
+  description = "s3_access_key"
 }
