@@ -91,6 +91,7 @@ cluster_autoscaler_nodepools = [
     max      = 4
     labels   = { "autoscaler-node" = "true" }
     taints   = ["autoscaler-node=true:NoSchedule"]
+    nodepool = "worker"
   }
 ]
 
