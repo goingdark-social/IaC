@@ -91,7 +91,8 @@ redis-ha:
 redis:
   enabled: true
   # keep it tiny
-
+  auth:
+    enabled: false
   master:
     resources:
       requests:
@@ -214,12 +215,12 @@ redisSecretInit:
 
   # -- Resource limits and requests for Redis secret-init Job
   resources:
-   limits:
-     cpu: 200m
-     memory: 128Mi
-   requests:
-     cpu: 100m
-     memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
 
   # -- Application controller container-level security context
   # @default -- See [values.yaml]
@@ -260,7 +261,7 @@ redisSecretInit:
   # -- Tolerations to be added to the Redis secret-init Job
   # @default -- `[]` (defaults to global.tolerations)
   tolerations:
-  - key: "autoscaler-node"
-    operator: "Equal"
-    value: "true"
-    effect: "NoSchedule"
+    - key: "autoscaler-node"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
