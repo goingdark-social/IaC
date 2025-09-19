@@ -60,33 +60,33 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   namespace: argocd
-  name: apps-remote
+  name: platform
   labels:
-    app.kubernetes.io/part-of: apps
+    app.kubernetes.io/part-of: platform
     app.kubernetes.io/managed-by: argocd
   annotations:
     argocd.argoproj.io/sync-wave: '0'
 spec:
   generators:
-    - list:
-        elements:
-          - name: apps-remote
-            repoURL: https://github.com/goingdark-social/instance.git
-            path: .
-            targetRevision: main
+    - git:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        revision: main
+        directories:
+          - path: kubernetes/platform
   template:
     metadata:
-      name: '{{name}}'
+      name: 'platform-{{path.basename}}'
       namespace: argocd
       labels:
-        app.kubernetes.io/part-of: apps
+        app.kubernetes.io/component: 'static-platform'
+        app.kubernetes.io/part-of: platform
       annotations:
         argocd.argoproj.io/sync-wave: '0'
     spec:
-      project: default
+      project: platform
       source:
-        repoURL: '{{repoURL}}'
-        targetRevision: '{{targetRevision}}'
+        repoURL: https://github.com/goingdark-social/IaC.git
+        targetRevision: main
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
