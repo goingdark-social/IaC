@@ -1,0 +1,117 @@
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: mastodon-postgresql
+  namespace: mastodon
+spec:
+  teamId: "mastodon"
+  volume:
+    size: 20Gi
+  numberOfInstances: 2
+
+  users:
+    mastodon:
+      - superuser
+      - createdb
+
+  databases:
+    mastodon: mastodon
+
+  enableLogicalBackup: false
+
+  postgresql:
+    version: "17"
+    parameters:
+      archive_timeout: "300"
+
+  patroni:
+    initdb:
+      encoding: UTF8
+      data-checksums: "true"
+      locale: C
+      lc-collate: C
+      lc-ctype: C
+
+  spiloFSGroup: 103
+
+  tls:
+    secretName: mastodon-postgresql-server
+    caSecretName: mastodon-postgresql-ca
+    caFile: ca.crt
+
+  # Connection pooler — correct Zalando syntax
+  enableConnectionPooler: true
+  enableReplicaConnectionPooler: true
+  connectionPooler:
+    numberOfInstances: 2
+    mode: "session"
+    resources:
+      requests:
+        cpu: 75m
+        memory: 96Mi
+      limits:
+        cpu: 75m
+        memory: 96Mi
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Keep Postgres able to run on both normal workers and autoscaler nodes
+  tolerations:
+    - key: "autoscaler-node"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+  env:
+    - name: BACKUP_SCHEDULE
+      value: "0 0 * * *"
+    - name: USE_WALG_RESTORE
+      value: "false"
+    - name: CLONE_USE_WALG_RESTORE
+      value: "false"
+    - name: AWS_S3_FORCE_PATH_STYLE
+      value: "true"
+    - name: WAL_BUCKET_SCOPE_PREFIX
+      value: ""
+    - name: USE_WALG_BACKUP
+      value: "true"
+    - name: WALG_UPLOAD_CONCURRENCY
+      value: "2"
+    - name: WALG_DISK_RATE_LIMIT
+      value: "50MB"
+    - name: WAL_BUCKET_SCOPE_SUFFIX
+      value: ""
+    - name: WALG_DOWNLOAD_FILE_RETRIES
+      value: "15"
+    - name: WALG_BACKUP_COMPRESSION_METHOD
+      value: "lz4"
+    - name: BACKUP_NUM_TO_RETAIN
+      value: "7"
+    - name: WAL_RESTORE_TIMEOUT
+      value: "3600"
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_SECRET_ACCESS_KEY
+    - name: AWS_ENDPOINT
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ENDPOINT
+    - name: WAL_S3_BUCKET
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: WAL_S3_BUCKET
