@@ -72,13 +72,13 @@ spec:
         repoURL: https://github.com/goingdark-social/IaC.git
         revision: main
         directories:
-          - path: kubernetes/platform
+          - path: kubernetes/apps/platform/*
   template:
     metadata:
       name: 'platform-{{path.basename}}'
       namespace: argocd
       labels:
-        app.kubernetes.io/component: 'static-platform'
+        app.kubernetes.io/component: 'platform-{{path.basename}}'
         app.kubernetes.io/part-of: platform
       annotations:
         argocd.argoproj.io/sync-wave: '0'
@@ -90,15 +90,14 @@ spec:
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: argocd
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         retry:
-          limit: 1
+          limit: 3
           backoff:
-            duration: 10s
+            duration: 5s
             factor: 2
             maxDuration: 3m
         syncOptions:
