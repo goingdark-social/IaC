@@ -5,3 +5,4 @@ resources:
   - argocd
   - base-system
   - database
+  - platform
