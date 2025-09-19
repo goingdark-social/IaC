@@ -72,6 +72,22 @@ spec:
             - name: es-ca
               mountPath: /opt/mastodon/.elasticsearch/ca.crt
               subPath: ca.crt
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            # keep short since startupProbe gates readiness
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18   # 10 * 18 = 180s window
           livenessProbe:
             httpGet:
               path: /health
@@ -80,29 +96,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 3
             failureThreshold: 5
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 15
-            periodSeconds: 15
-            timeoutSeconds: 2
-            failureThreshold: 3
-          startupProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 0
-            periodSeconds: 5
-            timeoutSeconds: 2
-            failureThreshold: 60
           resources:
             requests:
               cpu: "300m"
-              memory: "1Gi"
+              memory: "1.3Gi"
             limits:
               cpu: "500m"
-              memory: "1.5Gi"
+              memory: "1.8Gi"
       volumes:
         - name: db-ca
           secret:

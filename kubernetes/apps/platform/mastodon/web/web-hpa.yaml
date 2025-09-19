@@ -25,14 +25,17 @@ spec:
           averageUtilization: 90
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 300   # 5 min before new scale-up
+      stabilizationWindowSeconds: 60    # reduced from 300s for faster response
       policies:
         - type: Pods
-          value: 1
-          periodSeconds: 120
-      selectPolicy: Max
+          value: 2                      # allow 2 pods per period
+          periodSeconds: 15             # every 15s instead of 120s
+        - type: Percent
+          value: 50                     # or 50% increase per period
+          periodSeconds: 15
+      selectPolicy: Max                 # choose the more aggressive policy
     scaleDown:
-      stabilizationWindowSeconds: 900   # keep pods alive 15 min before scaling down
+      stabilizationWindowSeconds: 900   # keep conservative 15 min before scaling down
       policies:
         - type: Pods
           value: 1
