@@ -15,4 +15,4 @@ spec:
       - containerName: web
         controlledValues: RequestsOnly
         minAllowed: { cpu: "100m", memory: "512Mi" }
-        maxAllowed: { cpu: "1000m", memory: "1.5Gi" }
+        maxAllowed: { cpu: "1000m", memory: "1536Mi" }
