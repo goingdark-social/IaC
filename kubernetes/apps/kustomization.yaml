@@ -6,4 +6,3 @@ resources:
   - base-system
   - database
   - default
-  - observability
