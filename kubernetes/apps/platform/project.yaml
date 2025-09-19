@@ -1,16 +1,41 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: web
+  name: platform
   namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: platform
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
+  description: platform components managed through GitOps (all resources allowed)
   sourceRepos:
-    - 'https://github.com/goingdark-social/instance'
+    - '*'
   destinations:
-    - namespace: 'argocd'
-      server: '*'
-    - namespace: 'web'
-      server: '*'
+    - server: '*'
+      namespace: '*'
   clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  roles:
+    - name: admin
+      description: Full permissions
+      policies:
+        - p, proj:platform:admin, applications, *, *, allow
+    - name: readonly
+      description: Read-only access
+      policies:
+        - p, proj:platform:readonly, applications, get, *, allow
+  syncWindows:
+    - kind: allow
+      schedule: '0 * * * *'  # Every hour
+      duration: 1h
+      applications:
+        - '*'
+      manualSync: true
+  orphanedResources:
+    warn: true
