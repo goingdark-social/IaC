@@ -7,3 +7,6 @@ resources:
 - external-secrets
 - gateway
 - cilium
+- victoriametrics
+- victorialogs
+- descheduler
