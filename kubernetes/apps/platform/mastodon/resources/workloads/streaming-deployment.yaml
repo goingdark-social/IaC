@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-streaming
+  namespace: mastodon
+  labels:
+    app: mastodon-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-streaming
+  template:
+    metadata:
+      labels:
+        app: mastodon-streaming
+    spec:
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: streaming
+          image: ghcr.io/glitch-soc/mastodon-streaming:v4.4.4
+          command: ["node", "./streaming/index.js"]
+          ports:
+            - name: streaming
+              containerPort: 4000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          envFrom:
+            # Application secrets (domain, keys, credentials)
+            - secretRef:
+                name: mastodon-app-secrets
+            # Database connection credentials
+            - secretRef:
+                name: mastodon-db-url
+            # Core application settings
+            - configMapRef:
+                name: mastodon-core
+            # Database connection details
+            - configMapRef:
+                name: mastodon-database
+            # Redis real-time streaming
+            - configMapRef:
+                name: mastodon-redis
+            # Streaming server specific settings
+            - configMapRef:
+                name: mastodon-streaming
+          volumeMounts:
+            - name: db-ca
+              mountPath: /opt/mastodon/.postgresql/root.crt
+              subPath: ca.crt
+          env:
+            - name: DB_SSLMODE
+              value: verify-ca
+            - name: DB_SSLROOTCERT
+              value: /opt/mastodon/.postgresql/root.crt
+            - name: PORT
+              value: "4000"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/streaming/health
+              port: 4000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /api/v1/streaming/health
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "150m"
+              memory: "384Mi"
+            limits:
+              memory: "768Mi"
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

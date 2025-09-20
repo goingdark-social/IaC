@@ -1,0 +1,59 @@
+# Priority class patches for all Mastodon components
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch-master
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-critical
+---
+apiVersion: acid.zalan.do/v1
+kind: postgresql
+metadata:
+  name: mastodon-postgresql
+  namespace: mastodon
+spec:
+  podPriorityClassName: mastodon-critical
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mastodon-redis-master
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-critical
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-streaming
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-web
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
