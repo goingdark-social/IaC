@@ -1,0 +1,24 @@
+# Production priority classes for different components
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: mastodon-critical
+value: 1000
+globalDefault: false
+description: "Critical priority for user-facing Mastodon components"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: mastodon-high
+value: 800
+globalDefault: false
+description: "High priority for important Mastodon background components"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: mastodon-normal
+value: 600
+globalDefault: false
+description: "Normal priority for regular Mastodon components"

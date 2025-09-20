@@ -1,0 +1,101 @@
+# All Mastodon configuration consolidated in one place
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mastodon-env
+  namespace: mastodon
+data:
+  # Core application settings
+  RAILS_ENV: production
+  NODE_ENV: production
+  TZ: Europe/Stockholm
+  SINGLE_USER_MODE: "false"
+  MASTODON_USE_LIBVIPS: "true"
+  RAILS_LOG_TO_STDOUT: "true"
+  PREPARED_STATEMENTS: "false"
+  
+  # Database configuration
+  DB_HOST: mastodon-postgresql-pooler
+  DB_PORT: "5432"
+  DB_NAME: mastodon
+  DB_SSLMODE: require
+  DB_SSLROOTCERT: /opt/mastodon/.postgresql/root.crt
+  REPLICA_DB_HOST: mastodon-postgresql-repl
+  REPLICA_DB_PORT: "5432"
+  REPLICA_DB_NAME: mastodon
+  REPLICA_PREPARED_STATEMENTS: "false"
+  REPLICA_DB_TASKS: "false"
+  DATABASE_TIMEOUT: "60"
+  STREAMING_DATABASE_TIMEOUT: "10"
+  
+  # Redis configuration
+  REDIS_HOST: mastodon-redis-master
+  REDIS_PORT: "6379"
+  REDIS_URL: redis://mastodon-redis-master:6379/0
+  SIDEKIQ_REDIS_URL: redis://mastodon-redis-master:6379/1
+  CACHE_REDIS_URL: redis://mastodon-redis-master:6379/2
+  STREAMING_REDIS_URL: redis://mastodon-redis-master:6379/3
+  QUERY_CACHE_REDIS_URL: redis://mastodon-redis-master:6379/4
+  
+  # Search configuration
+  ES_ENABLED: "true"
+  ES_HOST: https://elasticsearch-master
+  ES_PORT: "9200"
+  ES_USER: mastodon
+  ES_PRESET: single_node_cluster
+  ES_SSL: "true"
+  ES_CA_FILE: /opt/mastodon/.elasticsearch/ca.crt
+  
+  # Metrics configuration
+  MASTODON_PROMETHEUS_EXPORTER_ENABLED: "true"
+  MASTODON_PROMETHEUS_EXPORTER_LOCAL: "true"
+  
+  # Feature configuration
+  MAX_TOOT_CHARS: "1500"
+  FETCH_REPLIES_ENABLED: "true"
+  FETCH_REPLIES_COOLDOWN_MINUTES: "15"
+  FETCH_REPLIES_INITIAL_WAIT_MINUTES: "5"
+  FETCH_REPLIES_MAX_GLOBAL: "1000"
+  FETCH_REPLIES_MAX_SINGLE: "500"
+  FETCH_REPLIES_MAX_PAGES: "500"
+  IP_RETENTION_PERIOD: "15552000"
+  DEFAULT_LOCALE: en
+  FORCE_DEFAULT_LOCALE: "true"
+  
+  # Network configuration
+  PORT: "3000"
+  BIND: 0.0.0.0
+  RAILS_SERVE_STATIC_FILES: "true"
+  WEB_CONCURRENCY: "3"
+  MAX_THREADS: "5"
+  STREAMING_API_BASE_URL: wss://goingdark.social
+  STREAMING_PORT: "4000"
+  
+  # Storage configuration
+  S3_ENABLED: "true"
+  S3_BUCKET: mastodata
+  S3_ALIAS_HOST: cdn.goingdark.social
+  S3_PROTOCOL: https
+  S3_REGION: auto
+  S3_PERMISSION: ""
+  EXTRA_MEDIA_HOSTS: https://cdn.goingdark.social
+  
+  # SMTP configuration
+  SMTP_DELIVERY_METHOD: smtp
+  SMTP_AUTH_METHOD: login
+  SMTP_SSL: "false"
+  SMTP_TLS: "false"
+  SMTP_ENABLE_STARTTLS_AUTO: "true"
+  SMTP_OPENSSL_VERIFY_MODE: peer
+---
+# Database connection pool configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mastodon-db-pools
+  namespace: mastodon
+data:
+  WEB_DB_POOL: "15"         # 3 workers × 5 threads
+  SIDEKIQ_DB_POOL: "25"     # matches concurrency
+  STREAMING_DB_POOL: "5"    # lower concurrency
+  SIDEKIQ_CONCURRENCY: "25" # production concurrency

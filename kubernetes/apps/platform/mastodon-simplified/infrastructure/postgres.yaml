@@ -1,0 +1,189 @@
+# PostgreSQL database with connection pooler and backup configuration
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: mastodon-postgresql
+  namespace: mastodon
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: mastodon
+spec:
+  teamId: "mastodon"
+  volume:
+    size: 20Gi
+  numberOfInstances: 2
+
+  users:
+    mastodon:
+      - superuser
+      - createdb
+
+  databases:
+    mastodon: mastodon
+
+  enableLogicalBackup: false
+
+  postgresql:
+    version: "17"
+    parameters:
+      archive_timeout: "300"
+
+  patroni:
+    initdb:
+      encoding: UTF8
+      data-checksums: "true"
+      locale: C
+      lc-collate: C
+      lc-ctype: C
+
+  spiloFSGroup: 103
+
+  tls:
+    secretName: mastodon-postgresql-server
+    caSecretName: mastodon-postgresql-ca
+    caFile: ca.crt
+
+  # Connection pooler configuration
+  enableConnectionPooler: true
+  enableReplicaConnectionPooler: true
+  connectionPooler:
+    numberOfInstances: 2
+    mode: "session"
+    resources:
+      requests:
+        cpu: 75m
+        memory: 96Mi
+      limits:
+        cpu: 75m
+        memory: 96Mi
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  tolerations:
+    - key: "autoscaler-node"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+  env:
+    - name: BACKUP_SCHEDULE
+      value: "0 0 * * *"
+    - name: USE_WALG_RESTORE
+      value: "false"
+    - name: CLONE_USE_WALG_RESTORE
+      value: "false"
+    - name: AWS_S3_FORCE_PATH_STYLE
+      value: "true"
+    - name: WAL_BUCKET_SCOPE_PREFIX
+      value: ""
+    - name: USE_WALG_BACKUP
+      value: "true"
+    - name: WALG_UPLOAD_CONCURRENCY
+      value: "2"
+    - name: WALG_DISK_RATE_LIMIT
+      value: "50MB"
+    - name: WAL_BUCKET_SCOPE_SUFFIX
+      value: ""
+    - name: WALG_DOWNLOAD_FILE_RETRIES
+      value: "15"
+    - name: WALG_BACKUP_COMPRESSION_METHOD
+      value: "lz4"
+    - name: BACKUP_NUM_TO_RETAIN
+      value: "7"
+    - name: WAL_RESTORE_TIMEOUT
+      value: "3600"
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_SECRET_ACCESS_KEY
+    - name: AWS_ENDPOINT
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ENDPOINT
+    - name: WAL_S3_BUCKET
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: WAL_S3_BUCKET
+---
+# PostgreSQL certificates and secrets
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mastodon-postgresql-server
+  namespace: mastodon
+spec:
+  secretName: mastodon-postgresql-server
+  issuerRef:
+    name: bitwarden-issuer
+    kind: ClusterIssuer
+  dnsNames:
+  - mastodon-postgresql
+  - mastodon-postgresql.mastodon
+  - mastodon-postgresql.mastodon.svc
+  - mastodon-postgresql.mastodon.svc.cluster.local
+  - mastodon-postgresql-pooler
+  - mastodon-postgresql-pooler.mastodon
+  - mastodon-postgresql-pooler.mastodon.svc
+  - mastodon-postgresql-pooler.mastodon.svc.cluster.local
+  - mastodon-postgresql-repl
+  - mastodon-postgresql-repl.mastodon
+  - mastodon-postgresql-repl.mastodon.svc
+  - mastodon-postgresql-repl.mastodon.svc.cluster.local
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mastodon-postgresql-ca
+  namespace: mastodon
+spec:
+  secretName: mastodon-postgresql-ca
+  issuerRef:
+    name: bitwarden-issuer
+    kind: ClusterIssuer
+  commonName: mastodon-postgresql-ca
+  isCA: true
+  duration: 17520h # 2 years
+  renewBefore: 720h # 30 days
+---
+# External secrets for PostgreSQL backup
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mastodon-walg-s3
+  namespace: mastodon
+spec:
+  secretStoreRef:
+    name: mastodon-bitwarden-store
+    kind: SecretStore
+  target:
+    name: mastodon-walg-s3
+    creationPolicy: Owner
+  data:
+  - secretKey: AWS_ACCESS_KEY_ID
+    remoteRef:
+      key: c4c53afe-a6cd-423e-98c5-b1bf01721c5e
+  - secretKey: AWS_SECRET_ACCESS_KEY
+    remoteRef:
+      key: 7e3bfc5a-b3b8-4a8a-9e83-b1bf01721ca9
+  - secretKey: AWS_ENDPOINT
+    remoteRef:
+      key: 0fb95336-9a30-485b-85e4-b1bf01721cf3
+  - secretKey: WAL_S3_BUCKET
+    remoteRef:
+      key: f5a3d9c1-4b2e-4f7a-8c6d-b1bf01721f8a
