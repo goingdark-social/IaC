@@ -59,7 +59,7 @@ grafana:
       email_attribute_path: email
       login_attribute_path: preferred_username
       name_attribute_path: name
-      role_attribute_path: contains(groups[*], 'toot-community:grafana-admin') && 'Admin'
+      role_attribute_path: contains(groups[*], 'goingdark-social:grafana-admin') && 'Admin'
       role_attribute_strict: true
       auto_login: true
       use_pkce: false
