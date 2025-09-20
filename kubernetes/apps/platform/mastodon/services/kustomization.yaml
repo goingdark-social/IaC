@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mastodon
+
+resources:
+- web.yaml
+- streaming.yaml
+- sidekiq-generic.yaml
+- sidekiq-scheduler.yaml
+
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    tier: application
+
+# Apply production priority to all services
+patches:
+- target:
+    kind: Deployment
+    labelSelector: component=web-server
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-critical
+
+- target:
+    kind: Deployment
+    labelSelector: component=sidekiq-worker
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-high
+
+- target:
+    kind: Deployment
+    labelSelector: component=streaming-server
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-high

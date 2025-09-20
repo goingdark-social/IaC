@@ -3,122 +3,25 @@ kind: Kustomization
 
 namespace: mastodon
 
-# Include base configuration
+# Include all base components
 resources:
 - ../../base
-- ../../redis
-- ../../postgres
-- ../../elasticsearch
+- ../../infrastructure
+- ../../services
 - ../../networking
+- ../../jobs
+- priorities.yaml
 
-# Include current deployments but mark them for future component migration
-- ../../web
-- ../../sidekiq
-- ../../streaming
-
-# Apply production-specific configurations
+# Apply production scaling overrides
 patches:
-- target:
-    kind: ConfigMap
-    name: mastodon-cache-env
-  patch: |-
-    - op: replace
-      path: /data/SIDEKIQ_CONCURRENCY
-      value: "25"
-
-- target:
-    kind: ConfigMap
-    name: mastodon-network-env
-  patch: |-
-    - op: add
-      path: /data/WEB_DB_POOL
-      value: "15"
-
-# Database pool patches
-- target:
-    kind: Deployment
-    name: mastodon-sidekiq-generic
-  patch: |-
-    - op: add
-      path: /spec/template/spec/containers/0/env/-
-      value:
-        name: DB_POOL
-        value: "25"
-
-- target:
-    kind: Deployment
-    name: mastodon-sidekiq-scheduler
-  patch: |-
-    - op: add
-      path: /spec/template/spec/containers/0/env/-
-      value:
-        name: DB_POOL
-        value: "25"
-
-- target:
-    kind: Deployment
-    name: mastodon-streaming
-  patch: |-
-    - op: add
-      path: /spec/template/spec/containers/0/env/-
-      value:
-        name: DB_POOL
-        value: "5"
-
-# Resource patches
-- target:
-    kind: Deployment
-    name: mastodon-sidekiq-generic
-  patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/resources
-      value:
-        requests:
-          cpu: "1000m"
-          memory: "2Gi"
-        limits:
-          memory: "3Gi"
-
-- target:
-    kind: Deployment
-    name: mastodon-sidekiq-scheduler
-  patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/resources
-      value:
-        requests:
-          cpu: "500m"
-          memory: "1Gi"
-        limits:
-          memory: "1.5Gi"
-
 - target:
     kind: Deployment
     name: mastodon-web
   patch: |-
     - op: replace
-      path: /spec/template/spec/containers/0/resources
-      value:
-        requests:
-          cpu: "500m"
-          memory: "1.5Gi"
-        limits:
-          memory: "2Gi"
+      path: /spec/replicas
+      value: 3
 
-- target:
-    kind: Deployment
-    name: mastodon-streaming
-  patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/resources
-      value:
-        requests:
-          cpu: "150m"
-          memory: "384Mi"
-        limits:
-          memory: "768Mi"
-
-# HPA scaling patches
 - target:
     kind: HorizontalPodAutoscaler
     name: mastodon-web-hpa
@@ -131,6 +34,14 @@ patches:
       value: 10
 
 - target:
+    kind: Deployment
+    name: mastodon-sidekiq-generic
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 5
+
+- target:
     kind: HorizontalPodAutoscaler
     name: mastodon-sidekiq-generic-hpa
   patch: |-
@@ -141,11 +52,26 @@ patches:
       path: /spec/maxReplicas
       value: 15
 
-# Override some resource settings for production
-replicas:
-- name: mastodon-web
-  count: 3
-- name: mastodon-sidekiq-generic
-  count: 5
-- name: mastodon-streaming
-  count: 2
+- target:
+    kind: Deployment
+    name: mastodon-streaming
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 2
+
+- target:
+    kind: HorizontalPodAutoscaler
+    name: mastodon-streaming-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 6
+
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    environment: production

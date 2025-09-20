@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mastodon
+
+resources:
+- postgres.yaml
+- redis.yaml
+
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    tier: infrastructure
+
+# Apply production priority to infrastructure
+patches:
+- target:
+    kind: StatefulSet
+    name: mastodon-redis-master
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-high
+
+- target:
+    kind: postgresql
+    name: mastodon-postgresql
+  patch: |-
+    - op: add
+      path: /spec/priorityClassName
+      value: mastodon-high

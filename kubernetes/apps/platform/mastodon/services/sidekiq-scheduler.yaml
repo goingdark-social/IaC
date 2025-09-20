@@ -1,21 +1,22 @@
+# Mastodon Sidekiq scheduler worker - all resources in one file
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq-generic
+  name: mastodon-sidekiq-scheduler
   namespace: mastodon
   labels:
-    app: mastodon-sidekiq-generic
+    app: mastodon-sidekiq-scheduler
     component: sidekiq-worker
     app.kubernetes.io/part-of: mastodon
 spec:
-  replicas: 5
+  replicas: 1
   selector:
     matchLabels:
-      app: mastodon-sidekiq-generic
+      app: mastodon-sidekiq-scheduler
   template:
     metadata:
       labels:
-        app: mastodon-sidekiq-generic
+        app: mastodon-sidekiq-scheduler
         component: sidekiq-worker
         app.kubernetes.io/part-of: mastodon
         elasticsearch-client: "true"
@@ -38,45 +39,40 @@ spec:
             - -c
             - "25"
             - -q
-            - default
-            - -q
-            - mailers
-            - -q
-            - push
-            - -q
-            - ingress
-            - -q
-            - fasp
-            - -q
-            - pull
+            - scheduler
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 991
+            runAsGroup: 991
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
           envFrom:
             - secretRef:
                 name: mastodon-app-secrets
             - secretRef:
                 name: mastodon-db-url
             - configMapRef:
-                name: mastodon-core-env
+                name: mastodon-env
             - configMapRef:
-                name: mastodon-db-env
-            - configMapRef:
-                name: mastodon-cache-env
-            - configMapRef:
-                name: mastodon-search-env
-            - configMapRef:
-                name: mastodon-metrics-env
-            - configMapRef:
-                name: mastodon-features-env
-            - configMapRef:
-                name: mastodon-storage-env
-            - configMapRef:
-                name: mastodon-smtp-env
+                name: mastodon-db-pools
           env:
             - name: DB_SSLMODE
               value: verify-ca
             - name: DB_SSLROOTCERT
               value: /opt/mastodon/.postgresql/root.crt
             - name: DB_POOL
-              value: "25"
+              valueFrom:
+                configMapKeyRef:
+                  name: mastodon-db-pools
+                  key: SIDEKIQ_DB_POOL
+            - name: SIDEKIQ_CONCURRENCY
+              valueFrom:
+                configMapKeyRef:
+                  name: mastodon-db-pools
+                  key: SIDEKIQ_CONCURRENCY
           volumeMounts:
             - name: db-ca
               mountPath: /opt/mastodon/.postgresql/root.crt
@@ -91,19 +87,10 @@ spec:
             periodSeconds: 30
           resources:
             requests:
-              cpu: "1111m"
-              memory: "2078Mi"
+              cpu: "500m"
+              memory: "1Gi"
             limits:
-              memory: "3Gi"
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 991
-            runAsGroup: 991
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            seccompProfile:
-              type: RuntimeDefault
+              memory: "1.5Gi"
       volumes:
         - name: db-ca
           secret:
@@ -117,3 +104,18 @@ spec:
             items:
               - key: ca.crt
                 path: ca.crt
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-sidekiq-scheduler-pdb
+  namespace: mastodon
+  labels:
+    app: mastodon-sidekiq-scheduler
+    component: sidekiq-worker
+    app.kubernetes.io/part-of: mastodon
+spec:
+  maxUnavailable: 0  # Scheduler should always be available
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-scheduler

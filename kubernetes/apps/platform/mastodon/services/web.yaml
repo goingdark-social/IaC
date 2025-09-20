@@ -1,0 +1,272 @@
+# Mastodon web service - all resources in one file
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-web
+  namespace: mastodon
+  labels:
+    app: mastodon-web
+    component: web-server
+    app.kubernetes.io/part-of: mastodon
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mastodon-web
+  template:
+    metadata:
+      labels:
+        app: mastodon-web
+        component: web-server
+        app.kubernetes.io/part-of: mastodon
+        elasticsearch-client: "true"
+    spec:
+      securityContext:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: web
+          image: ghcr.io/glitch-soc/mastodon:v4.4.4
+          command: ["/bin/bash", "-c", "bundle exec puma -C config/puma.rb"]
+          ports:
+            - name: http
+              containerPort: 3000
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 991
+            runAsGroup: 991
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          envFrom:
+            - secretRef:
+                name: mastodon-app-secrets
+            - secretRef:
+                name: mastodon-db-url
+            - configMapRef:
+                name: mastodon-env
+            - configMapRef:
+                name: mastodon-db-pools
+          env:
+            - name: DB_SSLMODE
+              value: verify-ca
+            - name: DB_SSLROOTCERT
+              value: /opt/mastodon/.postgresql/root.crt
+            - name: DB_POOL
+              valueFrom:
+                configMapKeyRef:
+                  name: mastodon-db-pools
+                  key: WEB_DB_POOL
+          volumeMounts:
+            - name: db-ca
+              mountPath: /opt/mastodon/.postgresql/root.crt
+              subPath: ca.crt
+            - name: es-ca
+              mountPath: /opt/mastodon/.elasticsearch/ca.crt
+              subPath: ca.crt
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1.5Gi"
+            limits:
+              memory: "2Gi"
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: es-ca
+          secret:
+            secretName: mastodon-elastic-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mastodon-web
+  namespace: mastodon
+  labels:
+    app: mastodon-web
+    component: web-server
+    app.kubernetes.io/part-of: mastodon
+spec:
+  selector:
+    app: mastodon-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-web-hpa
+  namespace: mastodon
+  labels:
+    app: mastodon-web
+    component: web-server
+    app.kubernetes.io/part-of: mastodon
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mastodon-web
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 90
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+        - type: Percent
+          value: 50
+          periodSeconds: 15
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 900
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 300
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-web-pdb
+  namespace: mastodon
+  labels:
+    app: mastodon-web
+    component: web-server
+    app.kubernetes.io/part-of: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-web
+---
+# Database migration job that runs before web deployment
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mastodon-migrate
+  namespace: mastodon
+  labels:
+    app: mastodon-migrate
+    component: migration
+    app.kubernetes.io/part-of: mastodon
+spec:
+  template:
+    metadata:
+      labels:
+        app: mastodon-migrate
+        component: migration
+        app.kubernetes.io/part-of: mastodon
+    spec:
+      restartPolicy: Never
+      securityContext:
+        fsGroup: 991
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: migrate
+          image: ghcr.io/glitch-soc/mastodon:v4.4.4
+          command: ["/bin/bash", "-c", "bundle exec rails db:prepare"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 991
+            runAsGroup: 991
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          envFrom:
+            - secretRef:
+                name: mastodon-app-secrets
+            - secretRef:
+                name: mastodon-db-url
+            - configMapRef:
+                name: mastodon-env
+            - configMapRef:
+                name: mastodon-db-pools
+          env:
+            - name: DB_SSLMODE
+              value: verify-ca
+            - name: DB_SSLROOTCERT
+              value: /opt/mastodon/.postgresql/root.crt
+            - name: DB_POOL
+              valueFrom:
+                configMapKeyRef:
+                  name: mastodon-db-pools
+                  key: WEB_DB_POOL
+          volumeMounts:
+            - name: db-ca
+              mountPath: /opt/mastodon/.postgresql/root.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              memory: "1Gi"
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
