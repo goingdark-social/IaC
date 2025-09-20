@@ -9,9 +9,10 @@ resources:
 - sidekiq-generic.yaml
 - sidekiq-scheduler.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: mastodon
-  tier: application
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    tier: application
 
 # Apply production priority to all services
 patches:

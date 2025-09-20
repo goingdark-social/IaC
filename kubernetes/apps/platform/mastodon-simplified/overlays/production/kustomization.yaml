@@ -71,6 +71,7 @@ patches:
       path: /spec/maxReplicas
       value: 6
 
-commonLabels:
-  app.kubernetes.io/part-of: mastodon
-  environment: production
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    environment: production

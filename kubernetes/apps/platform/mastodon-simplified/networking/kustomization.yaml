@@ -6,6 +6,7 @@ namespace: mastodon
 resources:
 - routes.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: mastodon
-  tier: networking
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    tier: networking

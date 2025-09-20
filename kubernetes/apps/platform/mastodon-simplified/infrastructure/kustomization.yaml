@@ -7,9 +7,10 @@ resources:
 - postgres.yaml
 - redis.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: mastodon
-  tier: infrastructure
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    tier: infrastructure
 
 # Apply production priority to infrastructure
 patches:

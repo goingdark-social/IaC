@@ -6,6 +6,7 @@ namespace: mastodon
 resources:
 - maintenance.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: mastodon
-  tier: maintenance
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
+    tier: maintenance

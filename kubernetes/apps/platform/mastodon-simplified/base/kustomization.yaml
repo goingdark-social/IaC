@@ -8,5 +8,6 @@ resources:
 - secrets.yaml
 - config.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: mastodon
+labels:
+- pairs:
+    app.kubernetes.io/part-of: mastodon
