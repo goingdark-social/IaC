@@ -4,10 +4,8 @@ kind: Kustomization
 resources:
   - streaming-deployment.yaml
   - svc-streaming.yaml
-  - streaming-vpa.yaml
   - streaming-hpa.yaml
   - streaming-pdb.yaml
 
 patches:
 - path: streaming-priority-patch.yaml
-- path: streaming-spread-patch.yaml
