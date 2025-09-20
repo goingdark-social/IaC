@@ -7,39 +7,46 @@ resources:
 - hpa.yaml
 - pdb.yaml
 
+# Component-local settings: generate a small ConfigMap that holds the SERVICE_NAME
+configMapGenerator:
+  - name: component-settings
+    literals:
+      - SERVICE_NAME=mastodon-web
+
+# Use replacements to propagate the configured SERVICE_NAME into the resources
 replacements:
 - source:
-    kind: Deployment
-    name: PLACEHOLDER
-    fieldPath: metadata.name
+    kind: ConfigMap
+    name: component-settings
+    fieldPath: data.SERVICE_NAME
   targets:
   - select:
       kind: Service
-    fieldPaths: 
+    fieldPaths:
     - spec.selector.app
   - select:
       kind: HorizontalPodAutoscaler
-    fieldPaths: 
+    fieldPaths:
     - spec.scaleTargetRef.name
   - select:
       kind: PodDisruptionBudget
-    fieldPaths: 
+    fieldPaths:
     - spec.selector.matchLabels.app
 
 - source:
-    kind: Deployment
-    name: PLACEHOLDER
-    fieldPath: metadata.labels.component
+    kind: ConfigMap
+    name: component-settings
+    fieldPath: data.SERVICE_NAME
   targets:
   - select:
       kind: Service
-    fieldPaths: 
+    fieldPaths:
     - metadata.labels.component
   - select:
       kind: HorizontalPodAutoscaler
-    fieldPaths: 
+    fieldPaths:
     - metadata.labels.component
   - select:
       kind: PodDisruptionBudget
-    fieldPaths: 
+    fieldPaths:
     - metadata.labels.component

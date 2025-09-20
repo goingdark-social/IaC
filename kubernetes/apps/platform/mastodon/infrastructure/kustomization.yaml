@@ -8,24 +8,6 @@ resources:
 - redis.yaml
 
 labels:
-- pairs:
-    app.kubernetes.io/part-of: mastodon
-    tier: infrastructure
-
-# Apply production priority to infrastructure
-patches:
-- target:
-    kind: StatefulSet
-    name: mastodon-redis-master
-  patch: |-
-    - op: add
-      path: /spec/template/spec/priorityClassName
-      value: mastodon-high
-
-- target:
-    kind: postgresql
-    name: mastodon-postgresql
-  patch: |-
-    - op: add
-      path: /spec/priorityClassName
-      value: mastodon-high
+  - pairs:
+      app.kubernetes.io/part-of: mastodon
+      tier: infrastructure

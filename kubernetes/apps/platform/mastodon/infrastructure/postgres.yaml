@@ -162,7 +162,7 @@ spec:
   renewBefore: 720h # 30 days
 ---
 # External secrets for PostgreSQL backup
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: mastodon-walg-s3

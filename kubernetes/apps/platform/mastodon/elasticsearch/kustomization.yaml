@@ -24,9 +24,3 @@ patches:
     - op: replace
       path: /metadata/name
       value: elasticsearch-setup-mastodon-user
-- target:
-    group: apps
-    version: v1
-    kind: StatefulSet
-    name: elasticsearch-master
-  path: elasticsearch-priority-patch.yaml

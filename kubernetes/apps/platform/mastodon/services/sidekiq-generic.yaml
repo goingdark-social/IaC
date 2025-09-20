@@ -55,7 +55,6 @@ spec:
             - sidekiq
             - -c
             - "25"
-            - -q
             - default
             - -q
             - mailers
@@ -82,9 +81,9 @@ spec:
             - secretRef:
                 name: mastodon-db-url
             - configMapRef:
-                name: mastodon-env
+                name: mastodon-core-env
             - configMapRef:
-                name: mastodon-db-pools
+                name: mastodon-db-env
           env:
             - name: DB_SSLMODE
               value: verify-ca
@@ -93,12 +92,12 @@ spec:
             - name: DB_POOL
               valueFrom:
                 configMapKeyRef:
-                  name: mastodon-db-pools
+                  name: mastodon-db-env
                   key: SIDEKIQ_DB_POOL
             - name: SIDEKIQ_CONCURRENCY
               valueFrom:
                 configMapKeyRef:
-                  name: mastodon-db-pools
+                  name: mastodon-db-env
                   key: SIDEKIQ_CONCURRENCY
           volumeMounts:
             - name: db-ca
@@ -136,7 +135,6 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: mastodon-sidekiq-generic-hpa
-  namespace: mastodon
   labels:
     app: mastodon-sidekiq-generic
     component: sidekiq-worker

@@ -56,4 +56,4 @@ metadata:
 spec:
   configuration:
     endpointURL: https://36imo.upcloudobjects.com
-    destinationPath: s3://toot-community-cnpg-storage/v20250908/
+    destinationPath: s3://goingdark-social-cnpg-storage/v20250908/

@@ -4,7 +4,7 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: database
-  namespace: toot-community
+  namespace: goingdark-social
 spec:
   # affinity:
   #   enablePodAntiAffinity: true

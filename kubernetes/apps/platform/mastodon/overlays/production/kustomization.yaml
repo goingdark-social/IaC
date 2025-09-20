@@ -9,8 +9,11 @@ resources:
 - ../../infrastructure
 - ../../services
 - ../../networking
-- ../../jobs
 - priorities.yaml
+
+# Centralized common patches (priority classes, tolerations, securityContext)
+patches:
+- path: ../patches/common-patches.yaml
 
 # Apply production scaling overrides
 patches:

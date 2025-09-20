@@ -4,7 +4,6 @@ metadata:
   labels:
     job-name: mastodon-remove-orphans
   name: mastodon-remove-orphans
-  namespace: toot-community
 spec:
   parallelism: 1
   podReplacementPolicy: TerminatingOrFailed
@@ -20,7 +19,10 @@ spec:
     spec:
       restartPolicy: Never
       containers:
-      - command:
+      - name: remove-orphans
+        image: ghcr.io/mastodon/mastodon:v4.4.0-beta.1@sha256:49d58b37ff8a1e282e6bef2eae2ea9e0c1d7f39dc62d7e2595b06949fec25c4d
+        imagePullPolicy: IfNotPresent
+        command:
         - bash
         - -c
         - bin/tootctl media remove-orphans
@@ -28,26 +30,23 @@ spec:
         - name: ES_PASS
           valueFrom:
             secretKeyRef:
-              key: elastic
               name: elasticsearch-es-elastic-user
+              key: elastic
         - name: DB_USER
           valueFrom:
             secretKeyRef:
-              key: username
               name: database-app
+              key: username
         - name: DB_PASS
           valueFrom:
             secretKeyRef:
-              key: password
               name: database-app
+              key: password
         envFrom:
         - configMapRef:
-            name: mastodon-env
+            name: mastodon-core-env
         - secretRef:
             name: mastodon-secrets-env
-        image: ghcr.io/mastodon/mastodon:v4.4.0-beta.1@sha256:49d58b37ff8a1e282e6bef2eae2ea9e0c1d7f39dc62d7e2595b06949fec25c4d
-        imagePullPolicy: IfNotPresent
-        name: remove-orphans
         resources:
           limits:
             memory: 4Gi
