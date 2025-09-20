@@ -1,0 +1,58 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Component
+
+# This component adds the common database and elasticsearch volume mounts
+# and certificate configuration that most Mastodon components need
+
+patches:
+- target:
+    kind: Deployment
+  patch: |-
+    - op: add
+      path: /spec/template/spec/volumes/-
+      value:
+        name: db-ca
+        secret:
+          secretName: mastodon-postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+    - op: add
+      path: /spec/template/spec/volumes/-
+      value:
+        name: es-ca
+        secret:
+          secretName: mastodon-elastic-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+
+- target:
+    kind: Deployment
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts/-
+      value:
+        name: db-ca
+        mountPath: /opt/mastodon/.postgresql/root.crt
+        subPath: ca.crt
+    - op: add
+      path: /spec/template/spec/containers/0/volumeMounts/-
+      value:
+        name: es-ca
+        mountPath: /opt/mastodon/.elasticsearch/ca.crt
+        subPath: ca.crt
+
+- target:
+    kind: Deployment
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: DB_SSLMODE
+        value: verify-ca
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: DB_SSLROOTCERT
+        value: /opt/mastodon/.postgresql/root.crt

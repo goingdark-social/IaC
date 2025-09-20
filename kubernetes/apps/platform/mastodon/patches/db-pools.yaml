@@ -1,0 +1,30 @@
+# Database connection pool patches for different components
+# Based on concurrency requirements:
+# - Web: 15 (3 workers × 5 threads)
+# - Sidekiq: 25 (matches concurrency setting)
+# - Streaming: 5 (lower concurrency Node.js app)
+
+# Sidekiq workers need higher DB pool to match concurrency
+- target:
+    kind: Deployment
+    labelSelector: component=sidekiq-worker
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: DB_POOL
+        value: "25"
+
+# Streaming servers need smaller DB pool
+- target:
+    kind: Deployment
+    labelSelector: component=streaming-server
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: DB_POOL
+        value: "5"
+
+# Web servers use the default from configmap (15)
+# No patch needed as base config is already correct

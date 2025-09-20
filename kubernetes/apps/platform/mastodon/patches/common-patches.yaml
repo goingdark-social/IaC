@@ -1,0 +1,83 @@
+# Common patches for Mastodon components
+
+# Priority classes for different components
+- target:
+    kind: Deployment
+    labelSelector: component=mastodon-critical
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-critical
+
+- target:
+    kind: Deployment
+    labelSelector: component=mastodon-high
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-high
+
+- target:
+    kind: Deployment
+    labelSelector: component=web-server
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-critical
+
+- target:
+    kind: Deployment
+    labelSelector: component=sidekiq-worker
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-high
+
+- target:
+    kind: Deployment
+    labelSelector: component=streaming-server
+  patch: |-
+    - op: add
+      path: /spec/template/spec/priorityClassName
+      value: mastodon-high
+
+# Tolerations for autoscaler nodes
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/part-of=mastodon
+  patch: |-
+    - op: add
+      path: /spec/template/spec/tolerations
+      value:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+# Common security context
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/part-of=mastodon
+  patch: |-
+    - op: add
+      path: /spec/template/spec/securityContext
+      value:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+
+# Container security context for mastodon containers
+- target:
+    kind: Deployment
+    labelSelector: app.kubernetes.io/part-of=mastodon
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/securityContext
+      value:
+        runAsNonRoot: true
+        runAsUser: 991
+        runAsGroup: 991
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault

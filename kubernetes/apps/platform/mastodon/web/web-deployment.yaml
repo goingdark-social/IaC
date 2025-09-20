@@ -5,6 +5,8 @@ metadata:
   namespace: mastodon
   labels:
     app: mastodon-web
+    component: web-server
+    app.kubernetes.io/part-of: mastodon
 spec:
   replicas: 1
   selector:
@@ -14,6 +16,8 @@ spec:
     metadata:
       labels:
         app: mastodon-web
+        component: web-server
+        app.kubernetes.io/part-of: mastodon
         elasticsearch-client: "true"
     spec:
       tolerations:

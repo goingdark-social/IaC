@@ -6,6 +6,7 @@ metadata:
   labels:
     app: mastodon-sidekiq-generic
     component: sidekiq-worker
+    app.kubernetes.io/part-of: mastodon
 spec:
   replicas: 5
   selector:
@@ -16,6 +17,7 @@ spec:
       labels:
         app: mastodon-sidekiq-generic
         component: sidekiq-worker
+        app.kubernetes.io/part-of: mastodon
         elasticsearch-client: "true"
     spec:
       securityContext:

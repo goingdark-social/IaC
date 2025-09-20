@@ -1,0 +1,49 @@
+# Production scaling configuration for Mastodon components
+
+# Web server HPA - more aggressive scaling for user-facing traffic
+- target:
+    kind: HorizontalPodAutoscaler
+    name: mastodon-web-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 10
+    - op: replace
+      path: /spec/behavior/scaleUp/stabilizationWindowSeconds
+      value: 60
+    - op: replace
+      path: /spec/behavior/scaleUp/policies/0/periodSeconds
+      value: 15
+    - op: replace
+      path: /spec/behavior/scaleUp/policies/0/value
+      value: 2
+
+# Sidekiq worker HPA - high capacity for background job processing
+- target:
+    kind: HorizontalPodAutoscaler
+    name: mastodon-sidekiq-generic-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 5
+    - op: replace
+      path: /spec/maxReplicas
+      value: 15
+    - op: replace
+      path: /spec/metrics/0/resource/target/averageUtilization
+      value: 70
+
+# Streaming server HPA - moderate scaling for real-time features
+- target:
+    kind: HorizontalPodAutoscaler
+    name: mastodon-streaming-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 2
+    - op: replace
+      path: /spec/maxReplicas
+      value: 6

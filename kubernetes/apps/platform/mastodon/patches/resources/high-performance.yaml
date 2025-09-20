@@ -1,0 +1,40 @@
+# Production resource profiles for different Mastodon components
+
+# Sidekiq workers - high memory and CPU for background processing
+- target:
+    labelSelector: component=sidekiq-worker
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources
+      value:
+        requests:
+          cpu: "1000m"
+          memory: "2Gi"
+        limits:
+          memory: "3Gi"
+
+# Web servers - balanced resources for request handling
+- target:
+    labelSelector: component=web-server
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources
+      value:
+        requests:
+          cpu: "500m"
+          memory: "1.5Gi"
+        limits:
+          memory: "2Gi"
+
+# Streaming servers - lower resources but realistic for production
+- target:
+    labelSelector: component=streaming-server
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources
+      value:
+        requests:
+          cpu: "150m"
+          memory: "384Mi"
+        limits:
+          memory: "768Mi"
