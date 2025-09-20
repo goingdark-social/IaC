@@ -1,19 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq
+  name: mastodon-sidekiq-generic
   namespace: mastodon
   labels:
-    app: mastodon-sidekiq
+    app: mastodon-sidekiq-generic
+    component: sidekiq-worker
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
-      app: mastodon-sidekiq
+      app: mastodon-sidekiq-generic
   template:
     metadata:
       labels:
-        app: mastodon-sidekiq
+        app: mastodon-sidekiq-generic
+        component: sidekiq-worker
         elasticsearch-client: "true"
     spec:
       securityContext:
@@ -31,8 +33,20 @@ spec:
             - bundle
             - exec
             - sidekiq
-            - -C
-            - /opt/mastodon/config/sidekiq.yml
+            - -c
+            - "25"
+            - -q
+            - default
+            - -q
+            - mailers
+            - -q
+            - push
+            - -q
+            - ingress
+            - -q
+            - fasp
+            - -q
+            - pull
           envFrom:
             - secretRef:
                 name: mastodon-app-secrets
@@ -59,6 +73,8 @@ spec:
               value: verify-ca
             - name: DB_SSLROOTCERT
               value: /opt/mastodon/.postgresql/root.crt
+            - name: DB_POOL
+              value: "25"
           volumeMounts:
             - name: db-ca
               mountPath: /opt/mastodon/.postgresql/root.crt
@@ -73,10 +89,10 @@ spec:
             periodSeconds: 30
           resources:
             requests:
-              cpu: "250m"
-              memory: "600Mi"
+              cpu: "1111m"
+              memory: "2078Mi"
             limits:
-              memory: "1Gi"
+              memory: "3Gi"
           securityContext:
             runAsNonRoot: true
             runAsUser: 991
