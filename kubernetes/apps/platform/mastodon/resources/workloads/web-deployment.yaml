@@ -43,23 +43,21 @@ spec:
             - secretRef:
                 name: mastodon-db-url
             - configMapRef:
-                name: mastodon-core-env
+                name: mastodon-core
             - configMapRef:
-                name: mastodon-db-env
+                name: mastodon-database
             - configMapRef:
-                name: mastodon-cache-env
+                name: mastodon-redis
             - configMapRef:
-                name: mastodon-search-env
+                name: mastodon-search
             - configMapRef:
-                name: mastodon-metrics-env
+                name: mastodon-features
             - configMapRef:
-                name: mastodon-features-env
+                name: mastodon-storage
             - configMapRef:
-                name: mastodon-network-env
+                name: mastodon-smtp
             - configMapRef:
-                name: mastodon-storage-env
-            - configMapRef:
-                name: mastodon-smtp-env
+                name: mastodon-web
           env:
             - name: DB_SSLMODE
               value: verify-ca

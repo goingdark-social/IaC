@@ -4,91 +4,60 @@ kind: Kustomization
 namespace: mastodon
 
 configMapGenerator:
-- literals:
-  - RAILS_ENV=production
-  - NODE_ENV=production
-  - TZ=Europe/Stockholm
-  - SINGLE_USER_MODE=false
-  - MASTODON_USE_LIBVIPS=true
-  - RAILS_LOG_TO_STDOUT=true
-  - PREPARED_STATEMENTS=false
-  name: mastodon-core-env
-- literals:
-  - DB_HOST=mastodon-postgresql-pooler
-  - DB_PORT=5432
-  - DB_NAME=mastodon
-  - DB_SSLMODE=require
-  - DB_SSLROOTCERT=/opt/mastodon/.postgresql/root.crt
-  - DB_POOL=5
-  - REPLICA_DB_HOST=mastodon-postgresql-repl
-  - REPLICA_DB_PORT=5432
-  - REPLICA_DB_NAME=mastodon
-  - REPLICA_PREPARED_STATEMENTS=false
-  - REPLICA_DB_TASKS=false
-  - DATABASE_TIMEOUT=60
-  - STREAMING_DATABASE_TIMEOUT=10
-  name: mastodon-db-env
-- literals:
-  - REDIS_HOST=mastodon-redis-master
-  - REDIS_PORT=6379
-  - REDIS_URL=redis://mastodon-redis-master:6379/0
-  - SIDEKIQ_REDIS_URL=redis://mastodon-redis-master:6379/1
-  - CACHE_REDIS_URL=redis://mastodon-redis-master:6379/2
-  - STREAMING_REDIS_URL=redis://mastodon-redis-master:6379/3
-  - QUERY_CACHE_REDIS_URL=redis://mastodon-redis-master:6379/4
-  - SIDEKIQ_CONCURRENCY=6
-  name: mastodon-cache-env
-- literals:
-  - ES_ENABLED=true
-  - ES_HOST=https://elasticsearch-master
-  - ES_PORT=9200
-  - ES_USER=mastodon
-  - ES_PRESET=single_node_cluster
-  - ES_SSL=true
-  - ES_CA_FILE=/opt/mastodon/.elasticsearch/ca.crt
-  name: mastodon-search-env
-- literals:
-  - MASTODON_PROMETHEUS_EXPORTER_ENABLED=true
-  - MASTODON_PROMETHEUS_EXPORTER_LOCAL=true
-  name: mastodon-metrics-env
-- literals:
-  - MAX_TOOT_CHARS=1500
-  - FETCH_REPLIES_ENABLED=true
-  - FETCH_REPLIES_COOLDOWN_MINUTES=15
-  - FETCH_REPLIES_INITIAL_WAIT_MINUTES=5
-  - FETCH_REPLIES_MAX_GLOBAL=1000
-  - FETCH_REPLIES_MAX_SINGLE=500
-  - FETCH_REPLIES_MAX_PAGES=500
-  - IP_RETENTION_PERIOD=15552000
-  - DEFAULT_LOCALE=en
-  - FORCE_DEFAULT_LOCALE=true
-  name: mastodon-features-env
-- literals:
-  - PORT=3000
-  - BIND=0.0.0.0
-  - RAILS_SERVE_STATIC_FILES=true
-  - WEB_CONCURRENCY=3
-  - MAX_THREADS=5
-  - STREAMING_API_BASE_URL=wss://goingdark.social
-  - STREAMING_PORT=4000
-  name: mastodon-network-env
-- literals:
-  - S3_ENABLED=true
-  - S3_BUCKET=mastodata
-  - S3_ALIAS_HOST=cdn.goingdark.social
-  - S3_PROTOCOL=https
-  - S3_REGION=auto
-  - S3_PERMISSION=
-  - EXTRA_MEDIA_HOSTS=https://cdn.goingdark.social
-  name: mastodon-storage-env
-- literals:
-  - SMTP_DELIVERY_METHOD=smtp
-  - SMTP_AUTH_METHOD=login
-  - SMTP_SSL=false
-  - SMTP_TLS=false
-  - SMTP_ENABLE_STARTTLS_AUTO=true
-  - SMTP_OPENSSL_VERIFY_MODE=peer
-  name: mastodon-smtp-env
+  # Core application config - used by web, sidekiq, streaming
+  - name: mastodon-core
+    envs:
+      - configs/mastodon-core.env
+    
+  # Database config - used by web, sidekiq, jobs
+  - name: mastodon-database  
+    envs:
+      - configs/mastodon-database.env
+      
+  # Redis config - used by web, sidekiq, streaming
+  - name: mastodon-redis
+    envs:
+      - configs/mastodon-redis.env
+      
+  # Search config - used by web, sidekiq (when ES enabled)
+  - name: mastodon-search
+    envs:
+      - configs/mastodon-search.env
+      
+  # Features and content settings - used by web, sidekiq
+  - name: mastodon-features
+    envs:
+      - configs/mastodon-features.env
+      
+  # Storage configuration - used by web, sidekiq
+  - name: mastodon-storage
+    envs:
+      - configs/mastodon-storage.env
+      
+  # SMTP configuration - used by web, sidekiq
+  - name: mastodon-smtp
+    envs:
+      - configs/mastodon-smtp.env
+      
+  # Web-specific config - only web deployment
+  - name: mastodon-web
+    envs:
+      - configs/mastodon-web.env
+      
+  # Sidekiq-specific config - only sidekiq
+  - name: mastodon-sidekiq
+    envs:
+      - configs/mastodon-sidekiq.env
+      
+  # Streaming-specific config - only streaming
+  - name: mastodon-streaming
+    envs:
+      - configs/mastodon-streaming.env
+      
+  # Job-specific config - only for jobs
+  - name: mastodon-jobs
+    envs:
+      - configs/mastodon-jobs.env
 
   
   # Configurations

@@ -21,7 +21,7 @@ spec:
                 - secretRef:
                     name: mastodon-db-url
                 - configMapRef:
-                    name: mastodon-db-env
+                    name: mastodon-database
               env:
                 - name: PGUSER
                   valueFrom:
