@@ -69,7 +69,7 @@ controller:
       memory: 256Mi
     limits:
       cpu: 300m
-      memory: 512Mi
+      memory: 800Mi
 
 dex:
   enabled: false
