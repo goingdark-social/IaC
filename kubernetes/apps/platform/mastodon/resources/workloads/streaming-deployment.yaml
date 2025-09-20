@@ -34,16 +34,22 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           envFrom:
+            # Application secrets (domain, keys, credentials)
             - secretRef:
                 name: mastodon-app-secrets
+            # Database connection credentials
             - secretRef:
                 name: mastodon-db-url
+            # Core application settings
             - configMapRef:
                 name: mastodon-core
+            # Database connection details
             - configMapRef:
                 name: mastodon-database
+            # Redis real-time streaming
             - configMapRef:
                 name: mastodon-redis
+            # Streaming server specific settings
             - configMapRef:
                 name: mastodon-streaming
           volumeMounts:

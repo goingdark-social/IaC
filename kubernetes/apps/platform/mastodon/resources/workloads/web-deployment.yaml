@@ -38,24 +38,31 @@ spec:
             - name: http
               containerPort: 3000
           envFrom:
+            # Application secrets (domain, keys, credentials)
             - secretRef:
                 name: mastodon-app-secrets
+            # Database connection credentials  
             - secretRef:
                 name: mastodon-db-url
+            # Core application settings
             - configMapRef:
                 name: mastodon-core
+            # Database connection details
             - configMapRef:
                 name: mastodon-database
+            # Redis caching and session storage
             - configMapRef:
                 name: mastodon-redis
+            # Elasticsearch search configuration
             - configMapRef:
                 name: mastodon-search
+            # Content and feature settings
             - configMapRef:
                 name: mastodon-features
+            # External services (SMTP + S3 storage)
             - configMapRef:
-                name: mastodon-storage
-            - configMapRef:
-                name: mastodon-smtp
+                name: mastodon-external-services
+            # Web server specific settings
             - configMapRef:
                 name: mastodon-web
           env:

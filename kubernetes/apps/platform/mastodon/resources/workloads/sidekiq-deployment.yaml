@@ -34,24 +34,31 @@ spec:
             - -C
             - /opt/mastodon/config/sidekiq.yml
           envFrom:
+            # Application secrets (domain, keys, credentials)
             - secretRef:
                 name: mastodon-app-secrets
+            # Database connection credentials
             - secretRef:
                 name: mastodon-db-url
+            # Core application settings
             - configMapRef:
                 name: mastodon-core
+            # Database connection details
             - configMapRef:
                 name: mastodon-database
+            # Redis queuing and caching
             - configMapRef:
                 name: mastodon-redis
+            # Search indexing configuration
             - configMapRef:
                 name: mastodon-search
+            # Content processing settings
             - configMapRef:
                 name: mastodon-features
+            # External services (SMTP + S3 storage)
             - configMapRef:
-                name: mastodon-storage
-            - configMapRef:
-                name: mastodon-smtp
+                name: mastodon-external-services
+            # Background job worker settings
             - configMapRef:
                 name: mastodon-sidekiq
           env:

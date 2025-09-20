@@ -29,15 +29,11 @@ configMapGenerator:
     envs:
       - configs/mastodon-features.env
       
-  # Storage configuration - used by web, sidekiq
-  - name: mastodon-storage
-    envs:
-      - configs/mastodon-storage.env
-      
-  # SMTP configuration - used by web, sidekiq
-  - name: mastodon-smtp
+  # External services (SMTP + Storage) - used by web, sidekiq
+  - name: mastodon-external-services
     envs:
       - configs/mastodon-smtp.env
+      - configs/mastodon-storage.env
       
   # Web-specific config - only web deployment
   - name: mastodon-web

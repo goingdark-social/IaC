@@ -20,14 +20,19 @@ spec:
           image: ghcr.io/glitch-soc/mastodon:v4.4.4
           command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 bundle exec rails db:migrate --trace"]
           envFrom:
+            # Application secrets (domain, keys, credentials)
             - secretRef:
                 name: mastodon-app-secrets
+            # Database connection credentials
             - secretRef:
                 name: mastodon-db-url
+            # Core application settings
             - configMapRef:
                 name: mastodon-core
+            # Database connection details
             - configMapRef:
                 name: mastodon-database
+            # Job-specific database settings (reduced pool size)
             - configMapRef:
                 name: mastodon-jobs
           volumeMounts:
