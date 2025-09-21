@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq
+  name: mastodon-sidekiq-default
   namespace: mastodon
 spec:
   template:
@@ -15,13 +15,82 @@ spec:
             podAffinityTerm:
               topologyKey: kubernetes.io/hostname
               labelSelector:
-                matchLabels: { app: mastodon-sidekiq }
+                matchLabels: { app: mastodon-sidekiq-default }
       topologySpreadConstraints:
       - maxSkew: 1
         topologyKey: kubernetes.io/hostname
         whenUnsatisfiable: ScheduleAnyway
         labelSelector:
-          matchLabels: { app: mastodon-sidekiq }
+          matchLabels: { app: mastodon-sidekiq-default }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-federation
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels: { app: mastodon-sidekiq-federation }
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels: { app: mastodon-sidekiq-federation }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-background
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels: { app: mastodon-sidekiq-background }
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels: { app: mastodon-sidekiq-background }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-scheduler
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels: { app: mastodon-sidekiq-scheduler }
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels: { app: mastodon-sidekiq-scheduler }
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -78,10 +78,16 @@ All applications are managed through ArgoCD and deploy automatically when change
 
 ## Mastodon Web Metrics and Autoscaling
 
-- The `mastodon-web` service now exposes port 9394 so each pod's `/metrics` endpoint is reachable inside the cluster.
-- VictoriaMetrics scrapes that endpoint through a `VMServiceScrape` and a Prometheus adapter publishes custom metrics for queue latency, backlog, and request rate.
-- The horizontal pod autoscaler targets a 50 ms p95 queue duration, caps backlog at 20 pending requests, and still watches CPU at 70% so we have a safety net.
-- Scale ups react inside 30 seconds and can add up to three pods at once, while scale downs wait three minutes before stepping back to avoid flapping.
+- The `mastodon-web` deployment scales primarily on memory pressure (75% target) with CPU as a secondary signal at 70% utilization.
+- Scale ups add two pods at a time with a 30 second stabilization window so we can handle sudden traffic while still capping the pool at six replicas.
+- Scale downs wait three minutes between steps to avoid disconnecting active sessions too aggressively.
+- Streaming workers now scale between one and five replicas with a 50% CPU target so websocket fan-out stays snappy even when a wave of followers lands at once.
+
+## Mastodon Background Queues
+
+- Sidekiq is split into four deployments: default (interactive work), federation (push/ingress), background (mailers and slow jobs), and scheduler (cron jobs).
+- Each deployment has its own HPA tuned for that workload, so heavy federation traffic can burst without starving notifications or cron jobs.
+- Database pool sizes now match the thread counts in each queue, and PodDisruptionBudgets keep at least one worker for every queue during maintenance.
 
 ## Tech Stack
 

@@ -1,6 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- sidekiq-hpa.yaml
+- sidekiq-default-hpa.yaml
+- sidekiq-federation-hpa.yaml
+- sidekiq-background-hpa.yaml
 - streaming-hpa.yaml
 - web-hpa.yaml

@@ -4,6 +4,9 @@ resources:
 - database.yaml
 - elastic-sts.yaml
 - redis-statefulset.yaml
-- sidekiq-deployment.yaml
+- sidekiq-default-deployment.yaml
+- sidekiq-federation-deployment.yaml
+- sidekiq-background-deployment.yaml
+- sidekiq-scheduler-deployment.yaml
 - streaming-deployment.yaml
 - web-deployment.yaml
