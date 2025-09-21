@@ -8,31 +8,25 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: mastodon-sidekiq-federation
-  minReplicas: 2
-  maxReplicas: 8
+  minReplicas: 1
+  maxReplicas: 6
   metrics:
-    - type: Resource
-      resource:
-        name: memory
+    - type: External
+      external:
+        metric:
+          name: sidekiq_queue_latency_seconds
+          selector:
+            matchLabels:
+              queue: "push"
         target:
-          type: Utilization
-          averageUtilization: 80
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 75
+          type: Value
+          value: "30"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 90
       policies:
         - type: Pods
-          value: 2
+          value: 1
           periodSeconds: 45
     scaleDown:
       stabilizationWindowSeconds: 600
-      policies:
-        - type: Pods
-          value: 1
-          periodSeconds: 120

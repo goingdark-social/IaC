@@ -9,20 +9,15 @@ spec:
     kind: Deployment
     name: mastodon-streaming
   minReplicas: 1
-  maxReplicas: 5
+  maxReplicas: 3
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
+    - type: External
+      external:
+        metric:
+          name: mastodon_streaming_connected_clients
         target:
-          type: Utilization
-          averageUtilization: 50
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 70
+          type: AverageValue
+          averageValue: "200"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 30

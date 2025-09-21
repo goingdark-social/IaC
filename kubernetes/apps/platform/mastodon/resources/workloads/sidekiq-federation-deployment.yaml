@@ -7,7 +7,7 @@ metadata:
     app: mastodon-sidekiq-federation
     queue-type: federation
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: mastodon-sidekiq-federation
