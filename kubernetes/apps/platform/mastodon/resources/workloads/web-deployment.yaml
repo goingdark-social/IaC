@@ -107,6 +107,28 @@ spec:
               memory: "2271Mi"
             limits:
               memory: "2750Mi"
+        # Prometheus metrics exporter sidecar - collects from all Puma workers
+        - name: prometheus-exporter
+          image: discourse/prometheus_exporter:latest
+          args:
+            - --bind=0.0.0.0
+            - --port=9394
+          ports:
+            - name: metrics
+              containerPort: 9394
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
       volumes:
         - name: db-ca
           secret:

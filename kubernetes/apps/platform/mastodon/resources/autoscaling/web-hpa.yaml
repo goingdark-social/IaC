@@ -5,52 +5,41 @@ metadata:
   namespace: mastodon
   annotations:
     autoscaling.alpha.kubernetes.io/conditions: |
-      Primary metric: ruby_http_request_queue_duration_seconds_p95 scales on queue latency
-      Target: 50ms p95 latency for the web pods
-      Fallback: CPU utilization at 70 percent as a safety net
+      Primary metric: puma_request_backlog scales on actual request queue depth (leading indicator)
+      Target: 3 requests maximum in backlog for responsive performance  
+      Safety net: Memory utilization as Ruby apps are memory-bound, not CPU-bound
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mastodon-web
   minReplicas: 2
-  maxReplicas: 10
+  maxReplicas: 8
   metrics:
+    # Primary scaling metric - request backlog (leading indicator)
     - type: External
       external:
         metric:
-          name: ruby_http_request_queue_duration_seconds_p95
+          name: puma_request_backlog
           selector:
             matchLabels:
               job: mastodon-web
         target:
           type: Value
-          value: "50m"
-    - type: External
-      external:
-        metric:
-          name: ruby_puma_request_backlog_max
-          selector:
-            matchLabels:
-              job: mastodon-web
-        target:
-          type: Value
-          value: "20"
+          value: "3"   # Scale when > 3 requests waiting
+    # Safety net - memory is more predictive than CPU for Ruby apps
     - type: Resource
       resource:
-        name: cpu
+        name: memory
         target:
           type: Utilization
-          averageUtilization: 70
+          averageUtilization: 80
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 30
       policies:
         - type: Pods
-          value: 3
-          periodSeconds: 30
-        - type: Percent
-          value: 100
+          value: 2
           periodSeconds: 30
       selectPolicy: Max
     scaleDown:
@@ -58,8 +47,5 @@ spec:
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 60
-        - type: Percent
-          value: 50
           periodSeconds: 60
       selectPolicy: Min
