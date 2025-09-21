@@ -56,6 +56,8 @@ spec:
                 name: mastodon-features
             - configMapRef:
                 name: mastodon-external-services
+            - configMapRef:
+                name: mastodon-sidekiq
           env:
             - name: DB_POOL
               value: "10"

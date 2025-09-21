@@ -12,8 +12,8 @@ The repository follows a GitOps pattern with two main applications:
 
 ### Mastodon
 Complete social media platform deployment including:
-- **Web servers** (`mastodon/web/`) - Main Mastodon application (2 replicas, glitch-soc/mastodon:v4.4.4)
-- **Background jobs** (`mastodon/sidekiq-*`) - Queue-specific Sidekiq deployments for default, federation, background, and scheduler work
+- **Web servers** (`mastodon/web/`) - Main Mastodon application (2 replicas, glitch-soc/mastodon:v4.4.3)
+- **Background jobs** (`mastodon/sidekiq/`) - Handles async processing
 - **Streaming API** (`mastodon/streaming/`) - Real-time updates
 - **PostgreSQL cluster** (`mastodon/postgres/`) - Primary database with connection pooling and backup (Zalando Postgres Operator)
 - **Redis** (`mastodon/redis/`) - Caching and session storage
@@ -60,10 +60,7 @@ kubectl get applications -n argocd
 
 # View logs
 kubectl logs -n mastodon -l app=mastodon-web
-kubectl logs -n mastodon -l app=mastodon-sidekiq-default
-kubectl logs -n mastodon -l app=mastodon-sidekiq-federation
-kubectl logs -n mastodon -l app=mastodon-sidekiq-background
-kubectl logs -n mastodon -l app=mastodon-sidekiq-scheduler
+kubectl logs -n mastodon -l app=mastodon-sidekiq
 kubectl logs -n hypebot -l app=hypebot
 
 # Check database status

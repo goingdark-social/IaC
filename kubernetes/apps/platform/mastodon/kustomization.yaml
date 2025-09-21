@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: mastodon
 
 configMapGenerator:
-  # Queue-specific Sidekiq deployments set their own arguments; no shared config map needed
   # Core application config - used by web, sidekiq, streaming
   - name: mastodon-core
     envs:
@@ -40,6 +39,11 @@ configMapGenerator:
   - name: mastodon-web
     envs:
       - configs/mastodon-web.env
+
+  # Sidekiq-specific config - only sidekiq
+  - name: mastodon-sidekiq
+    envs:
+      - configs/mastodon-sidekiq.env
 
   # Streaming-specific config - only streaming
   - name: mastodon-streaming
