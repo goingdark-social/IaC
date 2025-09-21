@@ -3,40 +3,63 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: mastodon-web-hpa
   namespace: mastodon
+  annotations:
+    autoscaling.alpha.kubernetes.io/conditions: |
+      Primary metric: ruby_http_request_queue_duration_seconds_p95 scales on queue latency
+      Target: 50ms p95 latency for the web pods
+      Fallback: CPU utilization at 70 percent as a safety net
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mastodon-web
   minReplicas: 2
-  maxReplicas: 4
+  maxReplicas: 10
   metrics:
+    - type: External
+      external:
+        metric:
+          name: ruby_http_request_queue_duration_seconds_p95
+          selector:
+            matchLabels:
+              job: mastodon-web
+        target:
+          type: Value
+          value: "50m"
+    - type: External
+      external:
+        metric:
+          name: ruby_puma_request_backlog_max
+          selector:
+            matchLabels:
+              job: mastodon-web
+        target:
+          type: Value
+          value: "20"
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
           averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 90
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60    # reduced from 300s for faster response
+      stabilizationWindowSeconds: 30
       policies:
         - type: Pods
-          value: 2                      # allow 2 pods per period
-          periodSeconds: 15             # every 15s instead of 120s
+          value: 3
+          periodSeconds: 30
         - type: Percent
-          value: 50                     # or 50% increase per period
-          periodSeconds: 15
-      selectPolicy: Max                 # choose the more aggressive policy
+          value: 100
+          periodSeconds: 30
+      selectPolicy: Max
     scaleDown:
-      stabilizationWindowSeconds: 900   # keep conservative 15 min before scaling down
+      stabilizationWindowSeconds: 180
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 300
+          periodSeconds: 60
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+      selectPolicy: Min

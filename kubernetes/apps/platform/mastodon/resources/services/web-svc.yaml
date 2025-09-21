@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: mastodon-web
   namespace: mastodon
+  labels:
+    app: mastodon-web
+    component: web
 spec:
   type: ClusterIP
   selector:
@@ -11,3 +14,6 @@ spec:
     - name: http
       port: 3000
       targetPort: 3000
+    - name: metrics
+      port: 9394
+      targetPort: 9394

@@ -127,6 +127,47 @@ vmagent:
       limits:
         memory: 500Mi
 
+prometheus-adapter:
+  enabled: true
+  prometheus:
+    url: http://vm-victoria-metrics-k8s-stack.victoriametrics.svc.cluster.local
+    port: 8428
+  rules:
+    external:
+      - seriesQuery: 'ruby_http_request_queue_duration_seconds_bucket{job="mastodon-web"}'
+        name:
+          matches: "ruby_http_request_queue_duration_seconds_bucket"
+          as: "ruby_http_request_queue_duration_seconds_p95"
+        metricsQuery: 'histogram_quantile(0.95, rate(<<.Series>>[2m]))'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+            pod: {resource: "pod"}
+      - seriesQuery: 'ruby_puma_request_backlog{job="mastodon-web"}'
+        name:
+          matches: "ruby_puma_request_backlog"
+          as: "ruby_puma_request_backlog_max"
+        metricsQuery: 'max(<<.Series>>)'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+            pod: {resource: "pod"}
+      - seriesQuery: 'ruby_http_requests_total{job="mastodon-web"}'
+        name:
+          matches: "ruby_http_requests_total"
+          as: "ruby_http_requests_per_second"
+        metricsQuery: 'rate(<<.Series>>[2m])'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+            pod: {resource: "pod"}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
 kubeEtcd:
   endpoints: *api-endpoints
   service:

@@ -4,6 +4,7 @@ resources:
 - autoscaling
 - disruption
 - jobs
+- monitoring
 - networking
 - priorityclasses.yaml
 - secrets
