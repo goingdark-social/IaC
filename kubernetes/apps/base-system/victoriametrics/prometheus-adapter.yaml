@@ -61,8 +61,7 @@ spec:
         args:
         - --cert-dir=/var/run/serving-cert
         - --config=/etc/adapter/config.yaml
-        - --logtostderr=true
-        - --prometheus-url=http://vmsingle-vm.victoriametrics.svc.cluster.local:8429
+        - --prometheus-url=http://vmsingle-vm.victoriametrics.svc.cluster.local:8428
         - --metrics-relist-interval=1m
         - --v=4
         - --secure-port=6443
@@ -185,24 +184,28 @@ spec:
   versionPriority: 100
 ---
 # Certificate generation job
-apiVersion: batch/v1
-kind: Job
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: prometheus-adapter-cert-generator
+  name: prometheus-adapter-certs
   namespace: victoriametrics
 spec:
-  template:
-    spec:
-      serviceAccountName: prometheus-adapter-cert-generator
-      containers:
-      - name: cert-generator
-        image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20230312-helm-chart-4.5.2-28-g66a760794
-        args:
-        - create
-        - --host=prometheus-adapter,prometheus-adapter.victoriametrics.svc
-        - --namespace=victoriametrics
-        - --secret-name=prometheus-adapter-certs
-      restartPolicy: OnFailure
+  secretName: prometheus-adapter-certs
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  subject:
+    organizations:
+      - prometheus-adapter
+  commonName: prometheus-adapter
+  dnsNames:
+    - prometheus-adapter
+    - prometheus-adapter.victoriametrics
+    - prometheus-adapter.victoriametrics.svc
+    - prometheus-adapter.victoriametrics.svc.cluster.local
+  issuerRef:
+    name: internal-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -221,9 +224,11 @@ rules:
   resources:
   - secrets
   verbs:
-  - create
-  - update
-  - patch
+    - create
+    - update
+    - patch
+    - get
+    - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -238,3 +243,5 @@ subjects:
 - kind: ServiceAccount
   name: prometheus-adapter-cert-generator
   namespace: victoriametrics
+
+---

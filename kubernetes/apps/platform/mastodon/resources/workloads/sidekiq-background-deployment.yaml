@@ -1,19 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq
+  name: mastodon-sidekiq-background
   namespace: mastodon
   labels:
-    app: mastodon-sidekiq
+    app: mastodon-sidekiq-background
+    queue-type: background
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mastodon-sidekiq
+      app: mastodon-sidekiq-background
   template:
     metadata:
       labels:
-        app: mastodon-sidekiq
+        app: mastodon-sidekiq-background
+        queue-type: background
         elasticsearch-client: "true"
     spec:
       securityContext:
@@ -25,43 +27,40 @@ spec:
           value: "true"
           effect: "NoSchedule"
       containers:
-        - name: sidekiq
+        - name: sidekiq-background
           image: ghcr.io/glitch-soc/mastodon:v4.4.4
           args:
             - bundle
             - exec
             - sidekiq
-            - -C
-            - /opt/mastodon/config/sidekiq.yml
+            - -q
+            - pull
+            - -q
+            - mailers
+            - -c
+            - "10"
           envFrom:
-            # Application secrets (domain, keys, credentials)
             - secretRef:
                 name: mastodon-app-secrets
-            # Database connection credentials
             - secretRef:
                 name: mastodon-db-url
-            # Core application settings
             - configMapRef:
                 name: mastodon-core
-            # Database connection details
             - configMapRef:
                 name: mastodon-database
-            # Redis queuing and caching
             - configMapRef:
                 name: mastodon-redis
-            # Search indexing configuration
             - configMapRef:
                 name: mastodon-search
-            # Content processing settings
             - configMapRef:
                 name: mastodon-features
-            # External services (SMTP + S3 storage)
             - configMapRef:
                 name: mastodon-external-services
-            # Background job worker settings
             - configMapRef:
                 name: mastodon-sidekiq
           env:
+            - name: DB_POOL
+              value: "10"
             - name: DB_SSLMODE
               value: verify-ca
             - name: DB_SSLROOTCERT
@@ -80,10 +79,10 @@ spec:
             periodSeconds: 30
           resources:
             requests:
-              cpu: "250m"
-              memory: "600Mi"
+              cpu: "200m"
+              memory: "500Mi"
             limits:
-              memory: "1Gi"
+              memory: "800Mi"
           securityContext:
             runAsNonRoot: true
             runAsUser: 991

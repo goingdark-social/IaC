@@ -39,12 +39,12 @@ configMapGenerator:
   - name: mastodon-web
     envs:
       - configs/mastodon-web.env
-      
+
   # Sidekiq-specific config - only sidekiq
   - name: mastodon-sidekiq
     envs:
       - configs/mastodon-sidekiq.env
-      
+
   # Streaming-specific config - only streaming
   - name: mastodon-streaming
     envs:

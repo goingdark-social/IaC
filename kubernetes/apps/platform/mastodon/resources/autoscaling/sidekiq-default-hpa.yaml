@@ -1,33 +1,32 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: mastodon-streaming-hpa
+  name: mastodon-sidekiq-default-hpa
   namespace: mastodon
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: mastodon-streaming
+    name: mastodon-sidekiq-default
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 4
   metrics:
     - type: External
       external:
         metric:
-          name: mastodon_streaming_connected_clients
+          name: sidekiq_queue_latency_seconds
+          selector:
+            matchLabels:
+              queue: "default"
         target:
-          type: AverageValue
-          averageValue: "200"
+          type: Value
+          value: "10"
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
-      policies:
-        - type: Pods
-          value: 2
-          periodSeconds: 30
-    scaleDown:
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 60
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 120
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300

@@ -80,8 +80,10 @@ All applications are managed through ArgoCD and deploy automatically when change
 
 - The `mastodon-web` service now exposes port 9394 so each pod's `/metrics` endpoint is reachable inside the cluster.
 - VictoriaMetrics scrapes that endpoint through a `VMServiceScrape` and a Prometheus adapter publishes custom metrics for queue latency, backlog, and request rate.
-- The horizontal pod autoscaler targets a 50 ms p95 queue duration, caps backlog at 20 pending requests, and still watches CPU at 70% so we have a safety net.
-- Scale ups react inside 30 seconds and can add up to three pods at once, while scale downs wait three minutes before stepping back to avoid flapping.
+- The web autoscaler scales when p95 queue time stays over 35 ms or backlog rises above three requests, and it keeps an 80 % memory target as a safety net.
+- Scale ups can add two pods every 30 seconds, while scale downs wait three minutes before stepping back to avoid flapping.
+- Sidekiq default and federation workers scale on the `sidekiq_queue_latency_seconds` metric (10 seconds for default, 30 seconds for federation) so they grow only when the queues back up.
+- Streaming workers follow the `mastodon_streaming_connected_clients` metric and add capacity once a pod carries around 200 live connections.
 
 ## Tech Stack
 

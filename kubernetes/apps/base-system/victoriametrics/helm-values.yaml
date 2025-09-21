@@ -90,9 +90,9 @@ vmsingle:
     resources:
       requests:
         cpu: 350m
-        memory: 2Gi
+        memory: 1Gi
       limits:
-        memory: 2Gi
+        memory: 1Gi
 
 vmcluster:
   enabled: false

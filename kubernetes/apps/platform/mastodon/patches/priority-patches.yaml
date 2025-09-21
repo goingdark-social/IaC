@@ -31,7 +31,37 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mastodon-sidekiq
+  name: mastodon-sidekiq-default
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-federation
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-background
+  namespace: mastodon
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-scheduler
   namespace: mastodon
 spec:
   template:
