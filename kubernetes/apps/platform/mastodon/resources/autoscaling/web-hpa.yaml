@@ -5,9 +5,9 @@ metadata:
   namespace: mastodon
   annotations:
     autoscaling.alpha.kubernetes.io/conditions: |
-      Primary metric: puma_request_backlog scales on actual request queue depth (leading indicator)
-      Target: 3 requests maximum in backlog for responsive performance  
-      Safety net: Memory utilization as Ruby apps are memory-bound, not CPU-bound
+      PRIMARY: ruby_http_request_queue_duration_seconds_p95 - request queue time (target: 35ms)
+      SECONDARY: ruby_puma_request_backlog - actual request queue depth (target: 3 requests)
+      SAFETY NET: Memory utilization as Ruby apps are memory-bound, not CPU-bound
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -16,18 +16,29 @@ spec:
   minReplicas: 2
   maxReplicas: 8
   metrics:
-    # Primary scaling metric - request backlog (leading indicator)
+    # PRIMARY scaling metric - HTTP request queue duration (leading indicator)
     - type: External
       external:
         metric:
-          name: puma_request_backlog
+          name: ruby_http_request_queue_duration_seconds_p95
+          selector:
+            matchLabels:
+              job: mastodon-web
+        target:
+          type: Value
+          value: "35m"   # 35ms as documented best practice
+    # SECONDARY scaling metric - request backlog (queue depth)
+    - type: External
+      external:
+        metric:
+          name: ruby_puma_request_backlog
           selector:
             matchLabels:
               job: mastodon-web
         target:
           type: Value
           value: "3"   # Scale when > 3 requests waiting
-    # Safety net - memory is more predictive than CPU for Ruby apps
+    # SAFETY NET - memory is more predictive than CPU for Ruby apps
     - type: Resource
       resource:
         name: memory

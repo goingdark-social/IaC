@@ -6,34 +6,34 @@ metadata:
 data:
   config.yaml: |
     rules:
-    # Puma request backlog - main scaling metric
-    - seriesQuery: 'puma_request_backlog{job="mastodon-web"}'
+    # PRIMARY: HTTP request queue duration - leading indicator (target: 35ms)
+    - seriesQuery: 'ruby_http_request_queue_duration_seconds_bucket{job="mastodon-web"}'
       name:
-        matches: "puma_request_backlog"
-        as: "puma_request_backlog"
-      metricsQuery: 'max(<<.Series>>{job="mastodon-web"})'
+        matches: "ruby_http_request_queue_duration_seconds_bucket"
+        as: "ruby_http_request_queue_duration_seconds_p95"
+      metricsQuery: 'histogram_quantile(0.95, rate(<<.Series>>{job="mastodon-web"}[2m]))'
       resources:
         overrides:
           namespace: {resource: "namespace"}
           pod: {resource: "pod"}
     
-    # Puma thread utilization - secondary metric
-    - seriesQuery: 'puma_running_threads{job="mastodon-web"}'
+    # SECONDARY: Request backlog - queue depth indicator  
+    - seriesQuery: 'ruby_puma_request_backlog{job="mastodon-web"}'
       name:
-        matches: "puma_running_threads"  
-        as: "puma_thread_utilization"
-      metricsQuery: '(max(<<.Series>>{job="mastodon-web"}) / on() max(puma_max_threads{job="mastodon-web"})) * 100'
+        matches: "ruby_puma_request_backlog"
+        as: "ruby_puma_request_backlog"
+      metricsQuery: 'max(<<.Series>>{job="mastodon-web"})'
       resources:
         overrides:
           namespace: {resource: "namespace"}
           pod: {resource: "pod"}
 
-    # Puma workers count - for monitoring
-    - seriesQuery: 'puma_workers{job="mastodon-web"}'
+    # Request rate - for monitoring
+    - seriesQuery: 'ruby_http_requests_total{job="mastodon-web"}'
       name:
-        matches: "puma_workers"
-        as: "puma_workers"
-      metricsQuery: 'max(<<.Series>>{job="mastodon-web"})'
+        matches: "ruby_http_requests_total"
+        as: "ruby_http_requests_per_second"
+      metricsQuery: 'rate(<<.Series>>{job="mastodon-web"}[2m])'
       resources:
         overrides:
           namespace: {resource: "namespace"}
