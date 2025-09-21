@@ -3,40 +3,60 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: mastodon-web-hpa
   namespace: mastodon
+  annotations:
+    autoscaling.alpha.kubernetes.io/conditions: |
+      PRIMARY: ruby_http_request_queue_duration_seconds_p95 - request queue time (target: 35ms)
+      SECONDARY: ruby_puma_request_backlog - actual request queue depth (target: 3 requests)
+      SAFETY NET: Memory utilization as Ruby apps are memory-bound, not CPU-bound
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: mastodon-web
   minReplicas: 2
-  maxReplicas: 4
+  maxReplicas: 8
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
+    # PRIMARY scaling metric - HTTP request queue duration (leading indicator)
+    - type: External
+      external:
+        metric:
+          name: ruby_http_request_queue_duration_seconds_p95
+          selector:
+            matchLabels:
+              job: mastodon-web
         target:
-          type: Utilization
-          averageUtilization: 70
+          type: Value
+          value: "35m"   # 35ms as documented best practice
+    # SECONDARY scaling metric - request backlog (queue depth)
+    - type: External
+      external:
+        metric:
+          name: ruby_puma_request_backlog
+          selector:
+            matchLabels:
+              job: mastodon-web
+        target:
+          type: Value
+          value: "3"   # Scale when > 3 requests waiting
+    # SAFETY NET - memory is more predictive than CPU for Ruby apps
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 90
+          averageUtilization: 80
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60    # reduced from 300s for faster response
+      stabilizationWindowSeconds: 30
       policies:
         - type: Pods
-          value: 2                      # allow 2 pods per period
-          periodSeconds: 15             # every 15s instead of 120s
-        - type: Percent
-          value: 50                     # or 50% increase per period
-          periodSeconds: 15
-      selectPolicy: Max                 # choose the more aggressive policy
+          value: 2
+          periodSeconds: 30
+      selectPolicy: Max
     scaleDown:
-      stabilizationWindowSeconds: 900   # keep conservative 15 min before scaling down
+      stabilizationWindowSeconds: 180
       policies:
         - type: Pods
           value: 1
-          periodSeconds: 300
+          periodSeconds: 60
+      selectPolicy: Min

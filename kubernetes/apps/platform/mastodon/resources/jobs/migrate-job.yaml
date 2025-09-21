@@ -3,6 +3,10 @@ kind: Job
 metadata:
   name: mastodon-db-migrate
   namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Database migration job with static configuration.
+      No longer depends on configMapGenerator to avoid hash-suffix issues.
 spec:
   parallelism: 1
   completions: 1
@@ -19,22 +23,35 @@ spec:
         - name: migrate
           image: ghcr.io/glitch-soc/mastodon:v4.4.4
           command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 bundle exec rails db:migrate --trace"]
+          env:
+            # Essential Rails environment
+            - name: RAILS_ENV
+              value: "production"
+            - name: DB_PORT
+              value: "5432"
+            # Database connection pool (optimized for migration jobs)
+            - name: DB_POOL
+              value: "1"
+            - name: PREPARED_STATEMENTS
+              value: "false"
+            # Database connection
+            - name: DB_HOST
+              value: "mastodon-postgresql-pooler"
+            - name: DB_NAME
+              value: "mastodon"
+            - name: DB_SSLMODE
+              value: "require"
+            - name: DB_SSLROOTCERT
+              value: "/opt/mastodon/.postgresql/root.crt"
+            - name: DATABASE_TIMEOUT
+              value: "60"
           envFrom:
-            # Application secrets (domain, keys, credentials)
-            - secretRef:
-                name: mastodon-app-secrets
-            # Database connection credentials
+            # Database credentials (essential)
             - secretRef:
                 name: mastodon-db-url
-            # Core application settings
-            - configMapRef:
-                name: mastodon-core
-            # Database connection details
-            - configMapRef:
-                name: mastodon-database
-            # Job-specific database settings (reduced pool size)
-            - configMapRef:
-                name: mastodon-jobs
+            # Application secrets (needed for some migrations)
+            - secretRef:
+                name: mastodon-app-secrets
           volumeMounts:
             - name: db-ca
               mountPath: /opt/mastodon/.postgresql/root.crt

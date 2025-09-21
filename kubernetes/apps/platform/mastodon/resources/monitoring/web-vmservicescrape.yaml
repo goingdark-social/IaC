@@ -1,0 +1,26 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: mastodon-web-metrics
+  namespace: mastodon
+  labels:
+    app: mastodon-web
+spec:
+  selector:
+    matchLabels:
+      app: mastodon-web
+      component: web
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      honorLabels: true
+      relabelConfigs:
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - targetLabel: job
+          replacement: mastodon-web
