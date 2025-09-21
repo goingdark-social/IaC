@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-exporter
+  namespace: victoriametrics
+  labels:
+    app: prometheus-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-exporter
+  template:
+    metadata:
+      labels:
+        app: prometheus-exporter
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: prometheus-exporter
+          image: discourse/prometheus_exporter:latest
+          ports:
+            - name: metrics
+              containerPort: 9394
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 9394
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 9394
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
