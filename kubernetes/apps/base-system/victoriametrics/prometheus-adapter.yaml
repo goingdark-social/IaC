@@ -62,7 +62,7 @@ spec:
         - --cert-dir=/var/run/serving-cert
         - --config=/etc/adapter/config.yaml
         - --logtostderr=true
-        - --prometheus-url=http://vmsingle-vm.victoriametrics.svc.cluster.local:8429
+        - --prometheus-url=http://vmsingle-vm.victoriametrics.svc.cluster.local:8428
         - --metrics-relist-interval=1m
         - --v=4
         - --secure-port=6443
@@ -221,9 +221,11 @@ rules:
   resources:
   - secrets
   verbs:
-  - create
-  - update
-  - patch
+    - create
+    - update
+    - patch
+    - get
+    - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -238,3 +240,5 @@ subjects:
 - kind: ServiceAccount
   name: prometheus-adapter-cert-generator
   namespace: victoriametrics
+
+---

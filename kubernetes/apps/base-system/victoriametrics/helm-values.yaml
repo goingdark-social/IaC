@@ -90,9 +90,9 @@ vmsingle:
     resources:
       requests:
         cpu: 350m
-        memory: 2Gi
+        memory: 512Mi
       limits:
-        memory: 2Gi
+        memory: 512Mi
 
 vmcluster:
   enabled: false
@@ -110,9 +110,9 @@ vmalert:
     resources:
       requests:
         cpu: 25m
-        memory: 100Mi
+        memory: 70Mi
       limits:
-        memory: 100Mi
+        memory: 70Mi
 
 vmagent:
   spec:

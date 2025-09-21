@@ -9,7 +9,7 @@ spec:
     kind: Deployment
     name: mastodon-sidekiq-federation
   minReplicas: 1
-  maxReplicas: 6
+  maxReplicas: 4
   metrics:
     - type: External
       external:
