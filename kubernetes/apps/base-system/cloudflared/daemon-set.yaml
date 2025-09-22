@@ -36,7 +36,7 @@ spec:
       #   nodepool: worker
       containers:
         - name: cloudflared
-          image: cloudflare/cloudflared:2025.9.0 # renovate: docker=cloudflare/cloudflared
+          image: cloudflare/cloudflared:2025.9.1 # renovate: docker=cloudflare/cloudflared
           imagePullPolicy: IfNotPresent
           args:
             - tunnel
