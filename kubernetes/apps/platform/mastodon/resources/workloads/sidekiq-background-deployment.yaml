@@ -37,6 +37,7 @@ spec:
             - pull
             - -q
             - mailers
+            - fasp
             - -c
             - "10"
           envFrom:
