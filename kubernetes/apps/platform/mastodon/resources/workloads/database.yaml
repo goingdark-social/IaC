@@ -38,13 +38,11 @@ spec:
     secretName: mastodon-postgresql-server
     caSecretName: mastodon-postgresql-ca
     caFile: ca.crt
-
-  # Connection pooler — correct Zalando syntax
   enableConnectionPooler: true
   enableReplicaConnectionPooler: true
   connectionPooler:
     numberOfInstances: 2
-    mode: "session"
+    mode: transaction
     resources:
       requests:
         cpu: 75m

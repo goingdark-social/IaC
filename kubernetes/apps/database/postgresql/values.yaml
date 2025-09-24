@@ -534,8 +534,11 @@ nodeSelector: {}
 
 # Tolerations for pod assignment
 # Ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-tolerations: []
-
+tolerations:
+  - key: "autoscaler-node"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
 controllerID:
   # Specifies whether a controller ID should be defined for the operator
   # Note, all postgres manifest must then contain the following annotation to be found by this operator
