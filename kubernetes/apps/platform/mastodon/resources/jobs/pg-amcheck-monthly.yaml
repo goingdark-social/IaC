@@ -16,7 +16,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: amcheck-monthly
-              image: postgres:17
+              image: postgres:18
               envFrom:
                 - secretRef:
                     name: mastodon-db-url
