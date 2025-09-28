@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
 - project.yaml
+- cloudnative-pg
 - postgresql

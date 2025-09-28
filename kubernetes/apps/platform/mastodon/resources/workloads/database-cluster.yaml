@@ -4,7 +4,7 @@ metadata:
   name: database
 spec:
   instances: 2
-  imageName: ghcr.io/cloudnative-pg/postgresql:16.9
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.2
   primaryUpdateStrategy: unsupervised
   enablePDB: true
 
@@ -45,6 +45,8 @@ spec:
       # statistics
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
+      # Archive configuration matching Zalando setup
+      archive_timeout: "300"
       # pgtune
       # DB Version: 17
       # OS Type: linux
@@ -69,6 +71,11 @@ spec:
       max_parallel_workers_per_gather: "2"
       max_parallel_workers: "4"
       max_parallel_maintenance_workers: "2"
+
+  # Database initialization with data checksums (like Zalando)
+  bootstrap:
+    initdb:
+      dataChecksums: true
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -85,10 +92,12 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
-  # nodeMaintenanceWindow:
-  
-  #   reusePVC: true
-  #   inProgress: true
+    # Keep Postgres able to run on both normal workers and autoscaler nodes
+    tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
 
 ---
 apiVersion: postgresql.cnpg.io/v1
@@ -132,6 +141,11 @@ spec:
             limits:
               memory: 100Mi
           name: pgbouncer
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
