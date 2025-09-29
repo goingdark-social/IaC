@@ -58,12 +58,10 @@ kubectl describe nodes | grep -A 5 "Allocated resources"
 
 #### Step 1.1: Test Zalando Backup System
 ```bash
-# Enable the backup job
-cd kubernetes/apps/platform/mastodon/resources/jobs
-sed -i 's/# - zalando-backup-job.yaml/- zalando-backup-job.yaml/' kustomization.yaml
+# Apply the backup job directly
+kubectl apply -f kubernetes/apps/platform/mastodon/resources/jobs/zalando-backup-job.yaml
 
-# Apply and run the backup test
-kubectl apply -k .
+# Run the backup test
 kubectl create job zalando-backup-test --from=job/zalando-backup-job -n mastodon
 
 # Monitor the backup
@@ -78,11 +76,10 @@ kubectl logs -f job/zalando-backup-test -n mastodon
 
 #### Step 1.2: Test CNPG Preparation
 ```bash
-# Enable the preparation job
-sed -i 's/# - cnpg-prepare-job.yaml/- cnpg-prepare-job.yaml/' kustomization.yaml
+# Apply the preparation job directly
+kubectl apply -f kubernetes/apps/platform/mastodon/resources/jobs/cnpg-prepare-job.yaml
 
-# Apply and run the preparation test
-kubectl apply -k .
+# Run the preparation test
 kubectl create job cnpg-prepare-test --from=job/cnpg-prepare-job -n mastodon
 
 # Monitor the preparation
@@ -115,15 +112,11 @@ kubectl get deployment mastodon-streaming -n mastodon -o jsonpath='{.spec.replic
 
 ### Phase 2: Migration Execution (5-15 Minutes Downtime)
 
-#### Step 2.1: Enable Migration Job
+#### Step 2.1: Execute Migration
 ```bash
-# Enable the main migration job
-sed -i 's/# - zalando-to-cnpg-migration.yaml/- zalando-to-cnpg-migration.yaml/' kustomization.yaml
-kubectl apply -k .
-```
+# Apply the migration job directly
+kubectl apply -f kubernetes/apps/platform/mastodon/resources/jobs/zalando-to-cnpg-migration.yaml
 
-#### Step 2.2: Execute Migration
-```bash
 # Start the migration (this will scale down applications)
 kubectl create job zalando-to-cnpg-migration-$(date +%Y%m%d-%H%M) --from=job/zalando-to-cnpg-migration -n mastodon
 
@@ -154,7 +147,7 @@ kubectl logs -f job/zalando-to-cnpg-migration-$(date +%Y%m%d-%H%M) -n mastodon
    - Applications automatically restore to original scale
    - Verify pods are starting successfully
 
-#### Step 2.3: Immediate Post-Migration Checks
+#### Step 2.2: Immediate Post-Migration Checks
 ```bash
 # Verify CNPG database has data
 kubectl exec -it $(kubectl get pods -n mastodon -l cnpg.io/cluster=database -o jsonpath='{.items[0].metadata.name}') -n mastodon -- \
@@ -168,9 +161,8 @@ kubectl get pods -n mastodon | grep -E "(mastodon-web|mastodon-sidekiq|mastodon-
 
 #### Step 3.1: Comprehensive Validation
 ```bash
-# Enable validation job
-sed -i 's/# - cnpg-validation-job.yaml/- cnpg-validation-job.yaml/' kustomization.yaml
-kubectl apply -k .
+# Apply validation job directly
+kubectl apply -f kubernetes/apps/platform/mastodon/resources/jobs/cnpg-validation-job.yaml
 
 # Run comprehensive validation
 kubectl create job cnpg-validation-$(date +%Y%m%d-%H%M) --from=job/cnpg-validation-job -n mastodon
@@ -240,11 +232,10 @@ kubectl create job cnpg-final-validation --from=job/cnpg-validation-job -n masto
 
 #### Step 5.2: Zalando Cleanup (Optional)
 ```bash
-# Enable cleanup job (DANGEROUS - READ THE CODE FIRST)
-sed -i 's/# - zalando-cleanup-job.yaml/- zalando-cleanup-job.yaml/' kustomization.yaml
-kubectl apply -k .
+# Review the cleanup job code before running (DANGEROUS - READ THE CODE FIRST)
+kubectl apply -f kubernetes/apps/platform/mastodon/resources/jobs/zalando-cleanup-job.yaml
 
-# Review the cleanup job code before running
+# Review the cleanup job manifest
 kubectl get job zalando-cleanup-job -n mastodon -o yaml
 
 # Execute cleanup (uncomment specific actions in the job first)

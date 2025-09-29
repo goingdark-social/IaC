@@ -3,12 +3,15 @@ kind: Kustomization
 resources:
 - backup-health.yaml
 - migrate-job.yaml
-- pg-amcheck-monthly.yaml
-- pg-amcheck-weekly.yaml
+# TODO: After migration complete and stable (7+ days), remove these Zalando-specific jobs:
+# Remove: pg-amcheck-monthly.yaml, pg-amcheck-weekly.yaml
+- pg-amcheck-monthly.yaml          # Zalando PostgreSQL integrity check - remove after migration
+- pg-amcheck-weekly.yaml           # Zalando PostgreSQL integrity check - remove after migration
 - setup-user-job.yaml
 
 # Zalando to CNPG Migration Jobs
-# Uncomment jobs as needed for migration process
+# DO NOT include these in kustomize - apply with kubectl apply -f as needed
+# See MIGRATION_GUIDE.md for usage instructions
 # - zalando-backup-job.yaml         # Pre-migration: Test Zalando backup
 # - cnpg-prepare-job.yaml           # Pre-migration: Prepare and test CNPG
 # - zalando-to-cnpg-migration.yaml  # Main migration: Scale down apps, migrate data

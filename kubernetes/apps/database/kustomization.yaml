@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
 - project.yaml
 - cloudnative-pg
+# TODO: After migration complete and stable (7+ days), remove this line to delete Zalando postgres-operator
 - postgresql

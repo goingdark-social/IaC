@@ -1,9 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- database.yaml
-- database-cluster.yaml    # CNPG - ready for migration
-- database-rw-pooler.yaml  # CNPG - ready for migration  
+# TODO: After migration complete and stable (7+ days), remove database.yaml (Zalando PostgreSQL)
+- database.yaml                # Zalando PostgreSQL (old) - remove after migration
+- database-cluster.yaml        # CNPG - ready for migration
+- database-rw-pooler.yaml      # CNPG - ready for migration
 - elastic-sts.yaml
 - redis-statefulset.yaml
 - sidekiq-default-deployment.yaml

@@ -139,7 +139,7 @@ spec:
               BACKUP_FILE="/migration/mastodon_migration_${MIGRATION_TIMESTAMP}.sql"
 
               echo "=== Creating Final Backup from Zalando ==="
-              PGPASSWORD="$ZALANDO_PASSWORD" pg_dump \
+              PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" pg_dump \
                 --host="$ZALANDO_HOST" \
                 --port="$ZALANDO_PORT" \
                 --username="$ZALANDO_USER" \
@@ -166,7 +166,7 @@ spec:
               fi
 
               echo "=== Restoring to CNPG Database ==="
-              PGPASSWORD="$CNPG_PASSWORD" psql \
+              PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
                 --host="$CNPG_HOST" \
                 --port="$CNPG_PORT" \
                 --username="$CNPG_USER" \
@@ -276,14 +276,19 @@ spec:
             # SSL configuration
             - name: PGSSLMODE
               value: "require"
-            - name: PGSSLROOTCERT
-              value: "/opt/postgresql/root.crt"
+            - name: ZALANDO_SSLROOTCERT
+              value: "/opt/postgresql/zalando-ca.crt"
+            - name: CNPG_SSLROOTCERT
+              value: "/opt/postgresql/cnpg-ca.crt"
 
           volumeMounts:
             - name: migration-storage
               mountPath: /migration
-            - name: db-ca
-              mountPath: /opt/postgresql/root.crt
+            - name: zalando-ca
+              mountPath: /opt/postgresql/zalando-ca.crt
+              subPath: ca.crt
+            - name: cnpg-ca
+              mountPath: /opt/postgresql/cnpg-ca.crt
               subPath: ca.crt
           resources:
             requests:
@@ -295,9 +300,15 @@ spec:
         - name: migration-storage
           emptyDir:
             sizeLimit: 20Gi
-        - name: db-ca
+        - name: zalando-ca
           secret:
             secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: cnpg-ca
+          secret:
+            secretName: database-ca
             items:
               - key: ca.crt
                 path: ca.crt
