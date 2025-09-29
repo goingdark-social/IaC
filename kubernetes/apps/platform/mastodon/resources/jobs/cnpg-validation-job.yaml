@@ -316,7 +316,7 @@ spec:
             - name: CNPG_PORT
               value: "5432"
             - name: CNPG_DB_NAME
-              value: "mastodon"
+              value: "app"
             - name: CNPG_USER
               valueFrom:
                 secretKeyRef:
