@@ -1,0 +1,294 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zalando-cleanup-job
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Optional cleanup job for Zalando PostgreSQL resources after successful migration to CNPG.
+      WARNING: This job will permanently remove Zalando PostgreSQL resources.
+      Only run after migration has been validated and CNPG is stable in production.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 172800  # Keep job for 48 hours for audit trail
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: mastodon-cleanup-sa
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: zalando-cleanup
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Zalando PostgreSQL Cleanup Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "⚠️  WARNING: This job will permanently remove Zalando PostgreSQL resources"
+              echo "⚠️  Ensure CNPG migration is validated and stable before proceeding"
+
+              # Install kubectl for Kubernetes operations
+              curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+
+              # Safety check - verify CNPG is working
+              echo "=== Pre-Cleanup Safety Checks ==="
+              echo "Verifying CNPG database is operational..."
+
+              # Test CNPG connectivity
+              if ! pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"; then
+                echo "✗ CNPG database is not accessible"
+                echo "✗ ABORTING CLEANUP - CNPG must be operational before Zalando cleanup"
+                exit 1
+              fi
+
+              # Verify CNPG has data
+              CNPG_ACCOUNT_COUNT=$(psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                                  -t -c "SELECT COUNT(*) FROM accounts;" | tr -d ' ')
+
+              if [ "$CNPG_ACCOUNT_COUNT" -eq 0 ]; then
+                echo "✗ CNPG database appears empty (no accounts found)"
+                echo "✗ ABORTING CLEANUP - CNPG must contain migrated data"
+                exit 1
+              fi
+
+              echo "✓ CNPG database operational with $CNPG_ACCOUNT_COUNT accounts"
+
+              # Check if Mastodon applications are using CNPG (not Zalando)
+              echo "Checking if applications have been switched to CNPG..."
+
+              # This is a heuristic check - look for active connections to Zalando
+              if pg_isready -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" 2>/dev/null; then
+                ZALANDO_CONNECTIONS=$(psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                                     -t -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND pid != pg_backend_pid();" 2>/dev/null | tr -d ' ' || echo "0")
+
+                if [ "$ZALANDO_CONNECTIONS" -gt 0 ]; then
+                  echo "⚠️  WARNING: Found $ZALANDO_CONNECTIONS active connections to Zalando"
+                  echo "⚠️  Applications may still be using Zalando database"
+                  echo "⚠️  Ensure all applications are configured to use CNPG before cleanup"
+
+                  # Give option to continue anyway (for testing)
+                  echo "Continuing cleanup in 30 seconds... Press Ctrl+C to abort"
+                  sleep 30
+                fi
+              fi
+
+              echo "=== Creating Final Backup Before Cleanup ==="
+
+              # Create final backup of Zalando data for safety
+              mkdir -p /cleanup-backup
+              CLEANUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              FINAL_BACKUP="/cleanup-backup/zalando_final_backup_${CLEANUP_TIMESTAMP}.sql"
+
+              if pg_isready -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" 2>/dev/null; then
+                echo "Creating final backup of Zalando database..."
+                PGPASSWORD="$ZALANDO_PASSWORD" pg_dump \
+                  --host="$ZALANDO_HOST" \
+                  --port="$ZALANDO_PORT" \
+                  --username="$ZALANDO_USER" \
+                  --dbname="$ZALANDO_DB_NAME" \
+                  --no-owner \
+                  --no-privileges \
+                  --clean \
+                  --if-exists \
+                  --verbose \
+                  --file="$FINAL_BACKUP"
+
+                echo "Final backup created: $FINAL_BACKUP"
+                ls -lh "$FINAL_BACKUP"
+              else
+                echo "Zalando database not accessible, skipping backup"
+              fi
+
+              echo "=== Identifying Zalando Resources ==="
+
+              # List Zalando PostgreSQL resources
+              echo "Current Zalando PostgreSQL resources:"
+              kubectl get postgresql -n mastodon 2>/dev/null || echo "No Zalando PostgreSQL CRDs found"
+              kubectl get services -n mastodon | grep -E "(zalando|postgresql)" || echo "No Zalando services found"
+              kubectl get configmaps -n mastodon | grep -E "(zalando|postgresql)" || echo "No Zalando configmaps found"
+              kubectl get secrets -n mastodon | grep -E "(zalando|postgresql)" || echo "No Zalando secrets found"
+              kubectl get pvc -n mastodon | grep -E "(zalando|postgresql)" || echo "No Zalando PVCs found"
+
+              echo "=== Starting Zalando Resource Cleanup ==="
+
+              # Note: This is a template for cleanup - actual resource names depend on your Zalando deployment
+              # Adjust the resource names based on your specific Zalando PostgreSQL deployment
+
+              echo "⚠️  NOTICE: Cleanup actions are commented out for safety"
+              echo "⚠️  Uncomment specific sections below based on your Zalando deployment"
+
+              # Example cleanup commands - UNCOMMENT AND MODIFY AS NEEDED:
+
+              # # Delete Zalando PostgreSQL cluster
+              # echo "Deleting Zalando PostgreSQL cluster..."
+              # kubectl delete postgresql mastodon-postgresql -n mastodon --ignore-not-found=true
+
+              # # Delete Zalando services
+              # echo "Deleting Zalando services..."
+              # kubectl delete service mastodon-postgresql -n mastodon --ignore-not-found=true
+              # kubectl delete service mastodon-postgresql-config -n mastodon --ignore-not-found=true
+              # kubectl delete service mastodon-postgresql-pooler -n mastodon --ignore-not-found=true
+              # kubectl delete service mastodon-postgresql-pooler-repl -n mastodon --ignore-not-found=true
+              # kubectl delete service mastodon-postgresql-repl -n mastodon --ignore-not-found=true
+
+              # # Delete Zalando configmaps
+              # echo "Deleting Zalando configmaps..."
+              # kubectl delete configmap mastodon-postgresql-config -n mastodon --ignore-not-found=true
+
+              # # Delete Zalando secrets (be very careful with this!)
+              # echo "Deleting Zalando secrets..."
+              # # kubectl delete secret mastodon-postgresql-credentials -n mastodon --ignore-not-found=true
+
+              # # Delete Zalando PVCs (this will permanently delete data!)
+              # echo "Deleting Zalando PVCs..."
+              # # kubectl delete pvc --selector=cluster-name=mastodon-postgresql -n mastodon
+
+              echo "=== Cleanup Safety Mode Active ==="
+              echo "For safety, cleanup actions are commented out in the script"
+              echo "To perform actual cleanup:"
+              echo "1. Verify CNPG is stable for at least 7 days"
+              echo "2. Ensure no applications are connecting to Zalando endpoints"
+              echo "3. Edit this job to uncomment specific cleanup actions"
+              echo "4. Test cleanup in non-production environment first"
+
+              echo "=== Cleanup Validation ==="
+
+              # Verify CNPG is still working after potential cleanup
+              echo "Final verification that CNPG is still operational..."
+              if pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"; then
+                FINAL_ACCOUNT_COUNT=$(psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                                     -t -c "SELECT COUNT(*) FROM accounts;" | tr -d ' ')
+                echo "✓ CNPG still operational with $FINAL_ACCOUNT_COUNT accounts"
+              else
+                echo "✗ CNPG verification failed after cleanup"
+                exit 1
+              fi
+
+              echo "=== Cleanup Summary ==="
+              echo "Cleanup job completed at $(date)"
+              echo "CNPG database verified operational"
+              echo "Final backup created: $FINAL_BACKUP"
+              echo ""
+              echo "Manual steps to complete cleanup:"
+              echo "1. Update monitoring to remove Zalando endpoints"
+              echo "2. Update documentation to reflect CNPG as primary database"
+              echo "3. Remove Zalando-specific configurations from infrastructure code"
+              echo "4. Update backup and disaster recovery procedures"
+
+              echo "=== Zalando Cleanup Job Completed ==="
+
+          env:
+            # Zalando connection details (for final backup)
+            - name: ZALANDO_HOST
+              value: "mastodon-postgresql-pooler"
+            - name: ZALANDO_PORT
+              value: "5432"
+            - name: ZALANDO_DB_NAME
+              value: "mastodon"
+            - name: ZALANDO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: ZALANDO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+
+            # CNPG connection details (for verification)
+            - name: CNPG_HOST
+              value: "database-pooler-rw"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "mastodon"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: CNPG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+
+            # SSL configuration
+            - name: PGSSLMODE
+              value: "require"
+            - name: PGSSLROOTCERT
+              value: "/opt/postgresql/root.crt"
+
+          volumeMounts:
+            - name: cleanup-backup-storage
+              mountPath: /cleanup-backup
+            - name: db-ca
+              mountPath: /opt/postgresql/root.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: cleanup-backup-storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mastodon-cleanup-sa
+  namespace: mastodon
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: mastodon
+  name: mastodon-cleanup-role
+rules:
+- apiGroups: [""]
+  resources: ["services", "configmaps", "secrets", "persistentvolumeclaims"]
+  verbs: ["get", "list", "delete"]
+- apiGroups: ["acid.zalan.do"]
+  resources: ["postgresqls"]
+  verbs: ["get", "list", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mastodon-cleanup-rolebinding
+  namespace: mastodon
+subjects:
+- kind: ServiceAccount
+  name: mastodon-cleanup-sa
+  namespace: mastodon
+roleRef:
+  kind: Role
+  name: mastodon-cleanup-role
+  apiGroup: rbac.authorization.k8s.io

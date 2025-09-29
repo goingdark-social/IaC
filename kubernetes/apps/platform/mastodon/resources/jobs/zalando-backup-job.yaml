@@ -1,0 +1,144 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zalando-backup-job
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Pre-migration backup job for Zalando PostgreSQL.
+      Creates a full logical backup using pg_dump for migration to CNPG.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400  # Keep job for 24 hours for debugging
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: zalando-backup
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Zalando PostgreSQL Backup Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "Target: $DB_HOST:$DB_PORT/$DB_NAME"
+
+              # Test connectivity first
+              echo "Testing connectivity to Zalando PostgreSQL..."
+              pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+
+              # Create backup directory
+              mkdir -p /backup
+
+              # Generate backup filename with timestamp
+              BACKUP_FILE="/backup/mastodon_zalando_backup_$(date +%Y%m%d_%H%M%S).sql"
+              SCHEMA_FILE="/backup/mastodon_zalando_schema_$(date +%Y%m%d_%H%M%S).sql"
+
+              echo "Creating schema-only backup..."
+              pg_dump \
+                --host="$DB_HOST" \
+                --port="$DB_PORT" \
+                --username="$DB_USER" \
+                --dbname="$DB_NAME" \
+                --schema-only \
+                --no-owner \
+                --no-privileges \
+                --clean \
+                --if-exists \
+                --verbose \
+                --file="$SCHEMA_FILE"
+
+              echo "Schema backup completed: $SCHEMA_FILE"
+
+              echo "Creating full data backup..."
+              pg_dump \
+                --host="$DB_HOST" \
+                --port="$DB_PORT" \
+                --username="$DB_USER" \
+                --dbname="$DB_NAME" \
+                --no-owner \
+                --no-privileges \
+                --clean \
+                --if-exists \
+                --verbose \
+                --file="$BACKUP_FILE"
+
+              echo "Full backup completed: $BACKUP_FILE"
+
+              # Verify backup file
+              echo "Verifying backup file..."
+              ls -lh /backup/
+
+              # Basic validation - check if backup contains expected tables
+              echo "Validating backup content..."
+              if grep -q "CREATE TABLE.*accounts" "$BACKUP_FILE" && \
+                 grep -q "CREATE TABLE.*statuses" "$BACKUP_FILE" && \
+                 grep -q "CREATE TABLE.*users" "$BACKUP_FILE"; then
+                echo "✓ Backup validation passed - key Mastodon tables found"
+              else
+                echo "✗ Backup validation failed - missing key tables"
+                exit 1
+              fi
+
+              # Count estimated rows in key tables via backup analysis
+              echo "Backup statistics:"
+              echo "- Total size: $(du -h $BACKUP_FILE | cut -f1)"
+              echo "- Lines: $(wc -l < $BACKUP_FILE)"
+              echo "- Tables: $(grep -c "CREATE TABLE" $BACKUP_FILE)"
+
+              echo "=== Zalando PostgreSQL Backup Job Completed Successfully ==="
+              echo "Backup files ready for migration to CNPG"
+
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+            - name: DB_HOST
+              value: "mastodon-postgresql-pooler"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "mastodon"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: PGSSLMODE
+              value: "require"
+            - name: PGSSLROOTCERT
+              value: "/opt/postgresql/root.crt"
+          volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            - name: db-ca
+              mountPath: /opt/postgresql/root.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: backup-storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

@@ -1,0 +1,179 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cnpg-prepare-job
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      CNPG preparation job for migration from Zalando PostgreSQL.
+      Tests connectivity, validates configuration, and prepares target database.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400  # Keep job for 24 hours for debugging
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: cnpg-prepare
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== CNPG Preparation Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "Target CNPG RW: $CNPG_HOST:$CNPG_PORT/$CNPG_DB_NAME"
+              echo "Target CNPG RO: $CNPG_RO_HOST:$CNPG_PORT/$CNPG_DB_NAME"
+
+              # Test connectivity to CNPG read-write
+              echo "Testing connectivity to CNPG read-write endpoint..."
+              pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"
+
+              # Test connectivity to CNPG read-only
+              echo "Testing connectivity to CNPG read-only endpoint..."
+              pg_isready -h "$CNPG_RO_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"
+
+              # Test authentication
+              echo "Testing CNPG authentication..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "SELECT version();"
+
+              # Check if database is empty (should be for new migration)
+              echo "Checking CNPG database state..."
+              TABLE_COUNT=$(psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                            -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';")
+
+              echo "Current table count in CNPG database: $TABLE_COUNT"
+
+              if [ "$TABLE_COUNT" -gt 0 ]; then
+                echo "⚠️  WARNING: CNPG database is not empty (contains $TABLE_COUNT tables)"
+                echo "⚠️  Migration will drop existing tables. Make sure this is intended."
+
+                # List existing tables
+                echo "Existing tables:"
+                psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                     -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
+              else
+                echo "✓ CNPG database is empty and ready for migration"
+              fi
+
+              # Check database configuration
+              echo "Checking CNPG database configuration..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  'max_connections' as setting,
+                  setting as value
+                FROM pg_settings WHERE name = 'max_connections'
+                UNION ALL
+                SELECT
+                  'shared_buffers' as setting,
+                  setting as value
+                FROM pg_settings WHERE name = 'shared_buffers'
+                UNION ALL
+                SELECT
+                  'effective_cache_size' as setting,
+                  setting as value
+                FROM pg_settings WHERE name = 'effective_cache_size'
+                UNION ALL
+                SELECT
+                  'checkpoint_completion_target' as setting,
+                  setting as value
+                FROM pg_settings WHERE name = 'checkpoint_completion_target';
+              "
+
+              # Check available extensions
+              echo "Checking available PostgreSQL extensions..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT name, default_version, installed_version
+                FROM pg_available_extensions
+                WHERE name IN ('uuid-ossp', 'pg_stat_statements', 'btree_gin', 'btree_gist', 'plpgsql')
+                ORDER BY name;
+              "
+
+              # Test write permissions
+              echo "Testing write permissions..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                CREATE TABLE IF NOT EXISTS migration_test (id SERIAL PRIMARY KEY, test_timestamp TIMESTAMP DEFAULT NOW());
+                INSERT INTO migration_test (test_timestamp) VALUES (NOW());
+                SELECT COUNT(*) as test_rows FROM migration_test;
+                DROP TABLE migration_test;
+              "
+
+              # Check SSL configuration
+              echo "Verifying SSL configuration..."
+              SSL_STATUS=$(psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                          -t -c "SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid();")
+
+              if [ "$SSL_STATUS" = " t" ]; then
+                echo "✓ SSL connection established successfully"
+              else
+                echo "✗ SSL connection failed"
+                exit 1
+              fi
+
+              # Performance baseline test
+              echo "Running performance baseline test..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  'Database Size' as metric,
+                  pg_size_pretty(pg_database_size('$CNPG_DB_NAME')) as value
+                UNION ALL
+                SELECT
+                  'Shared Buffers Hit Ratio' as metric,
+                  ROUND(100.0 * sum(blks_hit) / (sum(blks_hit) + sum(blks_read)), 2)::TEXT || '%' as value
+                FROM pg_stat_database
+                WHERE datname = '$CNPG_DB_NAME';
+              "
+
+              echo "=== CNPG Preparation Job Completed Successfully ==="
+              echo "CNPG cluster is ready for migration from Zalando PostgreSQL"
+
+          env:
+            # CNPG connection details
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+            - name: CNPG_HOST
+              value: "database-pooler-rw"
+            - name: CNPG_RO_HOST
+              value: "database-pooler-ro"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "mastodon"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: PGSSLMODE
+              value: "require"
+            - name: PGSSLROOTCERT
+              value: "/opt/postgresql/root.crt"
+          volumeMounts:
+            - name: db-ca
+              mountPath: /opt/postgresql/root.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

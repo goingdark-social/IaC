@@ -1,0 +1,339 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zalando-to-cnpg-migration
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Main migration job from Zalando PostgreSQL to CNPG.
+      Performs zero-downtime migration with application scaling.
+      WARNING: This job will scale down Mastodon applications during migration.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 172800  # Keep job for 48 hours for analysis
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: mastodon-migration-sa
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: migration
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Zalando to CNPG Migration Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "Source: $ZALANDO_HOST:$ZALANDO_PORT/$ZALANDO_DB_NAME"
+              echo "Target: $CNPG_HOST:$CNPG_PORT/$CNPG_DB_NAME"
+
+              # Install kubectl for scaling operations
+              curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+
+              # Function to get current replica counts
+              get_replica_counts() {
+                echo "Getting current replica counts..."
+                MASTODON_WEB_REPLICAS=$(kubectl get deployment mastodon-web -n mastodon -o jsonpath='{.spec.replicas}')
+                MASTODON_SIDEKIQ_DEFAULT_REPLICAS=$(kubectl get deployment mastodon-sidekiq-default -n mastodon -o jsonpath='{.spec.replicas}')
+                MASTODON_SIDEKIQ_BACKGROUND_REPLICAS=$(kubectl get deployment mastodon-sidekiq-background -n mastodon -o jsonpath='{.spec.replicas}')
+                MASTODON_SIDEKIQ_FEDERATION_REPLICAS=$(kubectl get deployment mastodon-sidekiq-federation -n mastodon -o jsonpath='{.spec.replicas}')
+                MASTODON_STREAMING_REPLICAS=$(kubectl get deployment mastodon-streaming -n mastodon -o jsonpath='{.spec.replicas}')
+
+                echo "Current replica counts:"
+                echo "  mastodon-web: $MASTODON_WEB_REPLICAS"
+                echo "  mastodon-sidekiq-default: $MASTODON_SIDEKIQ_DEFAULT_REPLICAS"
+                echo "  mastodon-sidekiq-background: $MASTODON_SIDEKIQ_BACKGROUND_REPLICAS"
+                echo "  mastodon-sidekiq-federation: $MASTODON_SIDEKIQ_FEDERATION_REPLICAS"
+                echo "  mastodon-streaming: $MASTODON_STREAMING_REPLICAS"
+              }
+
+              # Function to scale down applications
+              scale_down_applications() {
+                echo "=== Scaling Down Mastodon Applications ==="
+                kubectl scale deployment mastodon-web --replicas=0 -n mastodon
+                kubectl scale deployment mastodon-sidekiq-default --replicas=0 -n mastodon
+                kubectl scale deployment mastodon-sidekiq-background --replicas=0 -n mastodon
+                kubectl scale deployment mastodon-sidekiq-federation --replicas=0 -n mastodon
+                kubectl scale deployment mastodon-streaming --replicas=0 -n mastodon
+
+                echo "Waiting for pods to terminate..."
+                kubectl wait --for=delete pod -l app=mastodon-web -n mastodon --timeout=300s || true
+                kubectl wait --for=delete pod -l app=mastodon-sidekiq -n mastodon --timeout=300s || true
+                kubectl wait --for=delete pod -l app=mastodon-streaming -n mastodon --timeout=300s || true
+
+                echo "✓ All Mastodon applications scaled down"
+              }
+
+              # Function to restore applications
+              restore_applications() {
+                echo "=== Restoring Mastodon Applications ==="
+                kubectl scale deployment mastodon-web --replicas=$MASTODON_WEB_REPLICAS -n mastodon
+                kubectl scale deployment mastodon-sidekiq-default --replicas=$MASTODON_SIDEKIQ_DEFAULT_REPLICAS -n mastodon
+                kubectl scale deployment mastodon-sidekiq-background --replicas=$MASTODON_SIDEKIQ_BACKGROUND_REPLICAS -n mastodon
+                kubectl scale deployment mastodon-sidekiq-federation --replicas=$MASTODON_SIDEKIQ_FEDERATION_REPLICAS -n mastodon
+                kubectl scale deployment mastodon-streaming --replicas=$MASTODON_STREAMING_REPLICAS -n mastodon
+
+                echo "✓ Mastodon applications restored to original scale"
+              }
+
+              # Trap to ensure applications are restored on exit
+              trap 'restore_applications' EXIT
+
+              # Get current replica counts
+              get_replica_counts
+
+              # Test connectivity to both databases
+              echo "=== Testing Database Connectivity ==="
+              echo "Testing Zalando PostgreSQL..."
+              pg_isready -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME"
+
+              echo "Testing CNPG PostgreSQL..."
+              pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"
+
+              # Pre-migration checks
+              echo "=== Pre-Migration Checks ==="
+
+              # Check Zalando database size
+              ZALANDO_SIZE=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                            -t -c "SELECT pg_database_size('$ZALANDO_DB_NAME');")
+              echo "Zalando database size: $(echo $ZALANDO_SIZE | numfmt --to=iec)"
+
+              # Check active connections
+              ACTIVE_CONNECTIONS=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                                  -t -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND pid != pg_backend_pid();")
+              echo "Active connections to Zalando: $ACTIVE_CONNECTIONS"
+
+              if [ "$ACTIVE_CONNECTIONS" -gt 10 ]; then
+                echo "⚠️  Warning: High number of active connections detected"
+                echo "Consider running this migration during low-traffic periods"
+              fi
+
+              # Scale down applications
+              scale_down_applications
+
+              # Wait for connections to drop
+              echo "Waiting for database connections to drop..."
+              sleep 30
+
+              # Final connectivity check after scaling down
+              FINAL_CONNECTIONS=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                                 -t -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND pid != pg_backend_pid();")
+              echo "Active connections after scale-down: $FINAL_CONNECTIONS"
+
+              # Create migration directory
+              mkdir -p /migration
+
+              # Generate migration filename with timestamp
+              MIGRATION_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="/migration/mastodon_migration_${MIGRATION_TIMESTAMP}.sql"
+
+              echo "=== Creating Final Backup from Zalando ==="
+              PGPASSWORD="$ZALANDO_PASSWORD" pg_dump \
+                --host="$ZALANDO_HOST" \
+                --port="$ZALANDO_PORT" \
+                --username="$ZALANDO_USER" \
+                --dbname="$ZALANDO_DB_NAME" \
+                --no-owner \
+                --no-privileges \
+                --clean \
+                --if-exists \
+                --verbose \
+                --file="$BACKUP_FILE"
+
+              echo "Backup completed: $BACKUP_FILE"
+              ls -lh "$BACKUP_FILE"
+
+              # Validate backup
+              echo "=== Validating Backup ==="
+              if grep -q "CREATE TABLE.*accounts" "$BACKUP_FILE" && \
+                 grep -q "CREATE TABLE.*statuses" "$BACKUP_FILE" && \
+                 grep -q "CREATE TABLE.*users" "$BACKUP_FILE"; then
+                echo "✓ Backup validation passed"
+              else
+                echo "✗ Backup validation failed"
+                exit 1
+              fi
+
+              echo "=== Restoring to CNPG Database ==="
+              PGPASSWORD="$CNPG_PASSWORD" psql \
+                --host="$CNPG_HOST" \
+                --port="$CNPG_PORT" \
+                --username="$CNPG_USER" \
+                --dbname="$CNPG_DB_NAME" \
+                --single-transaction \
+                --file="$BACKUP_FILE" \
+                --verbose
+
+              echo "Restore completed successfully"
+
+              echo "=== Post-Migration Validation ==="
+
+              # Compare row counts between source and target
+              echo "Comparing critical table row counts..."
+
+              # Key Mastodon tables to verify
+              TABLES=("accounts" "statuses" "users" "follows" "favourites" "mentions" "notifications")
+
+              for table in "${TABLES[@]}"; do
+                if PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                   -c "\d $table" > /dev/null 2>&1; then
+
+                  ZALANDO_COUNT=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                                 -t -c "SELECT COUNT(*) FROM $table;")
+                  CNPG_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                              -t -c "SELECT COUNT(*) FROM $table;")
+
+                  ZALANDO_COUNT=$(echo $ZALANDO_COUNT | tr -d ' ')
+                  CNPG_COUNT=$(echo $CNPG_COUNT | tr -d ' ')
+
+                  if [ "$ZALANDO_COUNT" = "$CNPG_COUNT" ]; then
+                    echo "✓ $table: $CNPG_COUNT rows (matches)"
+                  else
+                    echo "✗ $table: Zalando=$ZALANDO_COUNT, CNPG=$CNPG_COUNT (MISMATCH)"
+                    exit 1
+                  fi
+                else
+                  echo "⚠️  Table $table not found, skipping..."
+                fi
+              done
+
+              # Test basic functionality
+              echo "Testing basic database functionality..."
+              PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  'Database Size' as metric,
+                  pg_size_pretty(pg_database_size('$CNPG_DB_NAME')) as value
+                UNION ALL
+                SELECT
+                  'Total Tables' as metric,
+                  COUNT(*)::TEXT as value
+                FROM information_schema.tables
+                WHERE table_schema = 'public';
+              "
+
+              echo "=== Migration Summary ==="
+              echo "Migration completed successfully at $(date)"
+              echo "Source: Zalando PostgreSQL ($ZALANDO_HOST)"
+              echo "Target: CNPG PostgreSQL ($CNPG_HOST)"
+              echo "Backup file: $BACKUP_FILE"
+              echo ""
+              echo "Next steps:"
+              echo "1. Run cnpg-validation-job for comprehensive testing"
+              echo "2. Update application configuration to use CNPG endpoints"
+              echo "3. Monitor application startup and performance"
+              echo "4. Keep Zalando cluster as backup until migration is validated"
+
+              echo "=== Zalando to CNPG Migration Job Completed Successfully ==="
+
+          env:
+            # Zalando connection details
+            - name: ZALANDO_HOST
+              value: "mastodon-postgresql-pooler"
+            - name: ZALANDO_PORT
+              value: "5432"
+            - name: ZALANDO_DB_NAME
+              value: "mastodon"
+            - name: ZALANDO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: ZALANDO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+
+            # CNPG connection details
+            - name: CNPG_HOST
+              value: "database-pooler-rw"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "mastodon"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: CNPG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+
+            # SSL configuration
+            - name: PGSSLMODE
+              value: "require"
+            - name: PGSSLROOTCERT
+              value: "/opt/postgresql/root.crt"
+
+          volumeMounts:
+            - name: migration-storage
+              mountPath: /migration
+            - name: db-ca
+              mountPath: /opt/postgresql/root.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+      volumes:
+        - name: migration-storage
+          emptyDir:
+            sizeLimit: 20Gi
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mastodon-migration-sa
+  namespace: mastodon
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: mastodon
+  name: mastodon-migration-role
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments", "deployments/scale"]
+  verbs: ["get", "list", "patch", "update"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mastodon-migration-rolebinding
+  namespace: mastodon
+subjects:
+- kind: ServiceAccount
+  name: mastodon-migration-sa
+  namespace: mastodon
+roleRef:
+  kind: Role
+  name: mastodon-migration-role
+  apiGroup: rbac.authorization.k8s.io

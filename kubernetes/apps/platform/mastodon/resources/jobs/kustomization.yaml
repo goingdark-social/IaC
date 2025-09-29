@@ -6,3 +6,11 @@ resources:
 - pg-amcheck-monthly.yaml
 - pg-amcheck-weekly.yaml
 - setup-user-job.yaml
+
+# Zalando to CNPG Migration Jobs
+# Uncomment jobs as needed for migration process
+# - zalando-backup-job.yaml         # Pre-migration: Test Zalando backup
+# - cnpg-prepare-job.yaml           # Pre-migration: Prepare and test CNPG
+# - zalando-to-cnpg-migration.yaml  # Main migration: Scale down apps, migrate data
+# - cnpg-validation-job.yaml        # Post-migration: Validate CNPG data and performance
+# - zalando-cleanup-job.yaml        # Post-migration: Clean up Zalando resources (DANGEROUS)
