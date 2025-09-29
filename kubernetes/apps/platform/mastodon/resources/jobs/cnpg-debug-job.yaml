@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cnpg-debug-job
+  namespace: mastodon
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: debug
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== CNPG Debug Started ==="
+              echo "Testing different connection methods..."
+
+              echo "1. Testing connection to postgres database via pooler..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "postgres" -c "SELECT version();" || echo "Failed to connect to postgres via pooler"
+
+              echo "2. Testing connection to app database via pooler..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "app" -c "SELECT current_database(), current_user;" || echo "Failed to connect to app via pooler"
+
+              echo "3. Listing databases from postgres database..."
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "postgres" -c "\l" || echo "Failed to list databases"
+
+              echo "4. Testing direct connection to cluster primary..."
+              psql -h "database-rw" -p "5432" -U "$CNPG_USER" -d "app" -c "SELECT current_database(), current_user;" || echo "Failed direct connection to primary"
+
+              echo "5. Checking if we can query app database existence via pooler to postgres..."
+              RESULT=$(psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "postgres" -t -c "SELECT 1 FROM pg_database WHERE datname = 'app';" 2>/dev/null || echo "QUERY_FAILED")
+              echo "Query result: '$RESULT'"
+
+              if [ "$RESULT" = " 1" ]; then
+                echo "✓ Database 'app' found!"
+              else
+                echo "✗ Database 'app' not found or query failed"
+              fi
+
+              echo "=== Debug Complete ==="
+
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: password
+            - name: CNPG_HOST
+              value: "database-pooler-rw"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: username
+            - name: PGSSLMODE
+              value: "require"
+            - name: PGSSLROOTCERT
+              value: "/opt/postgresql/root.crt"
+          volumeMounts:
+            - name: db-ca
+              mountPath: /opt/postgresql/root.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: database-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

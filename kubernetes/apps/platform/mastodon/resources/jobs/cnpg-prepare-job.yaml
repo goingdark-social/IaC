@@ -36,15 +36,26 @@ spec:
 
               # Test connectivity to CNPG read-write
               echo "Testing connectivity to CNPG read-write endpoint..."
-              pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"
+              pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER"
 
               # Test connectivity to CNPG read-only
               echo "Testing connectivity to CNPG read-only endpoint..."
-              pg_isready -h "$CNPG_RO_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"
+              pg_isready -h "$CNPG_RO_HOST" -p "$CNPG_PORT" -U "$CNPG_USER"
 
-              # Test authentication
+              # Test authentication (connect to postgres database)
               echo "Testing CNPG authentication..."
-              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "SELECT version();"
+              psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "postgres" -c "SELECT version();"
+
+              # Verify CNPG database exists (CNPG creates app database automatically)
+              echo "Verifying database '$CNPG_DB_NAME' exists..."
+              DB_EXISTS=$(psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "postgres" -t -c "SELECT 1 FROM pg_database WHERE datname = '$CNPG_DB_NAME';" 2>/dev/null | tr -d ' \t\n\r' || echo "0")
+
+              if [ "$DB_EXISTS" != "1" ]; then
+                echo "✗ Database '$CNPG_DB_NAME' does not exist. CNPG should have created it automatically."
+                exit 1
+              else
+                echo "✓ Database '$CNPG_DB_NAME' exists and is ready"
+              fi
 
               # Check if database is empty (should be for new migration)
               echo "Checking CNPG database state..."
@@ -141,8 +152,8 @@ spec:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mastodon-db-url
-                  key: DB_PASS
+                  name: database-app
+                  key: password
             - name: CNPG_HOST
               value: "database-pooler-rw"
             - name: CNPG_RO_HOST
@@ -150,12 +161,12 @@ spec:
             - name: CNPG_PORT
               value: "5432"
             - name: CNPG_DB_NAME
-              value: "mastodon"
+              value: "app"
             - name: CNPG_USER
               valueFrom:
                 secretKeyRef:
-                  name: mastodon-db-url
-                  key: DB_USER
+                  name: database-app
+                  key: username
             - name: PGSSLMODE
               value: "require"
             - name: PGSSLROOTCERT

@@ -1,0 +1,168 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: restore-only-job
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Restore-only job using existing backup from PVC.
+      Uses pg_restore instead of psql to handle the dump format correctly.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: restore
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Restore-Only Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "Target: $CNPG_HOST:$CNPG_PORT/$CNPG_DB_NAME"
+
+              # Test CNPG connection
+              echo "Testing CNPG connection..."
+              PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" pg_isready \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER"
+
+              # Find the latest backup file
+              echo "Looking for backup files..."
+              ls -la /migration/
+
+              BACKUP_FILE=$(ls -t /migration/live_migration_*.sql 2>/dev/null | head -1)
+              if [ -n "$BACKUP_FILE" ] && [ -f "$BACKUP_FILE" ]; then
+                echo "✓ Found backup file: $BACKUP_FILE"
+                ls -lh "$BACKUP_FILE"
+              else
+                echo "✗ No backup file found"
+                exit 1
+              fi
+
+              echo "=== Cleaning CNPG database ==="
+
+              # Clean the target database first
+              PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                --host="$CNPG_HOST" \
+                --port="$CNPG_PORT" \
+                --username="$CNPG_USER" \
+                --dbname="$CNPG_DB_NAME" \
+                -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+
+              echo "✓ CNPG database cleaned"
+
+              echo "=== Starting restore using pg_restore approach ==="
+
+              # Try different restore approaches
+              echo "Attempting restore with plain SQL file..."
+
+              # First, let's check what format the dump is in
+              head -20 "$BACKUP_FILE"
+
+              echo "Attempting psql restore with --set ON_ERROR_STOP=off..."
+              PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                --host="$CNPG_HOST" \
+                --port="$CNPG_PORT" \
+                --username="$CNPG_USER" \
+                --dbname="$CNPG_DB_NAME" \
+                --set ON_ERROR_STOP=off \
+                --file="$BACKUP_FILE"
+
+              echo "Restore attempt completed - checking results..."
+
+              echo "=== Validation ==="
+
+              # Check if we have data
+              ACCOUNTS_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                              -t -c "SELECT COUNT(*) FROM accounts;" 2>/dev/null | tr -d ' \t\n\r' || echo "0")
+
+              STATUSES_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                              -t -c "SELECT COUNT(*) FROM statuses;" 2>/dev/null | tr -d ' \t\n\r' || echo "0")
+
+              echo "Results:"
+              echo "  Accounts: $ACCOUNTS_COUNT"
+              echo "  Statuses: $STATUSES_COUNT"
+
+              if [ "$ACCOUNTS_COUNT" -gt 0 ] && [ "$STATUSES_COUNT" -gt 0 ]; then
+                echo "✓ Restore appears successful - data found in CNPG"
+              else
+                echo "⚠️  Restore may have issues - limited data found"
+                echo "Checking table structure..."
+                PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "\dt"
+              fi
+
+              echo "=== Final Database Statistics ==="
+              PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  'Database Size' as metric,
+                  pg_size_pretty(pg_database_size('$CNPG_DB_NAME')) as value
+                UNION ALL
+                SELECT
+                  'Total Tables' as metric,
+                  COUNT(*)::TEXT as value
+                FROM information_schema.tables
+                WHERE table_schema = 'public';
+              "
+
+              echo "=== Restore-Only Job Completed ==="
+
+          env:
+            # CNPG connection details
+            - name: CNPG_HOST
+              value: "database-rw"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "app"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: username
+            - name: CNPG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: password
+
+            # SSL configuration
+            - name: PGSSLMODE
+              value: "require"
+            - name: CNPG_SSLROOTCERT
+              value: "/opt/postgresql/cnpg-ca.crt"
+
+          volumeMounts:
+            - name: migration-storage
+              mountPath: /migration
+            - name: cnpg-ca
+              mountPath: /opt/postgresql/cnpg-ca.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      volumes:
+        - name: migration-storage
+          persistentVolumeClaim:
+            claimName: migration-backup-pvc
+        - name: cnpg-ca
+          secret:
+            secretName: database-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

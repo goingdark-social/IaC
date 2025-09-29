@@ -1,18 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-# Migration Preflight Check Script
-# This script performs comprehensive validation before migration
-# It is SAFE and NON-DESTRUCTIVE - no data or configuration changes are made
+# Migration Execution Script
+# This script performs the actual migration from Zalando to CNPG
+# WARNING: This will cause downtime while data is transferred
 
 NAMESPACE="mastodon"
-FAILED_CHECKS=0
-TOTAL_CHECKS=0
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="migration-${TIMESTAMP}.log"
 
 # Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 log_section() {
@@ -32,443 +33,434 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}✗${NC} $1"
-    ((FAILED_CHECKS++))
 }
 
-check_result() {
-    ((TOTAL_CHECKS++))
-    if [ $1 -eq 0 ]; then
-        log_info "$2"
-        return 0
-    else
-        log_error "$2"
-        return 1
+log_step() {
+    echo -e "${BLUE}→${NC} $1"
+}
+
+confirm() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+    read -p "Type 'yes' to continue: " response
+    if [ "$response" != "yes" ]; then
+        echo "Aborted by user"
+        exit 1
     fi
 }
 
-log_section "Migration Preflight Check Started"
+log_section "Mastodon Migration Execution Script"
 echo "Timestamp: $(date)"
-echo "Namespace: $NAMESPACE"
+echo "Log file: $LOG_FILE"
 echo ""
 
-# ==========================================
-# 1. KUBERNETES CLUSTER ACCESS
-# ==========================================
-log_section "1. Verifying Kubernetes Access"
+# Redirect all output to both console and log file
+exec > >(tee -a "$LOG_FILE")
+exec 2>&1
 
-if kubectl cluster-info &>/dev/null; then
-    check_result 0 "Kubernetes cluster accessible"
-else
-    check_result 1 "Cannot access Kubernetes cluster"
+# ==========================================
+# SAFETY CONFIRMATIONS
+# ==========================================
+log_section "Safety Confirmations"
+
+confirm "This script will migrate Mastodon from Zalando PostgreSQL to CNPG."
+confirm "This will cause DOWNTIME of approximately 5-15 minutes."
+confirm "Have you run the preflight check script successfully?"
+confirm "Have you tested the Zalando backup job?"
+confirm "Is this the correct time window for migration?"
+
+log_info "All safety confirmations received"
+
+# ==========================================
+# STEP 1: VERIFY PREREQUISITES
+# ==========================================
+log_section "Step 1: Verifying Prerequisites"
+
+log_step "Checking Zalando backup job completion..."
+BACKUP_JOB_STATUS=$(kubectl get job zalando-backup-job -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "")
+
+if [ "$BACKUP_JOB_STATUS" != "True" ]; then
+    log_error "Zalando backup job has not completed successfully"
+    log_error "Run: kubectl apply -f zalando-backup-job.yaml"
+    log_error "Then: kubectl create job zalando-backup-test --from=job/zalando-backup-job -n mastodon"
     exit 1
 fi
 
-if kubectl auth can-i get pods -n "$NAMESPACE" &>/dev/null; then
-    check_result 0 "Namespace '$NAMESPACE' accessible"
+log_info "Zalando backup job completed successfully"
+
+log_step "Checking CNPG preparation job..."
+if kubectl get job cnpg-prepare-job -n "$NAMESPACE" &>/dev/null; then
+    CNPG_PREP_STATUS=$(kubectl get job cnpg-prepare-job -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo "")
+    if [ "$CNPG_PREP_STATUS" = "True" ]; then
+        log_info "CNPG preparation job completed successfully"
+    else
+        log_warn "CNPG preparation job exists but not completed - restarting..."
+        kubectl delete job cnpg-prepare-job -n "$NAMESPACE" 2>/dev/null || true
+        # Wait for deletion to complete
+        while kubectl get job cnpg-prepare-job -n "$NAMESPACE" &>/dev/null; do
+          sleep 1
+        done
+        kubectl apply -f cnpg-prepare-job.yaml
+        log_step "Waiting for CNPG preparation job to complete..."
+        kubectl wait --for=condition=complete --timeout=300s job/cnpg-prepare-job -n "$NAMESPACE" || {
+            log_error "CNPG preparation job failed"
+            kubectl logs job/cnpg-prepare-job -n "$NAMESPACE"
+            exit 1
+        }
+        log_info "CNPG preparation completed"
+    fi
 else
-    check_result 1 "Cannot access namespace '$NAMESPACE'"
+    log_warn "CNPG preparation job not found - running now..."
+    kubectl apply -f cnpg-prepare-job.yaml
+    log_step "Waiting for CNPG preparation job to complete..."
+    kubectl wait --for=condition=complete --timeout=300s job/cnpg-prepare-job -n "$NAMESPACE" || {
+        log_error "CNPG preparation job failed"
+        kubectl logs job/cnpg-prepare-job -n "$NAMESPACE"
+        exit 1
+    }
+    log_info "CNPG preparation completed"
+fi
+
+log_step "Recording current application replica counts..."
+MASTODON_WEB_REPLICAS=$(kubectl get deployment mastodon-web -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
+MASTODON_SIDEKIQ_DEFAULT_REPLICAS=$(kubectl get deployment mastodon-sidekiq-default -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
+MASTODON_SIDEKIQ_BACKGROUND_REPLICAS=$(kubectl get deployment mastodon-sidekiq-background -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
+MASTODON_SIDEKIQ_FEDERATION_REPLICAS=$(kubectl get deployment mastodon-sidekiq-federation -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
+MASTODON_STREAMING_REPLICAS=$(kubectl get deployment mastodon-streaming -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
+
+log_info "Current replica counts recorded:"
+echo "  mastodon-web: $MASTODON_WEB_REPLICAS"
+echo "  mastodon-sidekiq-default: $MASTODON_SIDEKIQ_DEFAULT_REPLICAS"
+echo "  mastodon-sidekiq-background: $MASTODON_SIDEKIQ_BACKGROUND_REPLICAS"
+echo "  mastodon-sidekiq-federation: $MASTODON_SIDEKIQ_FEDERATION_REPLICAS"
+echo "  mastodon-streaming: $MASTODON_STREAMING_REPLICAS"
+
+# Save replica counts for potential rollback
+cat > /tmp/mastodon-replicas-${TIMESTAMP}.txt <<EOF
+MASTODON_WEB_REPLICAS=$MASTODON_WEB_REPLICAS
+MASTODON_SIDEKIQ_DEFAULT_REPLICAS=$MASTODON_SIDEKIQ_DEFAULT_REPLICAS
+MASTODON_SIDEKIQ_BACKGROUND_REPLICAS=$MASTODON_SIDEKIQ_BACKGROUND_REPLICAS
+MASTODON_SIDEKIQ_FEDERATION_REPLICAS=$MASTODON_SIDEKIQ_FEDERATION_REPLICAS
+MASTODON_STREAMING_REPLICAS=$MASTODON_STREAMING_REPLICAS
+EOF
+
+log_info "Replica counts saved to: /tmp/mastodon-replicas-${TIMESTAMP}.txt"
+
+# ==========================================
+# STEP 2: FINAL CONFIRMATION
+# ==========================================
+log_section "Step 2: Final Confirmation Before Downtime"
+
+echo ""
+log_warn "════════════════════════════════════════"
+log_warn "  DOWNTIME WILL BEGIN IN 10 SECONDS"
+log_warn "════════════════════════════════════════"
+echo ""
+log_warn "Press Ctrl+C NOW to abort, or wait to continue..."
+sleep 10
+
+log_info "Starting migration - downtime begins now"
+START_TIME=$(date +%s)
+
+# ==========================================
+# STEP 3: SCALE DOWN APPLICATIONS
+# ==========================================
+log_section "Step 3: Scaling Down Applications"
+
+log_step "Scaling down Mastodon web..."
+kubectl scale deployment mastodon-web --replicas=0 -n "$NAMESPACE"
+
+log_step "Scaling down Mastodon sidekiq workers..."
+kubectl scale deployment mastodon-sidekiq-default --replicas=0 -n "$NAMESPACE"
+kubectl scale deployment mastodon-sidekiq-background --replicas=0 -n "$NAMESPACE"
+kubectl scale deployment mastodon-sidekiq-federation --replicas=0 -n "$NAMESPACE"
+
+log_step "Scaling down Mastodon streaming..."
+kubectl scale deployment mastodon-streaming --replicas=0 -n "$NAMESPACE"
+
+log_step "Waiting for pods to terminate (max 5 minutes)..."
+kubectl wait --for=delete pod -l app=mastodon-web -n "$NAMESPACE" --timeout=300s 2>/dev/null || log_warn "Some web pods may still be terminating"
+kubectl wait --for=delete pod -l app=mastodon-sidekiq -n "$NAMESPACE" --timeout=300s 2>/dev/null || log_warn "Some sidekiq pods may still be terminating"
+kubectl wait --for=delete pod -l app=mastodon-streaming -n "$NAMESPACE" --timeout=300s 2>/dev/null || log_warn "Some streaming pods may still be terminating"
+
+log_info "All Mastodon applications scaled down"
+
+# Verify no active connections
+log_step "Verifying no active connections to Zalando..."
+sleep 5  # Wait for lingering connections to close
+
+# ==========================================
+# STEP 4: CREATE BACKUP
+# ==========================================
+log_section "Step 4: Creating Final Backup from Zalando"
+
+log_step "Launching backup job..."
+kubectl apply -f zalando-backup-job.yaml
+kubectl create job zalando-final-backup-${TIMESTAMP} --from=job/zalando-backup-job -n "$NAMESPACE"
+
+log_step "Waiting for backup to complete (max 15 minutes)..."
+if kubectl wait --for=condition=complete --timeout=900s job/zalando-final-backup-${TIMESTAMP} -n "$NAMESPACE"; then
+    log_info "Backup completed successfully"
+else
+    log_error "Backup job failed or timed out"
+    kubectl logs job/zalando-final-backup-${TIMESTAMP} -n "$NAMESPACE"
+
+    log_error "Migration failed - restoring applications"
+    kubectl scale deployment mastodon-web --replicas=$MASTODON_WEB_REPLICAS -n "$NAMESPACE"
+    kubectl scale deployment mastodon-sidekiq-default --replicas=$MASTODON_SIDEKIQ_DEFAULT_REPLICAS -n "$NAMESPACE"
+    kubectl scale deployment mastodon-sidekiq-background --replicas=$MASTODON_SIDEKIQ_BACKGROUND_REPLICAS -n "$NAMESPACE"
+    kubectl scale deployment mastodon-sidekiq-federation --replicas=$MASTODON_SIDEKIQ_FEDERATION_REPLICAS -n "$NAMESPACE"
+    kubectl scale deployment mastodon-streaming --replicas=$MASTODON_STREAMING_REPLICAS -n "$NAMESPACE"
     exit 1
 fi
 
-# ==========================================
-# 2. ZALANDO POSTGRESQL STATUS
-# ==========================================
-log_section "2. Checking Zalando PostgreSQL Status"
+# Get backup file location from job logs
+log_step "Retrieving backup file information..."
+BACKUP_LOG=$(kubectl logs job/zalando-final-backup-${TIMESTAMP} -n "$NAMESPACE")
+echo "$BACKUP_LOG" | tail -20
 
-# Check Zalando operator
-if kubectl get deployment postgres-operator -n postgres-operator &>/dev/null; then
-    OPERATOR_READY=$(kubectl get deployment postgres-operator -n postgres-operator -o jsonpath='{.status.readyReplicas}')
-    if [ "$OPERATOR_READY" -ge 1 ]; then
-        check_result 0 "Zalando operator running (ready: $OPERATOR_READY)"
-    else
-        check_result 1 "Zalando operator not ready (ready: $OPERATOR_READY)"
-    fi
+# ==========================================
+# STEP 5: RESTORE TO CNPG
+# ==========================================
+log_section "Step 5: Restoring to CNPG Database"
+
+log_step "Creating restore job..."
+
+# Create a custom restore job that uses the backup from the previous step
+cat > /tmp/cnpg-restore-${TIMESTAMP}.yaml <<'EOF'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cnpg-restore-TIMESTAMP
+  namespace: mastodon
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: restore
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== CNPG Restore Job Started ==="
+              echo "Fetching latest backup from Zalando..."
+
+              # Connect to Zalando and create backup
+              PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" pg_dump \
+                --host="$ZALANDO_HOST" \
+                --port="$ZALANDO_PORT" \
+                --username="$ZALANDO_USER" \
+                --dbname="$ZALANDO_DB_NAME" \
+                --no-owner \
+                --no-privileges \
+                --clean \
+                --if-exists \
+                --verbose \
+                --file="/tmp/backup.sql"
+
+              echo "Backup size: $(du -h /tmp/backup.sql | cut -f1)"
+
+              echo "Restoring to CNPG..."
+              PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                --host="$CNPG_HOST" \
+                --port="$CNPG_PORT" \
+                --username="$CNPG_USER" \
+                --dbname="$CNPG_DB_NAME" \
+                --single-transaction \
+                --file="/tmp/backup.sql" \
+                --verbose
+
+              echo "Restore completed successfully"
+
+              # Quick validation
+              echo "Validating restore..."
+              ACCOUNT_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                --host="$CNPG_HOST" \
+                --port="$CNPG_PORT" \
+                --username="$CNPG_USER" \
+                --dbname="$CNPG_DB_NAME" \
+                -t -c "SELECT COUNT(*) FROM accounts;")
+
+              echo "Accounts in CNPG: $ACCOUNT_COUNT"
+
+              if [ "$ACCOUNT_COUNT" -gt 0 ]; then
+                echo "✓ Validation passed"
+              else
+                echo "✗ Validation failed - no accounts found"
+                exit 1
+              fi
+
+          env:
+            - name: ZALANDO_HOST
+              value: "mastodon-postgresql-pooler"
+            - name: ZALANDO_PORT
+              value: "5432"
+            - name: ZALANDO_DB_NAME
+              value: "mastodon"
+            - name: ZALANDO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: ZALANDO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+            - name: ZALANDO_SSLROOTCERT
+              value: "/opt/postgresql/zalando-ca.crt"
+            - name: CNPG_HOST
+              value: "database-pooler-rw"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "mastodon"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: CNPG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+            - name: CNPG_SSLROOTCERT
+              value: "/opt/postgresql/cnpg-ca.crt"
+            - name: PGSSLMODE
+              value: "require"
+          volumeMounts:
+            - name: zalando-ca
+              mountPath: /opt/postgresql/zalando-ca.crt
+              subPath: ca.crt
+            - name: cnpg-ca
+              mountPath: /opt/postgresql/cnpg-ca.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+      volumes:
+        - name: zalando-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+        - name: cnpg-ca
+          secret:
+            secretName: database-ca
+EOF
+
+# Replace timestamp in the YAML
+sed "s/TIMESTAMP/${TIMESTAMP}/g" /tmp/cnpg-restore-${TIMESTAMP}.yaml > /tmp/cnpg-restore-final-${TIMESTAMP}.yaml
+
+log_step "Applying restore job..."
+kubectl apply -f /tmp/cnpg-restore-final-${TIMESTAMP}.yaml
+
+log_step "Waiting for restore to complete (max 20 minutes)..."
+if kubectl wait --for=condition=complete --timeout=1200s job/cnpg-restore-${TIMESTAMP} -n "$NAMESPACE"; then
+    log_info "Restore completed successfully"
 else
-    check_result 1 "Zalando operator not found"
-fi
+    log_error "Restore job failed or timed out"
+    kubectl logs job/cnpg-restore-${TIMESTAMP} -n "$NAMESPACE" --tail=100
 
-# Check Zalando PostgreSQL cluster
-if kubectl get postgresql mastodon-postgresql -n "$NAMESPACE" &>/dev/null; then
-    ZALANDO_STATUS=$(kubectl get postgresql mastodon-postgresql -n "$NAMESPACE" -o jsonpath='{.status.PostgresClusterStatus}')
-    if [ "$ZALANDO_STATUS" = "Running" ]; then
-        check_result 0 "Zalando PostgreSQL cluster status: $ZALANDO_STATUS"
-    else
-        check_result 1 "Zalando PostgreSQL cluster status: $ZALANDO_STATUS (expected: Running)"
-    fi
-else
-    check_result 1 "Zalando PostgreSQL cluster not found"
-fi
-
-# Check Zalando pods
-ZALANDO_PODS=$(kubectl get pods -n "$NAMESPACE" -l application=spilo,cluster-name=mastodon-postgresql --no-headers 2>/dev/null | wc -l)
-ZALANDO_READY=$(kubectl get pods -n "$NAMESPACE" -l application=spilo,cluster-name=mastodon-postgresql -o jsonpath='{.items[*].status.containerStatuses[*].ready}' 2>/dev/null | grep -o true | wc -l)
-
-if [ "$ZALANDO_PODS" -ge 2 ] && [ "$ZALANDO_READY" -ge 2 ]; then
-    check_result 0 "Zalando PostgreSQL pods: $ZALANDO_READY/$ZALANDO_PODS ready"
-else
-    check_result 1 "Zalando PostgreSQL pods: $ZALANDO_READY/$ZALANDO_PODS ready (expected: 2/2)"
-fi
-
-# Check Zalando pooler
-ZALANDO_POOLER_PODS=$(kubectl get pods -n "$NAMESPACE" -l application=db-connection-pooler --no-headers 2>/dev/null | wc -l)
-ZALANDO_POOLER_READY=$(kubectl get pods -n "$NAMESPACE" -l application=db-connection-pooler -o jsonpath='{.items[*].status.containerStatuses[*].ready}' 2>/dev/null | grep -o true | wc -l)
-
-if [ "$ZALANDO_POOLER_PODS" -ge 2 ] && [ "$ZALANDO_POOLER_READY" -ge 2 ]; then
-    check_result 0 "Zalando pooler pods: $ZALANDO_POOLER_READY/$ZALANDO_POOLER_PODS ready"
-else
-    check_result 1 "Zalando pooler pods: $ZALANDO_POOLER_READY/$ZALANDO_POOLER_PODS ready"
-fi
-
-# Check Zalando services
-for service in mastodon-postgresql-pooler mastodon-postgresql-repl; do
-    if kubectl get svc "$service" -n "$NAMESPACE" &>/dev/null; then
-        check_result 0 "Service '$service' exists"
-    else
-        check_result 1 "Service '$service' not found"
-    fi
-done
-
-# ==========================================
-# 3. CNPG (CloudNative-PG) STATUS
-# ==========================================
-log_section "3. Checking CloudNative-PG Status"
-
-# Check CNPG operator
-if kubectl get deployment cnpg-controller-manager -n cnpg-system &>/dev/null; then
-    CNPG_OPERATOR_READY=$(kubectl get deployment cnpg-controller-manager -n cnpg-system -o jsonpath='{.status.readyReplicas}')
-    if [ "$CNPG_OPERATOR_READY" -ge 1 ]; then
-        check_result 0 "CNPG operator running (ready: $CNPG_OPERATOR_READY)"
-    else
-        check_result 1 "CNPG operator not ready (ready: $CNPG_OPERATOR_READY)"
-    fi
-else
-    check_result 1 "CNPG operator not found"
-fi
-
-# Check CNPG cluster
-if kubectl get cluster database -n "$NAMESPACE" &>/dev/null; then
-    CNPG_INSTANCES=$(kubectl get cluster database -n "$NAMESPACE" -o jsonpath='{.status.instances}')
-    CNPG_READY=$(kubectl get cluster database -n "$NAMESPACE" -o jsonpath='{.status.readyInstances}')
-    if [ "$CNPG_READY" -ge 2 ]; then
-        check_result 0 "CNPG cluster instances: $CNPG_READY/$CNPG_INSTANCES ready"
-    else
-        check_result 1 "CNPG cluster instances: $CNPG_READY/$CNPG_INSTANCES ready (expected: 2/2)"
-    fi
-else
-    check_result 1 "CNPG cluster 'database' not found"
-fi
-
-# Check CNPG pods
-CNPG_PODS=$(kubectl get pods -n "$NAMESPACE" -l cnpg.io/cluster=database --no-headers 2>/dev/null | wc -l)
-CNPG_READY_PODS=$(kubectl get pods -n "$NAMESPACE" -l cnpg.io/cluster=database -o jsonpath='{.items[*].status.containerStatuses[*].ready}' 2>/dev/null | grep -o true | wc -l)
-
-if [ "$CNPG_PODS" -ge 2 ] && [ "$CNPG_READY_PODS" -ge 2 ]; then
-    check_result 0 "CNPG pods: $CNPG_READY_PODS/$CNPG_PODS ready"
-else
-    check_result 1 "CNPG pods: $CNPG_READY_PODS/$CNPG_PODS ready (expected: 2/2)"
-fi
-
-# Check CNPG poolers
-CNPG_POOLER_RW=$(kubectl get pods -n "$NAMESPACE" -l cnpg.io/poolerName=database-pooler-rw --no-headers 2>/dev/null | wc -l)
-CNPG_POOLER_RO=$(kubectl get pods -n "$NAMESPACE" -l cnpg.io/poolerName=database-pooler-ro --no-headers 2>/dev/null | wc -l)
-
-if [ "$CNPG_POOLER_RW" -ge 1 ]; then
-    check_result 0 "CNPG read-write pooler pods: $CNPG_POOLER_RW"
-else
-    check_result 1 "CNPG read-write pooler pods: $CNPG_POOLER_RW (expected: >=1)"
-fi
-
-if [ "$CNPG_POOLER_RO" -ge 1 ]; then
-    check_result 0 "CNPG read-only pooler pods: $CNPG_POOLER_RO"
-else
-    check_result 1 "CNPG read-only pooler pods: $CNPG_POOLER_RO (expected: >=1)"
-fi
-
-# Check CNPG services
-for service in database-pooler-rw database-pooler-ro database-rw database-ro database-r; do
-    if kubectl get svc "$service" -n "$NAMESPACE" &>/dev/null; then
-        check_result 0 "Service '$service' exists"
-    else
-        check_result 1 "Service '$service' not found"
-    fi
-done
-
-# ==========================================
-# 4. SECRETS AND CERTIFICATES
-# ==========================================
-log_section "4. Checking Secrets and Certificates"
-
-# Zalando secrets
-for secret in mastodon-db-url mastodon-postgresql-ca mastodon-postgresql-server; do
-    if kubectl get secret "$secret" -n "$NAMESPACE" &>/dev/null; then
-        check_result 0 "Secret '$secret' exists"
-    else
-        check_result 1 "Secret '$secret' not found"
-    fi
-done
-
-# CNPG secrets
-for secret in database-app database-ca database-server database-replication; do
-    if kubectl get secret "$secret" -n "$NAMESPACE" &>/dev/null; then
-        check_result 0 "Secret '$secret' exists"
-    else
-        check_result 1 "Secret '$secret' not found"
-    fi
-done
-
-# ==========================================
-# 5. MASTODON APPLICATION STATUS
-# ==========================================
-log_section "5. Checking Mastodon Application Status"
-
-DEPLOYMENTS=("mastodon-web" "mastodon-sidekiq-default" "mastodon-sidekiq-federation" "mastodon-sidekiq-background" "mastodon-streaming")
-
-for deployment in "${DEPLOYMENTS[@]}"; do
-    if kubectl get deployment "$deployment" -n "$NAMESPACE" &>/dev/null; then
-        DESIRED=$(kubectl get deployment "$deployment" -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
-        READY=$(kubectl get deployment "$deployment" -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')
-        READY=${READY:-0}
-
-        if [ "$READY" -ge 1 ]; then
-            check_result 0 "Deployment '$deployment': $READY/$DESIRED ready"
-        else
-            check_result 1 "Deployment '$deployment': $READY/$DESIRED ready (no healthy pods)"
-        fi
-    else
-        check_result 1 "Deployment '$deployment' not found"
-    fi
-done
-
-# Check StatefulSets
-STATEFULSETS=("mastodon-redis-master" "elasticsearch-master")
-
-for sts in "${STATEFULSETS[@]}"; do
-    if kubectl get statefulset "$sts" -n "$NAMESPACE" &>/dev/null; then
-        DESIRED=$(kubectl get statefulset "$sts" -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')
-        READY=$(kubectl get statefulset "$sts" -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')
-        READY=${READY:-0}
-
-        if [ "$READY" -eq "$DESIRED" ]; then
-            check_result 0 "StatefulSet '$sts': $READY/$DESIRED ready"
-        else
-            check_result 1 "StatefulSet '$sts': $READY/$DESIRED ready"
-        fi
-    else
-        check_result 1 "StatefulSet '$sts' not found"
-    fi
-done
-
-# ==========================================
-# 6. DATABASE CONNECTIVITY
-# ==========================================
-log_section "6. Testing Database Connectivity"
-
-# Test Zalando connectivity using a test pod
-echo "Testing Zalando PostgreSQL connectivity..."
-ZALANDO_TEST=$(kubectl run zalando-test-${RANDOM} \
-    --namespace="$NAMESPACE" \
-    --image=postgres:17.2 \
-    --restart=Never \
-    --rm -i --quiet \
-    --overrides='
-{
-  "spec": {
-    "containers": [{
-      "name": "test",
-      "image": "postgres:17.2",
-      "command": ["pg_isready"],
-      "args": ["-h", "mastodon-postgresql-pooler", "-p", "5432"],
-      "env": [{
-        "name": "PGSSLMODE",
-        "value": "require"
-      }]
-    }]
-  }
-}' 2>&1 || true)
-
-if echo "$ZALANDO_TEST" | grep -q "accepting connections"; then
-    check_result 0 "Zalando PostgreSQL accepting connections"
-else
-    check_result 1 "Zalando PostgreSQL not accepting connections"
-fi
-
-# Test CNPG connectivity
-echo "Testing CNPG read-write endpoint..."
-CNPG_RW_TEST=$(kubectl run cnpg-rw-test-${RANDOM} \
-    --namespace="$NAMESPACE" \
-    --image=postgres:17.2 \
-    --restart=Never \
-    --rm -i --quiet \
-    --overrides='
-{
-  "spec": {
-    "containers": [{
-      "name": "test",
-      "image": "postgres:17.2",
-      "command": ["pg_isready"],
-      "args": ["-h", "database-pooler-rw", "-p", "5432"],
-      "env": [{
-        "name": "PGSSLMODE",
-        "value": "require"
-      }]
-    }]
-  }
-}' 2>&1 || true)
-
-if echo "$CNPG_RW_TEST" | grep -q "accepting connections"; then
-    check_result 0 "CNPG read-write pooler accepting connections"
-else
-    check_result 1 "CNPG read-write pooler not accepting connections"
-fi
-
-echo "Testing CNPG read-only endpoint..."
-CNPG_RO_TEST=$(kubectl run cnpg-ro-test-${RANDOM} \
-    --namespace="$NAMESPACE" \
-    --image=postgres:17.2 \
-    --restart=Never \
-    --rm -i --quiet \
-    --overrides='
-{
-  "spec": {
-    "containers": [{
-      "name": "test",
-      "image": "postgres:17.2",
-      "command": ["pg_isready"],
-      "args": ["-h", "database-pooler-ro", "-p", "5432"],
-      "env": [{
-        "name": "PGSSLMODE",
-        "value": "require"
-      }]
-    }]
-  }
-}' 2>&1 || true)
-
-if echo "$CNPG_RO_TEST" | grep -q "accepting connections"; then
-    check_result 0 "CNPG read-only pooler accepting connections"
-else
-    check_result 1 "CNPG read-only pooler not accepting connections"
-fi
-
-# ==========================================
-# 7. STORAGE AND RESOURCES
-# ==========================================
-log_section "7. Checking Storage and Resources"
-
-# Check node resources
-echo "Checking node resources..."
-NODE_COUNT=$(kubectl get nodes --no-headers | wc -l)
-log_info "Cluster has $NODE_COUNT nodes"
-
-# Check available storage
-CNPG_PVC_COUNT=$(kubectl get pvc -n "$NAMESPACE" -l cnpg.io/cluster=database --no-headers 2>/dev/null | wc -l)
-if [ "$CNPG_PVC_COUNT" -ge 2 ]; then
-    check_result 0 "CNPG PVCs: $CNPG_PVC_COUNT (expected: >=2)"
-else
-    check_result 1 "CNPG PVCs: $CNPG_PVC_COUNT (expected: >=2)"
-fi
-
-# Check for sufficient disk space estimate
-MIGRATION_SIZE_NEEDED="20Gi"
-log_warn "Migration will need approximately $MIGRATION_SIZE_NEEDED temporary storage"
-log_warn "Ensure nodes have sufficient disk space for backup file"
-
-# ==========================================
-# 8. MIGRATION JOB FILES
-# ==========================================
-log_section "8. Verifying Migration Job Files"
-
-JOB_FILES=(
-    "zalando-backup-job.yaml"
-    "cnpg-prepare-job.yaml"
-    "zalando-to-cnpg-migration.yaml"
-    "cnpg-validation-job.yaml"
-)
-
-for job_file in "${JOB_FILES[@]}"; do
-    if [ -f "$job_file" ]; then
-        check_result 0 "Migration job file '$job_file' exists"
-    else
-        check_result 1 "Migration job file '$job_file' not found"
-        log_error "  Expected location: $(pwd)/$job_file"
-    fi
-done
-
-# ==========================================
-# 9. BACKUP AND DISASTER RECOVERY
-# ==========================================
-log_section "9. Checking Backup Configuration"
-
-# Check if Zalando has recent backups
-if kubectl get postgresql mastodon-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.enableLogicalBackup}' | grep -q "true"; then
-    log_warn "Zalando logical backups enabled - ensure recent backup exists"
-else
-    log_warn "Zalando logical backups disabled"
-fi
-
-# Check CNPG backup configuration
-if kubectl get cluster database -n "$NAMESPACE" -o jsonpath='{.spec.backup}' &>/dev/null; then
-    check_result 0 "CNPG backup configuration exists"
-else
-    log_warn "CNPG backup configuration not found (optional but recommended)"
-fi
-
-# ==========================================
-# 10. SAFETY CHECKS
-# ==========================================
-log_section "10. Final Safety Checks"
-
-# Check for running jobs that might interfere
-RUNNING_JOBS=$(kubectl get jobs -n "$NAMESPACE" -o jsonpath='{.items[?(@.status.active>0)].metadata.name}' | wc -w)
-if [ "$RUNNING_JOBS" -eq 0 ]; then
-    check_result 0 "No active jobs running"
-else
-    ACTIVE_JOB_NAMES=$(kubectl get jobs -n "$NAMESPACE" -o jsonpath='{.items[?(@.status.active>0)].metadata.name}')
-    check_result 1 "Active jobs running: $ACTIVE_JOB_NAMES"
-    log_warn "  Consider waiting for these jobs to complete"
-fi
-
-# Check for recent pod restarts (instability indicator)
-echo "Checking for recent pod restarts..."
-RESTART_COUNT=$(kubectl get pods -n "$NAMESPACE" -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}' | tr ' ' '\n' | awk '{s+=$1} END {print s}')
-if [ "$RESTART_COUNT" -lt 10 ]; then
-    check_result 0 "Total pod restarts: $RESTART_COUNT (acceptable)"
-else
-    log_warn "Total pod restarts: $RESTART_COUNT (high - investigate before migration)"
-fi
-
-# Check for pending pods
-PENDING_PODS=$(kubectl get pods -n "$NAMESPACE" --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l)
-if [ "$PENDING_PODS" -eq 0 ]; then
-    check_result 0 "No pending pods"
-else
-    check_result 1 "Pending pods detected: $PENDING_PODS"
-fi
-
-# ==========================================
-# SUMMARY
-# ==========================================
-log_section "Preflight Check Summary"
-
-echo ""
-echo "Total checks performed: $TOTAL_CHECKS"
-echo "Failed checks: $FAILED_CHECKS"
-echo ""
-
-if [ "$FAILED_CHECKS" -eq 0 ]; then
-    log_info "ALL CHECKS PASSED - System ready for migration"
-    echo ""
-    echo "Next steps:"
-    echo "  1. Review the migration guide: MIGRATION_GUIDE.md"
-    echo "  2. Schedule maintenance window"
-    echo "  3. Run: kubectl apply -f zalando-backup-job.yaml"
-    echo "  4. Run: kubectl create job zalando-backup-test --from=job/zalando-backup-job -n mastodon"
-    echo ""
-    exit 0
-else
-    log_error "MIGRATION NOT READY - $FAILED_CHECKS checks failed"
-    echo ""
-    echo "Please fix the failed checks before proceeding with migration."
-    echo "Review the errors above and ensure all systems are healthy."
-    echo ""
+    log_error "Migration failed - manual intervention required"
+    log_error "Applications are still scaled down"
+    log_error "Review logs and decide whether to:"
+    log_error "  1. Fix issues and retry restore"
+    log_error "  2. Rollback to Zalando (apps still configured for Zalando)"
     exit 1
 fi
+
+log_step "Showing restore job logs..."
+kubectl logs job/cnpg-restore-${TIMESTAMP} -n "$NAMESPACE" --tail=50
+
+# ==========================================
+# STEP 6: VALIDATION
+# ==========================================
+log_section "Step 6: Quick Validation"
+
+log_step "Comparing row counts..."
+kubectl logs job/cnpg-restore-${TIMESTAMP} -n "$NAMESPACE" | grep -E "(Accounts|completed successfully|Validation)"
+
+# ==========================================
+# STEP 7: RESTORE APPLICATIONS
+# ==========================================
+log_section "Step 7: Restoring Applications"
+
+log_warn "Applications are still configured to use Zalando PostgreSQL"
+log_warn "They will reconnect to Zalando when scaled up"
+log_warn "To complete migration, update mastodon-database.env after validation"
+
+log_step "Scaling up Mastodon web..."
+kubectl scale deployment mastodon-web --replicas=$MASTODON_WEB_REPLICAS -n "$NAMESPACE"
+
+log_step "Scaling up Mastodon sidekiq workers..."
+kubectl scale deployment mastodon-sidekiq-default --replicas=$MASTODON_SIDEKIQ_DEFAULT_REPLICAS -n "$NAMESPACE"
+kubectl scale deployment mastodon-sidekiq-background --replicas=$MASTODON_SIDEKIQ_BACKGROUND_REPLICAS -n "$NAMESPACE"
+kubectl scale deployment mastodon-sidekiq-federation --replicas=$MASTODON_SIDEKIQ_FEDERATION_REPLICAS -n "$NAMESPACE"
+
+log_step "Scaling up Mastodon streaming..."
+kubectl scale deployment mastodon-streaming --replicas=$MASTODON_STREAMING_REPLICAS -n "$NAMESPACE"
+
+log_step "Waiting for applications to become ready (max 5 minutes)..."
+kubectl wait --for=condition=ready pod -l app=mastodon-web -n "$NAMESPACE" --timeout=300s || log_warn "Some web pods not ready yet"
+
+END_TIME=$(date +%s)
+DOWNTIME_SECONDS=$((END_TIME - START_TIME))
+DOWNTIME_MINUTES=$((DOWNTIME_SECONDS / 60))
+
+log_info "All Mastodon applications restored"
+log_info "Total downtime: ${DOWNTIME_MINUTES}m ${DOWNTIME_SECONDS}s"
+
+# ==========================================
+# SUMMARY AND NEXT STEPS
+# ==========================================
+log_section "Migration Summary"
+
+log_info "✓ Applications scaled down"
+log_info "✓ Final backup created from Zalando"
+log_info "✓ Data restored to CNPG"
+log_info "✓ Basic validation passed"
+log_info "✓ Applications scaled back up"
+
+echo ""
+log_warn "IMPORTANT NEXT STEPS:"
+echo ""
+echo "1. Applications are currently using Zalando PostgreSQL"
+echo "   Data has been copied to CNPG but apps not switched yet"
+echo ""
+echo "2. Run validation job to verify CNPG data integrity:"
+echo "   kubectl apply -f cnpg-validation-job.yaml"
+echo "   kubectl create job cnpg-validation-${TIMESTAMP} --from=job/cnpg-validation-job -n mastodon"
+echo ""
+echo "3. If validation passes, update database configuration:"
+echo "   Edit: kubernetes/apps/platform/mastodon/configs/mastodon-database.env"
+echo "   Change: DB_HOST=mastodon-postgresql-pooler → DB_HOST=database-pooler-rw"
+echo "   Change: REPLICA_DB_HOST=mastodon-postgresql-repl → REPLICA_DB_HOST=database-pooler-ro"
+echo ""
+echo "4. Apply configuration and restart apps:"
+echo "   kubectl apply -k kubernetes/apps/platform/mastodon/"
+echo "   kubectl rollout restart deployment -l app=mastodon-web -n mastodon"
+echo "   kubectl rollout restart deployment -l app=mastodon-sidekiq -n mastodon"
+echo "   kubectl rollout restart deployment -l app=mastodon-streaming -n mastodon"
+echo ""
+echo "5. Monitor for 24-48 hours before cleanup"
+echo ""
+echo "Log file: $LOG_FILE"
+echo "Replica backup: /tmp/mastodon-replicas-${TIMESTAMP}.txt"
+echo ""
+
+log_info "Migration execution completed"

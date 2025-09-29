@@ -10,15 +10,6 @@ spec:
     spec:
       priorityClassName: mastodon-critical
 ---
-# TODO: After migration complete and stable (7+ days), remove this patch for Zalando PostgreSQL
-apiVersion: acid.zalan.do/v1
-kind: postgresql
-metadata:
-  name: mastodon-postgresql
-  namespace: mastodon
-spec:
-  podPriorityClassName: mastodon-critical
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
