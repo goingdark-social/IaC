@@ -23,7 +23,7 @@ spec:
                 limits:
                   memory: "512Mi"
                   cpu: "500m"
-              image: postgres:17
+              image: postgres:18
               envFrom:
                 - secretRef:
                     name: mastodon-db-url        # provides DB_USER, DB_PASS
