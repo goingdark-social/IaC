@@ -16,11 +16,21 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      serviceAccountName: replica-migration-sa
       tolerations:
       - key: "autoscaler-node"
         operator: "Equal"
         value: "true"
         effect: "NoSchedule"
+      volumes:
+        - name: shared-data
+          emptyDir: {}
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
       containers:
         - name: prepare-replication-user
           image: postgres:17.2
@@ -45,6 +55,12 @@ spec:
               echo "Step 2: Generating secure password for streaming_replica user..."
               REPLICA_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
               echo "✓ Password generated (25 characters)"
+
+              # Save password to shared volume for secret creation
+              echo "$REPLICA_PASSWORD" > /shared/password
+              echo "$DB_HOST" > /shared/host
+              echo "$DB_PORT" > /shared/port
+              echo "$DB_NAME" > /shared/database
               echo ""
 
               # Check if streaming_replica user already exists
@@ -130,32 +146,24 @@ spec:
               fi
               echo ""
 
-              # Create Kubernetes secret with replication credentials
-              echo "Step 5: Creating Kubernetes secret for streaming_replica credentials..."
+              # Signal that password generation and user creation is complete
+              echo "Step 5: Preparing credentials for secret creation..."
+              echo "streaming_replica" > /shared/username
+              echo "require" > /shared/sslmode
+              echo "/opt/postgresql/ca.crt" > /shared/sslrootcert
 
-              # Create secret using kubectl (requires proper RBAC)
-              cat <<EOF | kubectl apply -f -
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: zalando-streaming-replica
-                namespace: mastodon
-                labels:
-                  app: mastodon
-                  component: database
-                  migration: zalando-to-cnpg
-              type: Opaque
-              stringData:
-                username: streaming_replica
-                password: "$REPLICA_PASSWORD"
-                host: "$DB_HOST"
-                port: "$DB_PORT"
-                database: "$DB_NAME"
-                sslmode: "require"
-                sslrootcert: "/opt/postgresql/ca.crt"
-              EOF
+              # Signal to sidecar container that it can create the secret
+              touch /shared/ready
+              echo "✓ Credentials prepared for secret creation"
+              echo ""
 
-              echo "✓ Secret zalando-streaming-replica created successfully"
+              # Wait for sidecar to create the secret
+              echo "Step 6: Waiting for secret creation by sidecar container..."
+              timeout 60 sh -c 'while [ ! -f /shared/secret-created ]; do sleep 1; done' || {
+                echo "✗ ERROR: Timeout waiting for secret creation"
+                exit 1
+              }
+              echo "✓ Secret created successfully"
               echo ""
 
               # Test connection with new user (without actually starting replication)
@@ -244,6 +252,8 @@ spec:
               value: "/opt/postgresql/ca.crt"
 
           volumeMounts:
+            - name: shared-data
+              mountPath: /shared
             - name: db-ca
               mountPath: /opt/postgresql/ca.crt
               subPath: ca.crt
@@ -256,16 +266,68 @@ spec:
               cpu: 100m
               memory: 256Mi
 
-      # Service account with permissions to create secrets
-      serviceAccountName: replica-migration-sa
+        # Sidecar container to create the secret using kubectl
+        - name: secret-creator
+          image: alpine/k8s:1.32.1
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+              
+              echo "Waiting for credentials from main container..."
+              while [ ! -f /shared/ready ]; do
+                sleep 1
+              done
+              
+              echo "Creating Kubernetes secret for streaming_replica credentials..."
+              
+              # Read credentials from shared volume
+              USERNAME=$(cat /shared/username)
+              PASSWORD=$(cat /shared/password)
+              HOST=$(cat /shared/host)
+              PORT=$(cat /shared/port)
+              DATABASE=$(cat /shared/database)
+              SSLMODE=$(cat /shared/sslmode)
+              SSLROOTCERT=$(cat /shared/sslrootcert)
+              
+              # Create secret using kubectl
+              kubectl create secret generic zalando-streaming-replica \
+                --namespace=mastodon \
+                --from-literal=username="$USERNAME" \
+                --from-literal=password="$PASSWORD" \
+                --from-literal=host="$HOST" \
+                --from-literal=port="$PORT" \
+                --from-literal=database="$DATABASE" \
+                --from-literal=sslmode="$SSLMODE" \
+                --from-literal=sslrootcert="$SSLROOTCERT" \
+                --dry-run=client -o yaml | \
+              kubectl apply -f -
+              
+              # Label the secret
+              kubectl label secret zalando-streaming-replica \
+                --namespace=mastodon \
+                app=mastodon \
+                component=database \
+                migration=zalando-to-cnpg \
+                --overwrite=true
+              
+              echo "✓ Secret zalando-streaming-replica created successfully"
+              
+              # Signal completion to main container
+              touch /shared/secret-created
 
-      volumes:
-        - name: db-ca
-          secret:
-            secretName: mastodon-postgresql-ca
-            items:
-              - key: ca.crt
-                path: ca.crt
+          volumeMounts:
+            - name: shared-data
+              mountPath: /shared
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
 ---
 # ServiceAccount for job to create secrets
 apiVersion: v1

@@ -1,5 +1,6 @@
 {
     "recommendations": [
-        "opentofu.vscode-opentofu"
+        "opentofu.vscode-opentofu",
+        "redhat.vscode-yaml"
     ]
 }
