@@ -1,0 +1,329 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: replica-migration-extract-certs
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Extracts Zalando PostgreSQL TLS certificates and creates CNPG-compatible secrets.
+      This job prepares certificates for CNPG replication from Zalando PostgreSQL.
+      Run this BEFORE starting the replica migration process.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600  # Keep job for 1 hour after completion
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: mastodon-cert-extractor-sa
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: cert-extractor
+          image: alpine/k8s:1.32.1
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Zalando TLS Certificate Extraction Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "Purpose: Extract Zalando certificates for CNPG replication"
+
+              # Install OpenSSL for certificate validation
+              apk add --no-cache openssl
+
+              echo ""
+              echo "=== Step 1: Extract Certificates from Zalando Secrets ==="
+
+              # Create temporary directory for certificate processing
+              mkdir -p /tmp/certs
+
+              # Extract client certificate from mastodon-postgresql-server secret
+              echo "Extracting client certificate (tls.crt)..."
+              kubectl get secret mastodon-postgresql-server -n mastodon \
+                -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/certs/tls.crt
+
+              # Extract client key from mastodon-postgresql-server secret
+              echo "Extracting client key (tls.key)..."
+              kubectl get secret mastodon-postgresql-server -n mastodon \
+                -o jsonpath='{.data.tls\.key}' | base64 -d > /tmp/certs/tls.key
+
+              # Extract CA certificate from mastodon-postgresql-ca secret
+              echo "Extracting CA certificate (ca.crt)..."
+              kubectl get secret mastodon-postgresql-ca -n mastodon \
+                -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/certs/ca.crt
+
+              echo "✓ All certificates extracted successfully"
+
+              echo ""
+              echo "=== Step 2: Validate Certificates ==="
+
+              # Check certificate expiry
+              echo "Checking client certificate expiry..."
+              CERT_NOT_AFTER=$(openssl x509 -noout -enddate -in /tmp/certs/tls.crt | cut -d= -f2)
+              echo "  Certificate expires: $CERT_NOT_AFTER"
+
+              # Verify certificate is not expired
+              if ! openssl x509 -noout -checkend 0 -in /tmp/certs/tls.crt; then
+                echo "✗ ERROR: Client certificate has expired"
+                echo "✗ Cannot proceed with expired certificate"
+                exit 1
+              fi
+
+              # Check if certificate expires in next 7 days (warning only)
+              if ! openssl x509 -noout -checkend 604800 -in /tmp/certs/tls.crt; then
+                echo "⚠️  WARNING: Client certificate expires within 7 days"
+                echo "⚠️  Consider renewing certificate before migration"
+              else
+                echo "✓ Client certificate is valid"
+              fi
+
+              # Verify certificate against CA
+              echo "Verifying client certificate against CA..."
+              if openssl verify -CAfile /tmp/certs/ca.crt /tmp/certs/tls.crt; then
+                echo "✓ Client certificate verified successfully against CA"
+              else
+                echo "✗ ERROR: Client certificate verification failed"
+                echo "✗ Certificate may be invalid or CA mismatch"
+                exit 1
+              fi
+
+              # Check certificate key
+              echo "Validating certificate key..."
+              if openssl rsa -in /tmp/certs/tls.key -check -noout 2>/dev/null; then
+                echo "✓ Private key is valid"
+              else
+                echo "✗ ERROR: Private key validation failed"
+                exit 1
+              fi
+
+              # Verify key matches certificate
+              echo "Verifying key matches certificate..."
+              CERT_MODULUS=$(openssl x509 -noout -modulus -in /tmp/certs/tls.crt | openssl md5)
+              KEY_MODULUS=$(openssl rsa -noout -modulus -in /tmp/certs/tls.key 2>/dev/null | openssl md5)
+
+              if [ "$CERT_MODULUS" = "$KEY_MODULUS" ]; then
+                echo "✓ Private key matches certificate"
+              else
+                echo "✗ ERROR: Private key does not match certificate"
+                exit 1
+              fi
+
+              # Display certificate details
+              echo ""
+              echo "Certificate Details:"
+              openssl x509 -noout -subject -issuer -dates -in /tmp/certs/tls.crt | sed 's/^/  /'
+
+              echo ""
+              echo "=== Step 3: Check for Existing Secrets ==="
+
+              # Check if secrets already exist (idempotency)
+              EXISTING_TLS_SECRET=$(kubectl get secret zalando-replication-tls -n mastodon --ignore-not-found=true)
+              EXISTING_CA_SECRET=$(kubectl get secret zalando-replication-ca -n mastodon --ignore-not-found=true)
+
+              if [ -n "$EXISTING_TLS_SECRET" ]; then
+                echo "⚠️  Secret 'zalando-replication-tls' already exists"
+                echo "   Deleting existing secret for idempotency..."
+                kubectl delete secret zalando-replication-tls -n mastodon
+              fi
+
+              if [ -n "$EXISTING_CA_SECRET" ]; then
+                echo "⚠️  Secret 'zalando-replication-ca' already exists"
+                echo "   Deleting existing secret for idempotency..."
+                kubectl delete secret zalando-replication-ca -n mastodon
+              fi
+
+              echo ""
+              echo "=== Step 4: Create CNPG-Compatible Secrets ==="
+
+              # Create zalando-replication-tls secret (contains client cert and key)
+              echo "Creating secret: zalando-replication-tls..."
+              kubectl create secret generic zalando-replication-tls \
+                --from-file=tls.crt=/tmp/certs/tls.crt \
+                --from-file=tls.key=/tmp/certs/tls.key \
+                -n mastodon
+
+              # Label the secret for easier management
+              kubectl label secret zalando-replication-tls \
+                app.kubernetes.io/name=mastodon \
+                app.kubernetes.io/component=database-migration \
+                migration.goingdark.social/phase=replica-setup \
+                -n mastodon
+
+              # Annotate with creation timestamp
+              kubectl annotate secret zalando-replication-tls \
+                migration.goingdark.social/created-by=replica-migration-extract-certs \
+                migration.goingdark.social/created-at="$(date -Iseconds)" \
+                migration.goingdark.social/source-secret=mastodon-postgresql-server \
+                -n mastodon
+
+              echo "✓ Secret 'zalando-replication-tls' created successfully"
+
+              # Create zalando-replication-ca secret (contains CA cert)
+              echo "Creating secret: zalando-replication-ca..."
+              kubectl create secret generic zalando-replication-ca \
+                --from-file=ca.crt=/tmp/certs/ca.crt \
+                -n mastodon
+
+              # Label the secret
+              kubectl label secret zalando-replication-ca \
+                app.kubernetes.io/name=mastodon \
+                app.kubernetes.io/component=database-migration \
+                migration.goingdark.social/phase=replica-setup \
+                -n mastodon
+
+              # Annotate with creation timestamp
+              kubectl annotate secret zalando-replication-ca \
+                migration.goingdark.social/created-by=replica-migration-extract-certs \
+                migration.goingdark.social/created-at="$(date -Iseconds)" \
+                migration.goingdark.social/source-secret=mastodon-postgresql-ca \
+                -n mastodon
+
+              echo "✓ Secret 'zalando-replication-ca' created successfully"
+
+              echo ""
+              echo "=== Step 5: Verify Created Secrets ==="
+
+              # Verify secrets were created with correct structure
+              echo "Verifying 'zalando-replication-tls' secret structure..."
+              if kubectl get secret zalando-replication-tls -n mastodon \
+                   -o jsonpath='{.data.tls\.crt}' | base64 -d > /dev/null 2>&1; then
+                echo "  ✓ tls.crt present and decodable"
+              else
+                echo "  ✗ ERROR: tls.crt missing or invalid"
+                exit 1
+              fi
+
+              if kubectl get secret zalando-replication-tls -n mastodon \
+                   -o jsonpath='{.data.tls\.key}' | base64 -d > /dev/null 2>&1; then
+                echo "  ✓ tls.key present and decodable"
+              else
+                echo "  ✗ ERROR: tls.key missing or invalid"
+                exit 1
+              fi
+
+              echo "Verifying 'zalando-replication-ca' secret structure..."
+              if kubectl get secret zalando-replication-ca -n mastodon \
+                   -o jsonpath='{.data.ca\.crt}' | base64 -d > /dev/null 2>&1; then
+                echo "  ✓ ca.crt present and decodable"
+              else
+                echo "  ✗ ERROR: ca.crt missing or invalid"
+                exit 1
+              fi
+
+              echo ""
+              echo "=== Step 6: Display Secret Metadata ==="
+
+              echo "Secret: zalando-replication-tls"
+              kubectl get secret zalando-replication-tls -n mastodon \
+                -o jsonpath='{.metadata.labels}' | sed 's/^/  Labels: /'
+              echo ""
+              kubectl get secret zalando-replication-tls -n mastodon \
+                -o jsonpath='{.metadata.annotations}' | sed 's/^/  Annotations: /'
+              echo ""
+
+              echo ""
+              echo "Secret: zalando-replication-ca"
+              kubectl get secret zalando-replication-ca -n mastodon \
+                -o jsonpath='{.metadata.labels}' | sed 's/^/  Labels: /'
+              echo ""
+              kubectl get secret zalando-replication-ca -n mastodon \
+                -o jsonpath='{.metadata.annotations}' | sed 's/^/  Annotations: /'
+              echo ""
+
+              # Clean up temporary files
+              echo ""
+              echo "=== Cleanup ==="
+              echo "Removing temporary certificate files..."
+              rm -rf /tmp/certs
+              echo "✓ Cleanup complete"
+
+              echo ""
+              echo "=== Certificate Extraction Summary ==="
+              echo "✓ Extracted certificates from Zalando PostgreSQL secrets"
+              echo "✓ Validated all certificates (expiry, chain, key match)"
+              echo "✓ Created CNPG-compatible secrets:"
+              echo "  - zalando-replication-tls (client certificate + key)"
+              echo "  - zalando-replication-ca (CA certificate)"
+              echo "✓ Verified secret structure and content"
+
+              echo ""
+              echo "=== Next Steps ==="
+              echo "1. Verify secrets exist:"
+              echo "   kubectl get secret zalando-replication-tls zalando-replication-ca -n mastodon"
+              echo ""
+              echo "2. Update CNPG Cluster manifest to use these secrets"
+              echo "   - Set externalClusters.connectionParameters.sslcert to zalando-replication-tls"
+              echo "   - Set externalClusters.connectionParameters.sslkey to zalando-replication-tls"
+              echo "   - Set externalClusters.connectionParameters.sslrootcert to zalando-replication-ca"
+              echo ""
+              echo "3. Proceed with replica migration job"
+              echo ""
+              echo "=== Job Completed Successfully ==="
+              echo "Timestamp: $(date)"
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mastodon-cert-extractor-sa
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      ServiceAccount for certificate extraction job.
+      Requires read access to existing secrets and create/delete for new secrets.
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: mastodon
+  name: mastodon-cert-extractor-role
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Permissions for certificate extraction job.
+      - Read: mastodon-postgresql-server, mastodon-postgresql-ca
+      - Write: zalando-replication-tls, zalando-replication-ca
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "delete"]
+  # Specific secrets the job needs to access
+  resourceNames:
+    - mastodon-postgresql-server
+    - mastodon-postgresql-ca
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "delete", "patch", "update"]
+  # New secrets the job will create (cannot use resourceNames for create)
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mastodon-cert-extractor-rolebinding
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Binds cert-extractor ServiceAccount to Role for secret management.
+subjects:
+- kind: ServiceAccount
+  name: mastodon-cert-extractor-sa
+  namespace: mastodon
+roleRef:
+  kind: Role
+  name: mastodon-cert-extractor-role
+  apiGroup: rbac.authorization.k8s.io

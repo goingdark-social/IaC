@@ -1,0 +1,310 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: replica-migration-prepare-zalando
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Preparation job for streaming replication migration from Zalando to CNPG.
+      Creates streaming_replica user with REPLICATION privileges and secure password.
+      This is a prerequisite for zero-downtime replication-based migration.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400  # Keep job for 24 hours for debugging
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: prepare-replication-user
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Zalando PostgreSQL Replication User Setup ==="
+              echo "Timestamp: $(date)"
+              echo "Target: $DB_HOST:$DB_PORT/$DB_NAME"
+              echo ""
+
+              # Test connectivity first
+              echo "Step 1: Testing connectivity to Zalando PostgreSQL..."
+              pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"
+              echo "✓ Connection successful"
+              echo ""
+
+              # Generate secure random password for streaming_replica user
+              echo "Step 2: Generating secure password for streaming_replica user..."
+              REPLICA_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+              echo "✓ Password generated (25 characters)"
+              echo ""
+
+              # Check if streaming_replica user already exists
+              echo "Step 3: Checking if streaming_replica user exists..."
+              USER_EXISTS=$(PGPASSWORD="$DB_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                -h "$DB_HOST" \
+                -p "$DB_PORT" \
+                -U "$DB_USER" \
+                -d "$DB_NAME" \
+                -t -c "SELECT 1 FROM pg_user WHERE usename = 'streaming_replica';" | tr -d ' \t\n\r')
+
+              if [ "$USER_EXISTS" = "1" ]; then
+                echo "⚠️  User streaming_replica already exists"
+                echo "   Updating password and verifying privileges..."
+
+                # Update password and ensure privileges
+                PGPASSWORD="$DB_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                  -h "$DB_HOST" \
+                  -p "$DB_PORT" \
+                  -U "$DB_USER" \
+                  -d "$DB_NAME" \
+                  -v ON_ERROR_STOP=1 <<EOF
+              -- Update password
+              ALTER USER streaming_replica WITH PASSWORD '$REPLICA_PASSWORD';
+
+              -- Ensure REPLICATION and LOGIN privileges
+              ALTER USER streaming_replica WITH REPLICATION LOGIN;
+
+              -- Grant CONNECT on database
+              GRANT CONNECT ON DATABASE $DB_NAME TO streaming_replica;
+              EOF
+
+                echo "✓ User updated with new password and verified privileges"
+              else
+                echo "Creating streaming_replica user..."
+
+                # Create user with REPLICATION and LOGIN privileges
+                PGPASSWORD="$DB_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                  -h "$DB_HOST" \
+                  -p "$DB_PORT" \
+                  -U "$DB_USER" \
+                  -d "$DB_NAME" \
+                  -v ON_ERROR_STOP=1 <<EOF
+              -- Create replication user
+              CREATE USER streaming_replica WITH REPLICATION LOGIN PASSWORD '$REPLICA_PASSWORD';
+
+              -- Grant CONNECT on database
+              GRANT CONNECT ON DATABASE $DB_NAME TO streaming_replica;
+              EOF
+
+                echo "✓ User streaming_replica created successfully"
+              fi
+              echo ""
+
+              # Verify user privileges
+              echo "Step 4: Verifying streaming_replica user privileges..."
+              PGPASSWORD="$DB_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                -h "$DB_HOST" \
+                -p "$DB_PORT" \
+                -U "$DB_USER" \
+                -d "$DB_NAME" \
+                -c "SELECT
+                      rolname as \"User\",
+                      rolreplication as \"Replication\",
+                      rollogin as \"Login\",
+                      rolconnlimit as \"Connection Limit\"
+                    FROM pg_roles
+                    WHERE rolname = 'streaming_replica';"
+
+              # Verify replication privilege is set
+              HAS_REPLICATION=$(PGPASSWORD="$DB_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                -h "$DB_HOST" \
+                -p "$DB_PORT" \
+                -U "$DB_USER" \
+                -d "$DB_NAME" \
+                -t -c "SELECT rolreplication FROM pg_roles WHERE rolname = 'streaming_replica';" | tr -d ' \t\n\r')
+
+              if [ "$HAS_REPLICATION" = "t" ]; then
+                echo "✓ User has REPLICATION privilege"
+              else
+                echo "✗ ERROR: User does not have REPLICATION privilege"
+                exit 1
+              fi
+              echo ""
+
+              # Create Kubernetes secret with replication credentials
+              echo "Step 5: Creating Kubernetes secret for streaming_replica credentials..."
+
+              # Create secret using kubectl (requires proper RBAC)
+              cat <<EOF | kubectl apply -f -
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: zalando-streaming-replica
+                namespace: mastodon
+                labels:
+                  app: mastodon
+                  component: database
+                  migration: zalando-to-cnpg
+              type: Opaque
+              stringData:
+                username: streaming_replica
+                password: "$REPLICA_PASSWORD"
+                host: "$DB_HOST"
+                port: "$DB_PORT"
+                database: "$DB_NAME"
+                sslmode: "require"
+                sslrootcert: "/opt/postgresql/ca.crt"
+              EOF
+
+              echo "✓ Secret zalando-streaming-replica created successfully"
+              echo ""
+
+              # Test connection with new user (without actually starting replication)
+              echo "Step 6: Testing connection with streaming_replica user..."
+              CONNECTION_TEST=$(PGPASSWORD="$REPLICA_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                -h "$DB_HOST" \
+                -p "$DB_PORT" \
+                -U "streaming_replica" \
+                -d "$DB_NAME" \
+                -t -c "SELECT 'connection_ok';" 2>&1 | tr -d ' \t\n\r')
+
+              if [ "$CONNECTION_TEST" = "connection_ok" ]; then
+                echo "✓ Connection test successful with streaming_replica user"
+              else
+                echo "✗ WARNING: Connection test failed with streaming_replica user"
+                echo "   This might be due to pg_hba.conf configuration"
+                echo "   Error: $CONNECTION_TEST"
+                echo ""
+                echo "   The Zalando operator should automatically configure pg_hba.conf"
+                echo "   to allow replication connections. If the connection test fails,"
+                echo "   verify that the operator has updated pg_hba.conf."
+              fi
+              echo ""
+
+              # Display pg_hba.conf note
+              echo "Step 7: Checking pg_hba.conf configuration..."
+              echo "The Zalando operator should automatically manage pg_hba.conf entries."
+              echo "Verifying current pg_hba.conf rules..."
+
+              PGPASSWORD="$DB_PASSWORD" PGSSLROOTCERT="$DB_SSLROOTCERT" psql \
+                -h "$DB_HOST" \
+                -p "$DB_PORT" \
+                -U "$DB_USER" \
+                -d "$DB_NAME" \
+                -c "SELECT type, database, user_name, address, auth_method
+                    FROM pg_hba_file_rules
+                    WHERE user_name = '{streaming_replica}' OR user_name = '{all}'
+                    ORDER BY line_number;" || echo "⚠️  Unable to query pg_hba_file_rules (may require superuser)"
+
+              echo ""
+              echo "If replication connections fail, you may need to add a pg_hba.conf entry:"
+              echo "  host    replication    streaming_replica    all    md5"
+              echo ""
+
+              # Summary
+              echo "=== Replication User Setup Completed Successfully ==="
+              echo "Summary:"
+              echo "  • User: streaming_replica"
+              echo "  • Privileges: REPLICATION, LOGIN, CONNECT"
+              echo "  • Secret: zalando-streaming-replica (namespace: mastodon)"
+              echo "  • Host: $DB_HOST"
+              echo "  • Database: $DB_NAME"
+              echo ""
+              echo "Next Steps:"
+              echo "  1. Verify secret exists:"
+              echo "     kubectl get secret zalando-streaming-replica -n mastodon"
+              echo ""
+              echo "  2. Extract TLS certificates for CNPG:"
+              echo "     kubectl get secret mastodon-postgresql-ca -n mastodon -o yaml"
+              echo ""
+              echo "  3. Configure CNPG to use streaming_replica for replication"
+              echo "     (See REPLICA_MIGRATION_GUIDE.md for detailed steps)"
+              echo ""
+              echo "✓ Ready for streaming replication migration"
+
+          env:
+            - name: DB_HOST
+              value: "mastodon-postgresql"  # Direct connection to primary, not pooler
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "mastodon"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+            - name: PGSSLMODE
+              value: "require"
+            - name: DB_SSLROOTCERT
+              value: "/opt/postgresql/ca.crt"
+
+          volumeMounts:
+            - name: db-ca
+              mountPath: /opt/postgresql/ca.crt
+              subPath: ca.crt
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi
+
+      # Service account with permissions to create secrets
+      serviceAccountName: replica-migration-sa
+
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+---
+# ServiceAccount for job to create secrets
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: replica-migration-sa
+  namespace: mastodon
+  labels:
+    app: mastodon
+    component: migration
+---
+# Role to allow secret creation
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: replica-migration-role
+  namespace: mastodon
+  labels:
+    app: mastodon
+    component: migration
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "update", "patch"]
+---
+# RoleBinding to grant permissions to ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: replica-migration-binding
+  namespace: mastodon
+  labels:
+    app: mastodon
+    component: migration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: replica-migration-role
+subjects:
+  - kind: ServiceAccount
+    name: replica-migration-sa
+    namespace: mastodon

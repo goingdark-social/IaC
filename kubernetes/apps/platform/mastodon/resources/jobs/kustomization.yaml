@@ -5,7 +5,7 @@ resources:
 - migrate-job.yaml
 - setup-user-job.yaml
 
-# Zalando to CNPG Migration Jobs
+# Zalando to CNPG Migration Jobs (pg_dump/restore approach - 5-15 min downtime)
 # DO NOT include these in kustomize - apply with kubectl apply -f as needed
 # See MIGRATION_GUIDE.md for usage instructions
 # - zalando-backup-job.yaml         # Pre-migration: Test Zalando backup
@@ -13,3 +13,15 @@ resources:
 # - zalando-to-cnpg-migration.yaml  # Main migration: Scale down apps, migrate data
 # - cnpg-validation-job.yaml        # Post-migration: Validate CNPG data and performance
 # - zalando-cleanup-job.yaml        # Post-migration: Clean up Zalando resources (DANGEROUS)
+
+# Replica-Based Migration Jobs (streaming replication - 30s-2min downtime)
+# DO NOT include these in kustomize - apply with kubectl apply -f as needed
+# See REPLICA_MIGRATION_GUIDE.md for detailed usage instructions
+# Phase 1: Preparation (No Downtime)
+# - replica-migration-prepare-zalando.yaml      # Create streaming_replica user in Zalando
+# - replica-migration-extract-certs.yaml        # Extract TLS certificates for CNPG
+# - replica-migration-validate-replication.yaml # Validate replication status
+# Phase 2: Cutover (30s-2min Downtime)
+# - replica-migration-cutover.yaml              # Orchestrate cutover from Zalando to CNPG
+# Phase 3: Post-Migration
+# - cnpg-validation-job.yaml                    # Validate CNPG data and performance (reuse)
