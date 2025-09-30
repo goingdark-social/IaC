@@ -102,7 +102,7 @@ cluster_autoscaler_nodepools = [
     type     = "cx32"
     location = "hel1"
     min      = 0
-    max      = 2
+    max      = 3
     labels   = { "autoscaler-node" = "true" }
     taints   = ["autoscaler-node=true:NoSchedule"]
   }

@@ -301,10 +301,13 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get", "list", "create", "delete"]
-  # Specific secrets the job needs to access
+  # Specific secrets the job needs to access (include source secrets and the
+  # migration-target secrets so the job can check existing secrets safely)
   resourceNames:
     - mastodon-postgresql-server
     - mastodon-postgresql-ca
+    - zalando-replication-tls
+    - zalando-replication-ca
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["create", "delete", "patch", "update"]
