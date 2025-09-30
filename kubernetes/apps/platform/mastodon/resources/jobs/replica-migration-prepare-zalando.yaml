@@ -109,7 +109,7 @@ spec:
                 -c "SELECT
                       rolname as \"User\",
                       rolreplication as \"Replication\",
-                      rollogin as \"Login\",
+                      rolcanlogin as \"Login\",
                       rolconnlimit as \"Connection Limit\"
                     FROM pg_roles
                     WHERE rolname = 'streaming_replica';"
