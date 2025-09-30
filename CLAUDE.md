@@ -290,28 +290,67 @@ Metrics exposed via port 9394 on web pods, scraped by VMServiceScrape.
 
 ### MCP Servers and Specialized Agents
 
-**CRITICAL**: Always use specialized subagents for significant tasks to improve speed, quality, and leverage expert knowledge.
+**CRITICAL**: You MUST use specialized subagents for ALL non-trivial tasks. Do NOT attempt to implement complex features directly - always delegate to appropriate subagents.
+
+#### Available MCP Servers
+The following MCP servers are available and MUST be used when relevant:
+- **context7** - Up-to-date library documentation and code examples (use for ANY library/framework questions)
+- **github** - GitHub API operations (use for PR creation, issue management, code search, repository operations)
+- **deepwiki** - Repository-specific documentation (use for project-specific questions)
+- **thinking** - Advanced reasoning and analysis (use for complex decision-making)
+
+#### MCP Server Usage Policy
+**MANDATORY**: Always use MCP servers when available instead of alternative tools:
+- **Documentation lookup** → Use `context7` instead of WebFetch or manual searches
+- **GitHub operations** → Use `github` MCP tools instead of gh CLI commands via Bash
+- **Code search** → Use `github` search tools instead of grep/find commands
+- **Complex analysis** → Use `thinking` MCP for multi-step reasoning
+- MCP-provided tools have fewer restrictions, better integration, and more reliable results
+
+#### Subagent Usage Policy
+**MANDATORY REQUIREMENTS:**
+1. **Always use subagents for non-trivial tasks** - Do NOT implement complex features directly
+2. **Select agents based on task description** - Agent descriptions define their capabilities and use cases
+3. **Launch agents in parallel when possible** - Use single message with multiple Task tool calls (NOT separate messages)
+4. **Provide complete context** - Include relevant file paths, requirements, constraints, and expected outputs
+5. **Subagents should use MCP servers** - Ensure subagents leverage context7, github, deepwiki, thinking when applicable
 
 #### When to Use Subagents
-- **Infrastructure changes** → `terraform-specialist` (OpenTofu/Terraform expert)
-- **Kubernetes manifests** → `kubernetes-architect` (K8s expert with GitOps, service mesh, platform engineering)
-- **Security review** → `security-auditor` (DevSecOps, compliance, vulnerability assessment)
-- **Testing** → `test-automator` or `tdd-orchestrator` (test automation and TDD practices)
-- **Debugging** → `debugger` or `devops-troubleshooter` (incident response, observability)
-- **Performance** → `performance-engineer` (optimization, observability, Core Web Vitals)
-- **Code review** → `code-reviewer` (AI-powered analysis, security, performance)
-- **Deployment** → `deployment-engineer` (CI/CD, GitOps, progressive delivery)
-- **Database work** → `database-optimizer` or `database-admin` (performance, operations)
-- **Documentation** → `api-documenter` or `docs-architect` (comprehensive technical docs)
+Use subagents for ANY task that involves:
+- Implementing new features or functionality
+- Modifying infrastructure or Kubernetes manifests
+- Code review, testing, or security analysis
+- Performance optimization or debugging
+- Database operations or configuration changes
+- Documentation creation or updates
+- Cost analysis or resource optimization
+- Any task requiring specialized domain knowledge
 
 #### Parallel Agent Execution
-- **Launch agents in parallel** when tasks are independent
-- Use single message with multiple Task tool calls (NOT separate messages)
-- Example: Launch `kubernetes-architect` and `security-auditor` together for new feature
+**MANDATORY when tasks are independent:**
+- Launch multiple agents in a **single message** with multiple Task tool calls
+- Do NOT launch agents sequentially in separate messages unless they have dependencies
+- Example: For a new feature requiring implementation + security review, launch both agents in one message
 
-#### MCP Server Priority
-- **ALWAYS use MCP servers** when available instead of manual tools (WebFetch, Bash commands, etc.)
-- MCP-provided tools have fewer restrictions and better integration
+**WRONG - Sequential launches:**
+```
+[Message 1] Launch agent for implementation
+[Wait for completion]
+[Message 2] Launch agent for security review
+```
+
+**CORRECT - Parallel launches:**
+```
+[Single message with two Task tool calls: one for implementation, one for security review]
+```
+
+#### Direct Implementation (AVOID)
+Only implement features directly when:
+- The task is trivial (single file change, simple configuration update)
+- The task is explicitly within your core capabilities (basic file operations, simple queries)
+- No appropriate subagent exists for the task
+
+For everything else: **delegate to subagents**.
 
 ## Performance Considerations
 
