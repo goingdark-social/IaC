@@ -72,23 +72,51 @@ spec:
       max_parallel_workers: "4"
       max_parallel_maintenance_workers: "2"
 
-  # Database initialization with data checksums (like Zalando)
+  # Bootstrap from Zalando cluster via pg_basebackup
   bootstrap:
-    initdb:
-      dataChecksums: true
+    pg_basebackup:
+      source: zalando-cluster
+      database: mastodon
+
+  # Enable replica mode - streams from Zalando until promoted
+  replica:
+    enabled: true
+    source: zalando-cluster
+
+  # External cluster connection (Zalando PostgreSQL)
+  externalClusters:
+    - name: zalando-cluster
+      connectionParameters:
+        host: mastodon-postgresql-rw.mastodon.svc
+        user: streaming_replica
+        dbname: postgres
+        sslmode: verify-full
+      password:
+        name: zalando-streaming-replica
+        key: password
+      sslKey:
+        name: zalando-replication-tls
+        key: tls.key
+      sslCert:
+        name: zalando-replication-tls
+        key: tls.crt
+      sslRootCert:
+        name: zalando-replication-ca
+        key: ca.crt
+
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters:
         barmanObjectName: database-backup
-      
+
   resources:
     requests:
       memory: "2Gi"
       cpu: "1"
     limits:
       memory: "2Gi"
-  
+
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
@@ -100,19 +128,21 @@ spec:
         effect: "NoSchedule"
 
 ---
-apiVersion: postgresql.cnpg.io/v1
-kind: ScheduledBackup
-metadata:
-  name: database-backup
-spec:
-  # runs on monday and thursday at 06:00
-  schedule: "0 0 6 * * 1,4"
-  backupOwnerReference: self
-  cluster:
-    name: database
-  method: plugin
-  pluginConfiguration:
-    name: barman-cloud.cloudnative-pg.io
+# ScheduledBackup commented out - should only run after promotion to primary
+# Uncomment after successfully promoting the CNPG cluster and demoting Zalando
+# apiVersion: postgresql.cnpg.io/v1
+# kind: ScheduledBackup
+# metadata:
+#   name: database-backup
+# spec:
+#   # runs on monday and thursday at 06:00
+#   schedule: "0 0 6 * * 1,4"
+#   backupOwnerReference: self
+#   cluster:
+#     name: database
+#   method: plugin
+#   pluginConfiguration:
+#     name: barman-cloud.cloudnative-pg.io
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler

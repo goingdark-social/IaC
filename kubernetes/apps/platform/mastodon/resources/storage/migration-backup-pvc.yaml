@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: migration-backup-pvc
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Persistent storage for database migration backup files.
+      Ensures backup data persists across job restarts in case of failures.
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: hcloud-volumes-encrypted-xfs

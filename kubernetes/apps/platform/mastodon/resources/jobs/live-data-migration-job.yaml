@@ -1,0 +1,324 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: live-data-migration-job
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Live data migration job from Zalando PostgreSQL to CNPG.
+      Performs zero-downtime data replication WITHOUT scaling down applications.
+      Applications continue running against Zalando while data is copied to CNPG.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 172800  # Keep job for 48 hours for analysis
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: live-migration
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "=== Live Data Migration Job Started ==="
+              echo "Timestamp: $(date)"
+              echo "Source: $ZALANDO_HOST:$ZALANDO_PORT/$ZALANDO_DB_NAME"
+              echo "Target: $CNPG_HOST:$CNPG_PORT/$CNPG_DB_NAME"
+              echo ""
+              echo "🔴 IMPORTANT: Applications remain ONLINE during this migration"
+              echo "🔴 This creates a point-in-time copy, not live replication"
+              echo "🔴 Data written after migration starts will NOT be copied"
+              echo ""
+
+              # Create migration directory
+              mkdir -p /migration
+
+              # Generate migration filename with timestamp
+              MIGRATION_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="/migration/live_migration_${MIGRATION_TIMESTAMP}.sql"
+
+              echo "=== Step 1: Database Connectivity Tests ==="
+              echo "Testing Zalando PostgreSQL..."
+              pg_isready -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME"
+
+              echo "Testing CNPG PostgreSQL..."
+              pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME"
+
+              echo "✓ Both databases are accessible"
+
+              echo "=== Step 2: Pre-Migration Analysis ==="
+
+              # Check Zalando database size
+              ZALANDO_SIZE=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                            -t -c "SELECT pg_database_size('$ZALANDO_DB_NAME');")
+              echo "Zalando database size: $(echo $ZALANDO_SIZE | numfmt --to=iec)"
+
+              # Check CNPG database state
+              CNPG_TABLE_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                                -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';")
+              echo "CNPG current table count: $CNPG_TABLE_COUNT"
+
+              # Check active connections
+              ACTIVE_CONNECTIONS=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                                  -t -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND pid != pg_backend_pid();")
+              echo "Active connections to Zalando: $ACTIVE_CONNECTIONS"
+
+              # Show application activity
+              echo "Current application activity:"
+              PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" -c "
+                SELECT
+                  application_name,
+                  state,
+                  count(*) as connections
+                FROM pg_stat_activity
+                WHERE state IS NOT NULL AND pid != pg_backend_pid()
+                GROUP BY application_name, state
+                ORDER BY connections DESC;
+              "
+
+              echo "⚠️  Applications are LIVE - data may change during migration"
+              echo "    Migration captures a consistent snapshot at start time"
+
+              echo "=== Step 3: Creating Snapshot from Live Zalando Database ==="
+
+              # Use --serializable-deferrable for consistent snapshot during live operations
+              PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" pg_dump \
+                --host="$ZALANDO_HOST" \
+                --port="$ZALANDO_PORT" \
+                --username="$ZALANDO_USER" \
+                --dbname="$ZALANDO_DB_NAME" \
+                --serializable-deferrable \
+                --no-owner \
+                --no-privileges \
+                --clean \
+                --if-exists \
+                --verbose \
+                --file="$BACKUP_FILE"
+
+              echo "Live snapshot completed: $BACKUP_FILE"
+              ls -lh "$BACKUP_FILE"
+
+              # Record snapshot time
+              SNAPSHOT_TIME=$(date)
+              echo "Snapshot taken at: $SNAPSHOT_TIME"
+
+              echo "=== Step 4: Validating Backup Content ==="
+              if grep -q "CREATE TABLE.*accounts" "$BACKUP_FILE" && \
+                 grep -q "CREATE TABLE.*statuses" "$BACKUP_FILE" && \
+                 grep -q "CREATE TABLE.*users" "$BACKUP_FILE"; then
+                echo "✓ Backup validation passed - core tables found"
+              else
+                echo "✗ Backup validation failed - missing core tables"
+                exit 1
+              fi
+
+              # Show backup statistics
+              echo "Backup statistics:"
+              echo "  - Tables: $(grep -c "CREATE TABLE" "$BACKUP_FILE")"
+              echo "  - Indexes: $(grep -c "CREATE.*INDEX" "$BACKUP_FILE")"
+              echo "  - Size: $(du -h "$BACKUP_FILE" | cut -f1)"
+
+              echo "=== Step 5: Restoring to CNPG Database ==="
+
+              # Clear target database first
+              if [ "$CNPG_TABLE_COUNT" -gt 0 ]; then
+                echo "⚠️  CNPG database contains $CNPG_TABLE_COUNT tables - cleaning first"
+                PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                  --host="$CNPG_HOST" \
+                  --port="$CNPG_PORT" \
+                  --username="$CNPG_USER" \
+                  --dbname="$CNPG_DB_NAME" \
+                  -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+                echo "✓ CNPG database cleaned"
+              fi
+
+              PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                --host="$CNPG_HOST" \
+                --port="$CNPG_PORT" \
+                --username="$CNPG_USER" \
+                --dbname="$CNPG_DB_NAME" \
+                --single-transaction \
+                --file="$BACKUP_FILE"
+
+              echo "✓ Restore to CNPG completed successfully"
+
+              echo "=== Step 6: Data Integrity Validation ==="
+
+              # Compare row counts between source and target
+              echo "Comparing critical table row counts..."
+
+              # Key Mastodon tables to verify
+              TABLES=("accounts" "statuses" "users" "follows" "favourites" "mentions" "notifications" "media_attachments" "status_stats" "account_stats")
+
+              VALIDATION_ERRORS=0
+
+              for table in "${TABLES[@]}"; do
+                # Check if table exists in Zalando
+                if PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                   -c "\d $table" > /dev/null 2>&1; then
+
+                  ZALANDO_COUNT=$(PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                                 -t -c "SELECT COUNT(*) FROM $table;" 2>/dev/null | tr -d ' \t\n\r')
+                  CNPG_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                              -t -c "SELECT COUNT(*) FROM $table;" 2>/dev/null | tr -d ' \t\n\r')
+
+                  if [ "$ZALANDO_COUNT" = "$CNPG_COUNT" ]; then
+                    echo "✓ $table: $CNPG_COUNT rows (matches)"
+                  else
+                    echo "⚠️  $table: Zalando=$ZALANDO_COUNT, CNPG=$CNPG_COUNT (DIFFERENCE)"
+                    VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+                    echo "    This is expected for live migration - data may have changed during copy"
+                  fi
+                else
+                  echo "⚠️  Table $table not found in source, skipping..."
+                fi
+              done
+
+              echo "=== Step 7: Final Database Comparison ==="
+
+              # Get final statistics from both databases
+              echo "Source (Zalando) statistics:"
+              PGPASSWORD="$ZALANDO_PASSWORD" psql -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" -c "
+                SELECT
+                  'Database Size' as metric,
+                  pg_size_pretty(pg_database_size('$ZALANDO_DB_NAME')) as value
+                UNION ALL
+                SELECT
+                  'Total Tables' as metric,
+                  COUNT(*)::TEXT as value
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                UNION ALL
+                SELECT
+                  'Active Connections' as metric,
+                  COUNT(*)::TEXT as value
+                FROM pg_stat_activity
+                WHERE state = 'active' AND pid != pg_backend_pid();
+              "
+
+              echo ""
+              echo "Target (CNPG) statistics:"
+              PGPASSWORD="$CNPG_PASSWORD" psql -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  'Database Size' as metric,
+                  pg_size_pretty(pg_database_size('$CNPG_DB_NAME')) as value
+                UNION ALL
+                SELECT
+                  'Total Tables' as metric,
+                  COUNT(*)::TEXT as value
+                FROM information_schema.tables
+                WHERE table_schema = 'public';
+              "
+
+              echo "=== Migration Summary ==="
+              echo "Live migration completed at: $(date)"
+              echo "Snapshot taken at: $SNAPSHOT_TIME"
+              echo "Source: Zalando PostgreSQL ($ZALANDO_HOST)"
+              echo "Target: CNPG PostgreSQL ($CNPG_HOST)"
+              echo "Backup file: $BACKUP_FILE"
+              echo "Validation differences: $VALIDATION_ERRORS (expected for live migration)"
+              echo ""
+              echo "🟢 APPLICATIONS REMAINED ONLINE THROUGHOUT MIGRATION"
+              echo ""
+              echo "⚠️  IMPORTANT NOTES:"
+              echo "• Data written to Zalando AFTER snapshot time is NOT in CNPG"
+              echo "• Applications are still connected to Zalando PostgreSQL"
+              echo "• CNPG contains point-in-time snapshot from: $SNAPSHOT_TIME"
+              echo "• Validation differences are normal for live migration"
+              echo ""
+              echo "Next steps:"
+              echo "1. Review validation results above"
+              echo "2. If acceptable, run comprehensive validation job:"
+              echo "   kubectl apply -f cnpg-validation-job.yaml"
+              echo "3. Plan application cutover to CNPG when ready"
+              echo "4. Monitor for any data inconsistencies"
+              echo ""
+              echo "=== Live Data Migration Job Completed Successfully ==="
+
+          env:
+            # Zalando connection details
+            - name: ZALANDO_HOST
+              value: "mastodon-postgresql-pooler"
+            - name: ZALANDO_PORT
+              value: "5432"
+            - name: ZALANDO_DB_NAME
+              value: "mastodon"
+            - name: ZALANDO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: ZALANDO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+
+            # CNPG connection details
+            - name: CNPG_HOST
+              value: "database-rw"
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "app"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: username
+            - name: CNPG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: password
+
+            # SSL configuration
+            - name: PGSSLMODE
+              value: "require"
+            - name: ZALANDO_SSLROOTCERT
+              value: "/opt/postgresql/zalando-ca.crt"
+            - name: CNPG_SSLROOTCERT
+              value: "/opt/postgresql/cnpg-ca.crt"
+
+          volumeMounts:
+            - name: migration-storage
+              mountPath: /migration
+            - name: zalando-ca
+              mountPath: /opt/postgresql/zalando-ca.crt
+              subPath: ca.crt
+            - name: cnpg-ca
+              mountPath: /opt/postgresql/cnpg-ca.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      volumes:
+        - name: migration-storage
+          persistentVolumeClaim:
+            claimName: migration-backup-pvc
+        - name: zalando-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: cnpg-ca
+          secret:
+            secretName: database-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

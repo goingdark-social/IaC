@@ -1,3 +1,6 @@
+# TODO: After migration complete and stable (7+ days), delete this file
+# This is the Zalando PostgreSQL cluster definition
+# It will be replaced by CNPG (database-cluster.yaml)
 apiVersion: "acid.zalan.do/v1"
 kind: postgresql
 metadata:

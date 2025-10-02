@@ -36,11 +36,11 @@ spec:
               value: "false"
             # Database connection
             - name: DB_HOST
-              value: "mastodon-postgresql-pooler"
+              value: "database-pooler-rw"
             - name: DB_NAME
-              value: "mastodon"
+              value: "app"
             - name: DB_SSLMODE
-              value: "require"
+              value: "verify-ca"
             - name: DB_SSLROOTCERT
               value: "/opt/mastodon/.postgresql/root.crt"
             - name: DATABASE_TIMEOUT
@@ -59,7 +59,7 @@ spec:
       volumes:
         - name: db-ca
           secret:
-            secretName: mastodon-postgresql-ca
+            secretName: database-ca
             items:
               - key: ca.crt
                 path: ca.crt

@@ -1,0 +1,103 @@
+# Strategic patches to update certificate volumes for CNPG migration
+# These patches update all workloads to use database-ca instead of mastodon-postgresql-ca
+
+# Update web deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-web
+spec:
+  template:
+    spec:
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+
+---
+# Update streaming deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-streaming
+spec:
+  template:
+    spec:
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+
+---
+# Update sidekiq-default deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-default
+spec:
+  template:
+    spec:
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+
+---
+# Update sidekiq-background deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-background
+spec:
+  template:
+    spec:
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+
+---
+# Update sidekiq-federation deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-federation
+spec:
+  template:
+    spec:
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+
+---
+# Update sidekiq-scheduler deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-scheduler
+spec:
+  template:
+    spec:
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-ca
+          items:
+            - key: ca.crt
+              path: ca.crt

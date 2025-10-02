@@ -1,0 +1,486 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: replica-migration-validate-replication
+  namespace: mastodon
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Validates streaming replication status between Zalando PostgreSQL and CNPG.
+      Checks replication lag, LSN progression, row counts, and replication health.
+      Must be run AFTER setting up streaming replication from Zalando to CNPG.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400  # Keep job for 24 hours for analysis
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: validate-replication
+          image: postgres:17.2
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -euo pipefail
+
+              echo "================================================================"
+              echo "  Streaming Replication Validation Job"
+              echo "  Zalando (Primary) -> CNPG (Replica)"
+              echo "================================================================"
+              echo "Started: $(date)"
+              echo ""
+
+              # Color codes for output
+              RED='\033[0;31m'
+              GREEN='\033[0;32m'
+              YELLOW='\033[1;33m'
+              BLUE='\033[0;34m'
+              NC='\033[0m' # No Color
+
+              # Validation thresholds
+              MAX_ACCEPTABLE_LAG_SECONDS=5
+              MAX_ACCEPTABLE_ROW_DIFF_PERCENT=1
+
+              # Exit status tracking
+              VALIDATION_FAILED=0
+
+              echo "================================================================"
+              echo "  STEP 1: Connectivity Tests"
+              echo "================================================================"
+
+              echo "Testing Zalando PostgreSQL (Primary)..."
+              if pg_isready -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" > /dev/null 2>&1; then
+                echo -e "${GREEN}✓${NC} Zalando PostgreSQL is accessible"
+              else
+                echo -e "${RED}✗${NC} Cannot connect to Zalando PostgreSQL"
+                exit 1
+              fi
+
+              echo "Testing CNPG PostgreSQL (Replica)..."
+              if pg_isready -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" > /dev/null 2>&1; then
+                echo -e "${GREEN}✓${NC} CNPG PostgreSQL is accessible"
+              else
+                echo -e "${RED}✗${NC} Cannot connect to CNPG PostgreSQL"
+                exit 1
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  STEP 2: CNPG Recovery Status"
+              echo "================================================================"
+
+              # Check if CNPG is in recovery mode (must be true for replica)
+              CNPG_IN_RECOVERY=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                -t -c "SELECT pg_is_in_recovery();" | tr -d ' \t\n\r')
+
+              if [ "$CNPG_IN_RECOVERY" = "t" ]; then
+                echo -e "${GREEN}✓${NC} CNPG is in recovery mode (replica status confirmed)"
+              else
+                echo -e "${RED}✗${NC} CNPG is NOT in recovery mode - streaming replication not active!"
+                echo "    Expected: t (true), Got: $CNPG_IN_RECOVERY"
+                VALIDATION_FAILED=1
+              fi
+
+              # Check CNPG replication lag
+              echo ""
+              echo "Checking CNPG replication lag..."
+              CNPG_LAG_OUTPUT=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  CASE
+                    WHEN pg_last_xact_replay_timestamp() IS NULL THEN 'NO TRANSACTIONS REPLAYED YET'
+                    ELSE EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))::TEXT || ' seconds'
+                  END as replication_lag,
+                  pg_last_xact_replay_timestamp() as last_replay_time,
+                  now() as current_time;
+              " 2>&1)
+
+              echo "$CNPG_LAG_OUTPUT"
+
+              # Extract lag value
+              CNPG_LAG_SECONDS=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                -t -c "SELECT COALESCE(EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())), -1);" | tr -d ' \t\n\r')
+
+              # Handle case where no transactions have been replayed yet
+              if [ "$CNPG_LAG_SECONDS" = "-1" ] || [ "$CNPG_LAG_SECONDS" = "" ]; then
+                echo -e "${YELLOW}⚠${NC}  Warning: No transactions replayed yet (fresh replication setup)"
+                echo "    This is normal immediately after replication setup"
+              else
+                LAG_FLOAT=$(echo "$CNPG_LAG_SECONDS" | awk '{printf "%.2f", $1}')
+                LAG_INT=$(echo "$CNPG_LAG_SECONDS" | awk '{print int($1)}')
+
+                if [ "$LAG_INT" -le "$MAX_ACCEPTABLE_LAG_SECONDS" ]; then
+                  echo -e "${GREEN}✓${NC} Replication lag: ${LAG_FLOAT} seconds (acceptable)"
+                else
+                  echo -e "${RED}✗${NC} Replication lag: ${LAG_FLOAT} seconds (exceeds ${MAX_ACCEPTABLE_LAG_SECONDS}s threshold)"
+                  VALIDATION_FAILED=1
+                fi
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  STEP 3: WAL Position Analysis (LSN)"
+              echo "================================================================"
+
+              # Get Zalando (Primary) current WAL position
+              echo "Checking Zalando (Primary) WAL position..."
+              ZALANDO_CURRENT_LSN=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                -t -c "SELECT pg_current_wal_lsn();" | tr -d ' \t\n\r')
+
+              echo "  Primary current LSN: $ZALANDO_CURRENT_LSN"
+
+              # Get CNPG (Replica) receive and replay LSN
+              echo ""
+              echo "Checking CNPG (Replica) WAL positions..."
+              CNPG_LSN_INFO=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" -c "
+                SELECT
+                  pg_last_wal_receive_lsn() as received_lsn,
+                  pg_last_wal_replay_lsn() as replayed_lsn,
+                  pg_last_wal_receive_lsn() - pg_last_wal_replay_lsn() as receive_replay_diff;
+              ")
+
+              echo "$CNPG_LSN_INFO"
+
+              CNPG_RECEIVE_LSN=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                -t -c "SELECT pg_last_wal_receive_lsn();" | tr -d ' \t\n\r')
+
+              CNPG_REPLAY_LSN=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                -t -c "SELECT pg_last_wal_replay_lsn();" | tr -d ' \t\n\r')
+
+              # Check if LSN values are not null/empty
+              if [ -n "$CNPG_RECEIVE_LSN" ] && [ "$CNPG_RECEIVE_LSN" != "" ]; then
+                echo -e "${GREEN}✓${NC} CNPG is receiving WAL data (LSN: $CNPG_RECEIVE_LSN)"
+              else
+                echo -e "${RED}✗${NC} CNPG is NOT receiving WAL data"
+                VALIDATION_FAILED=1
+              fi
+
+              if [ -n "$CNPG_REPLAY_LSN" ] && [ "$CNPG_REPLAY_LSN" != "" ]; then
+                echo -e "${GREEN}✓${NC} CNPG is replaying WAL data (LSN: $CNPG_REPLAY_LSN)"
+              else
+                echo -e "${RED}✗${NC} CNPG is NOT replaying WAL data"
+                VALIDATION_FAILED=1
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  STEP 4: Zalando Replication Slot Status"
+              echo "================================================================"
+
+              # Check replication slot on Zalando
+              echo "Checking replication slot 'database' on Zalando..."
+              REPLICATION_SLOT_STATUS=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" -c "
+                SELECT
+                  slot_name,
+                  slot_type,
+                  active,
+                  restart_lsn,
+                  confirmed_flush_lsn,
+                  pg_current_wal_lsn() - restart_lsn as lag_bytes
+                FROM pg_replication_slots
+                WHERE slot_name = 'database';
+              " 2>&1)
+
+              echo "$REPLICATION_SLOT_STATUS"
+
+              # Check if slot exists and is active
+              SLOT_ACTIVE=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                -t -c "SELECT active FROM pg_replication_slots WHERE slot_name = 'database';" 2>/dev/null | tr -d ' \t\n\r')
+
+              if [ "$SLOT_ACTIVE" = "t" ]; then
+                echo -e "${GREEN}✓${NC} Replication slot 'database' is active"
+              elif [ "$SLOT_ACTIVE" = "f" ]; then
+                echo -e "${RED}✗${NC} Replication slot 'database' exists but is NOT active"
+                VALIDATION_FAILED=1
+              else
+                echo -e "${RED}✗${NC} Replication slot 'database' does NOT exist"
+                VALIDATION_FAILED=1
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  STEP 5: Zalando Replication Statistics"
+              echo "================================================================"
+
+              # Check pg_stat_replication on Zalando
+              echo "Checking active replication connections on Zalando..."
+              REPLICATION_STATS=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" -c "
+                SELECT
+                  application_name,
+                  client_addr,
+                  state,
+                  sync_state,
+                  sent_lsn,
+                  write_lsn,
+                  flush_lsn,
+                  replay_lsn,
+                  pg_current_wal_lsn() - replay_lsn as replay_lag_bytes
+                FROM pg_stat_replication
+                WHERE application_name = 'database';
+              " 2>&1)
+
+              echo "$REPLICATION_STATS"
+
+              # Check if replication is streaming
+              REPLICATION_STATE=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                -t -c "SELECT state FROM pg_stat_replication WHERE application_name = 'database';" 2>/dev/null | tr -d ' \t\n\r')
+
+              if [ "$REPLICATION_STATE" = "streaming" ]; then
+                echo -e "${GREEN}✓${NC} Replication connection is in 'streaming' state"
+              elif [ -n "$REPLICATION_STATE" ]; then
+                echo -e "${YELLOW}⚠${NC}  Warning: Replication state is '$REPLICATION_STATE' (not 'streaming')"
+                VALIDATION_FAILED=1
+              else
+                echo -e "${RED}✗${NC} No active replication connection found for application 'database'"
+                VALIDATION_FAILED=1
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  STEP 6: Data Integrity - Row Count Validation"
+              echo "================================================================"
+
+              # Key Mastodon tables to verify
+              TABLES=("accounts" "statuses" "users" "follows" "favourites" "notifications" "media_attachments")
+
+              echo "Comparing row counts for critical tables..."
+              echo ""
+
+              ROW_COUNT_MISMATCHES=0
+
+              for table in "${TABLES[@]}"; do
+                # Check if table exists in Zalando
+                TABLE_EXISTS=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                  -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                  -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '$table';" 2>/dev/null | tr -d ' \t\n\r')
+
+                if [ "$TABLE_EXISTS" = "0" ]; then
+                  echo -e "${YELLOW}⚠${NC}  Table '$table' does not exist, skipping..."
+                  continue
+                fi
+
+                # Get row counts
+                ZALANDO_COUNT=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                  -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                  -t -c "SELECT COUNT(*) FROM $table;" 2>/dev/null | tr -d ' \t\n\r')
+
+                CNPG_COUNT=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                  -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                  -t -c "SELECT COUNT(*) FROM $table;" 2>/dev/null | tr -d ' \t\n\r')
+
+                # Format numbers with commas for readability
+                ZALANDO_FORMATTED=$(printf "%'d" "$ZALANDO_COUNT" 2>/dev/null || echo "$ZALANDO_COUNT")
+                CNPG_FORMATTED=$(printf "%'d" "$CNPG_COUNT" 2>/dev/null || echo "$CNPG_COUNT")
+
+                if [ "$ZALANDO_COUNT" = "$CNPG_COUNT" ]; then
+                  echo -e "${GREEN}✓${NC} ${table}: ${CNPG_FORMATTED} rows (match)"
+                else
+                  # Calculate percentage difference
+                  if [ "$ZALANDO_COUNT" -gt 0 ]; then
+                    DIFF_PERCENT=$(awk "BEGIN {printf \"%.2f\", (($ZALANDO_COUNT - $CNPG_COUNT) / $ZALANDO_COUNT) * 100}")
+                    DIFF_PERCENT_ABS=$(echo "$DIFF_PERCENT" | awk '{print ($1 < 0) ? -$1 : $1}')
+
+                    DIFF_PERCENT_INT=$(echo "$DIFF_PERCENT_ABS" | awk '{print int($1)}')
+
+                    if [ "$DIFF_PERCENT_INT" -le "$MAX_ACCEPTABLE_ROW_DIFF_PERCENT" ]; then
+                      echo -e "${YELLOW}⚠${NC}  ${table}: Zalando=${ZALANDO_FORMATTED}, CNPG=${CNPG_FORMATTED} (diff: ${DIFF_PERCENT}%, acceptable)"
+                    else
+                      echo -e "${RED}✗${NC} ${table}: Zalando=${ZALANDO_FORMATTED}, CNPG=${CNPG_FORMATTED} (diff: ${DIFF_PERCENT}%, SIGNIFICANT)"
+                      ROW_COUNT_MISMATCHES=$((ROW_COUNT_MISMATCHES + 1))
+                    fi
+                  else
+                    echo -e "${YELLOW}⚠${NC}  ${table}: Zalando=${ZALANDO_FORMATTED}, CNPG=${CNPG_FORMATTED} (both empty or Zalando empty)"
+                  fi
+                fi
+              done
+
+              if [ "$ROW_COUNT_MISMATCHES" -gt 0 ]; then
+                echo ""
+                echo -e "${RED}✗${NC} $ROW_COUNT_MISMATCHES table(s) have significant row count differences"
+                VALIDATION_FAILED=1
+              else
+                echo ""
+                echo -e "${GREEN}✓${NC} All table row counts match or have acceptable differences"
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  STEP 7: Replication Error Check"
+              echo "================================================================"
+
+              # Check for replication errors on CNPG
+              echo "Checking CNPG for replication errors..."
+              CNPG_ERRORS=$(PGPASSWORD="$CNPG_PASSWORD" PGSSLROOTCERT="$CNPG_SSLROOTCERT" psql \
+                -h "$CNPG_HOST" -p "$CNPG_PORT" -U "$CNPG_USER" -d "$CNPG_DB_NAME" \
+                -t -c "SELECT last_msg FROM pg_stat_wal_receiver WHERE last_msg_send_time IS NOT NULL AND last_msg NOT LIKE '%streaming%';" 2>&1 | tr -d '\n\r')
+
+              if [ -z "$CNPG_ERRORS" ] || [ "$CNPG_ERRORS" = "" ]; then
+                echo -e "${GREEN}✓${NC} No replication errors detected on CNPG"
+              else
+                echo -e "${YELLOW}⚠${NC}  Replication messages: $CNPG_ERRORS"
+              fi
+
+              # Check Zalando replication backend errors
+              echo ""
+              echo "Checking Zalando for replication backend errors..."
+              ZALANDO_REP_ERRORS=$(PGPASSWORD="$ZALANDO_PASSWORD" PGSSLROOTCERT="$ZALANDO_SSLROOTCERT" psql \
+                -h "$ZALANDO_HOST" -p "$ZALANDO_PORT" -U "$ZALANDO_USER" -d "$ZALANDO_DB_NAME" \
+                -t -c "SELECT COUNT(*) FROM pg_stat_replication WHERE application_name = 'database' AND state != 'streaming';" 2>/dev/null | tr -d ' \t\n\r')
+
+              if [ "$ZALANDO_REP_ERRORS" = "0" ]; then
+                echo -e "${GREEN}✓${NC} No replication connection errors on Zalando"
+              else
+                echo -e "${RED}✗${NC} Found $ZALANDO_REP_ERRORS non-streaming replication connection(s)"
+                VALIDATION_FAILED=1
+              fi
+              echo ""
+
+              echo "================================================================"
+              echo "  VALIDATION SUMMARY"
+              echo "================================================================"
+              echo ""
+
+              # Generate detailed summary
+              echo "Replication Status:"
+              echo "  Source:             Zalando PostgreSQL ($ZALANDO_HOST)"
+              echo "  Target:             CNPG PostgreSQL ($CNPG_HOST)"
+              echo "  Replication Slot:   database"
+              echo ""
+              echo "LSN Positions:"
+              echo "  Zalando Current:    $ZALANDO_CURRENT_LSN"
+              echo "  CNPG Received:      $CNPG_RECEIVE_LSN"
+              echo "  CNPG Replayed:      $CNPG_REPLAY_LSN"
+              echo ""
+              echo "Replication Health:"
+              echo "  CNPG in Recovery:   $CNPG_IN_RECOVERY"
+              echo "  Slot Active:        $SLOT_ACTIVE"
+              echo "  Replication State:  $REPLICATION_STATE"
+              if [ "$CNPG_LAG_SECONDS" != "-1" ] && [ -n "$CNPG_LAG_SECONDS" ]; then
+                LAG_DISPLAY=$(echo "$CNPG_LAG_SECONDS" | awk '{printf "%.2f seconds", $1}')
+                echo "  Replication Lag:    $LAG_DISPLAY"
+              else
+                echo "  Replication Lag:    No transactions replayed yet"
+              fi
+              echo ""
+
+              if [ "$VALIDATION_FAILED" -eq 0 ]; then
+                echo "================================================================"
+                echo -e "${GREEN}✓✓✓ VALIDATION PASSED ✓✓✓${NC}"
+                echo "================================================================"
+                echo ""
+                echo "Streaming replication is healthy and ready for cutover!"
+                echo ""
+                echo "Next Steps:"
+                echo "  1. Monitor replication lag over time (should remain < ${MAX_ACCEPTABLE_LAG_SECONDS}s)"
+                echo "  2. Verify application functionality against CNPG (read-only testing)"
+                echo "  3. Plan cutover window with stakeholders"
+                echo "  4. Prepare rollback procedure"
+                echo "  5. Execute cutover when ready"
+                echo ""
+                exit 0
+              else
+                echo "================================================================"
+                echo -e "${RED}✗✗✗ VALIDATION FAILED ✗✗✗${NC}"
+                echo "================================================================"
+                echo ""
+                echo "Replication is NOT healthy - DO NOT proceed with cutover!"
+                echo ""
+                echo "Review the errors above and address the following:"
+                echo "  - Ensure replication slot 'database' exists and is active on Zalando"
+                echo "  - Verify CNPG is configured as a replica (recovery.conf or equivalent)"
+                echo "  - Check network connectivity between Zalando and CNPG"
+                echo "  - Review PostgreSQL logs for replication errors"
+                echo "  - Verify credentials and SSL certificates"
+                echo ""
+                exit 1
+              fi
+
+          env:
+            # Zalando connection details
+            - name: ZALANDO_HOST
+              value: "mastodon-postgresql"  # Direct connection to primary, not pooler
+            - name: ZALANDO_PORT
+              value: "5432"
+            - name: ZALANDO_DB_NAME
+              value: "mastodon"
+            - name: ZALANDO_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_USER
+            - name: ZALANDO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mastodon-db-url
+                  key: DB_PASS
+
+            # CNPG connection details
+            - name: CNPG_HOST
+              value: "database-r"  # Read-only service for replica
+            - name: CNPG_PORT
+              value: "5432"
+            - name: CNPG_DB_NAME
+              value: "app"
+            - name: CNPG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: username
+            - name: CNPG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-app
+                  key: password
+
+            # SSL configuration
+            - name: PGSSLMODE
+              value: "require"
+            - name: ZALANDO_SSLROOTCERT
+              value: "/opt/postgresql/zalando-ca.crt"
+            - name: CNPG_SSLROOTCERT
+              value: "/opt/postgresql/cnpg-ca.crt"
+
+          volumeMounts:
+            - name: zalando-ca
+              mountPath: /opt/postgresql/zalando-ca.crt
+              subPath: ca.crt
+            - name: cnpg-ca
+              mountPath: /opt/postgresql/cnpg-ca.crt
+              subPath: ca.crt
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
+      volumes:
+        - name: zalando-ca
+          secret:
+            secretName: mastodon-postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: cnpg-ca
+          secret:
+            secretName: database-ca
+            items:
+              - key: ca.crt
+                path: ca.crt

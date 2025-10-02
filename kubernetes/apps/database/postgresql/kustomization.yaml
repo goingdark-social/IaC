@@ -2,6 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: postgres-operator
 
+# TODO: After migration complete and stable (7+ days), delete this entire directory (postgresql/)
+# This is the old Zalando PostgreSQL operator that will be replaced by CloudNative-PG
+
 resources:
   - namespace.yaml
 
