@@ -7,6 +7,8 @@ resources:
   - dashboards
   - grafana-oidc-credentials.yaml
   - httproute.yaml
+  - prometheus-exporter-deployment.yaml
+  - prometheus-exporter-service.yaml
   # - prometheus-adapter.yaml  # Disabled: using helm chart prometheus-adapter instead
 
 helmCharts:
