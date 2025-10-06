@@ -2,12 +2,12 @@
 
 ## Pre-Cutover Checklist (Run by Operator)
 
-1. **Extract Zalando standby password:**
+1. **Extract Zalando standby password and replace the placeholder:**
    ```bash
    kubectl get secret mastodon-postgresql.standby.credentials -n mastodon \
      -o jsonpath='{.data.password}' | base64 -d
    ```
-   Update the `zalando-standby-credentials` secret in `database-cnpg.yaml` with this value.
+   Edit the `zalando-standby-credentials` secret in `database-cnpg.yaml` and replace `REPLACE_WITH_ZALANDO_STANDBY_PASSWORD` with the decoded value before applying the manifest.
 
 2. **Verify CNPG cluster is replicating:**
    ```bash
@@ -52,7 +52,7 @@
 5. **Update the Mastodon database URL secret:**
    ```bash
    kubectl create secret generic mastodon-db-url -n mastodon \
-     --from-literal=DATABASE_URL="postgresql://mastodon:<password>@database-cnpg-pooler-rw-rw.mastodon.svc.cluster.local:5432/mastodon?sslmode=verify-ca" \
+     --from-literal=DATABASE_URL="postgresql://mastodon:<password>@database-cnpg-pooler-rw.mastodon.svc.cluster.local:5432/mastodon?sslmode=verify-ca" \
      --dry-run=client -o yaml | kubectl apply -f -
    ```
 
@@ -60,10 +60,10 @@
    ```bash
    kubectl patch configmap mastodon-database -n mastodon --type merge -p '{
      "data":{
-       "DB_HOST":"database-cnpg-pooler-rw-rw.mastodon.svc.cluster.local",
-       "DB_PORT":"5432"
-     }
-   }'
+      "DB_HOST":"database-cnpg-pooler-rw.mastodon.svc.cluster.local",
+      "DB_PORT":"5432"
+    }
+  }'
    ```
 
 7. **Refresh the collation version:**
