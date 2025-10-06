@@ -2,12 +2,12 @@
 
 ## Pre-Cutover Checklist (Run by Operator)
 
-1. **Extract Zalando standby password and replace the placeholder:**
+1. **Verify the ExternalSecret is syncing the standby credentials:**
    ```bash
-   kubectl get secret mastodon-postgresql.standby.credentials -n mastodon \
-     -o jsonpath='{.data.password}' | base64 -d
+   kubectl get externalsecret zalando-standby-credentials -n mastodon
+   kubectl get secret zalando-standby-credentials -n mastodon
    ```
-   Edit the `zalando-standby-credentials` secret in `database-cnpg.yaml` and replace `REPLACE_WITH_ZALANDO_STANDBY_PASSWORD` with the decoded value before applying the manifest.
+   The ExternalSecret automatically pulls credentials from the Zalando operator's generated secret.
 
 2. **Verify CNPG cluster is replicating:**
    ```bash
@@ -45,18 +45,28 @@
 
 4. **Fetch the new application credentials:**
    ```bash
-   kubectl get secret database-cnpg-app -n mastodon \
-     -o jsonpath='{.data.password}' | base64 -d
+   NEW_USER=$(kubectl get secret database-cnpg-app -n mastodon -o jsonpath='{.data.username}' | base64 -d)
+   NEW_PASS=$(kubectl get secret database-cnpg-app -n mastodon -o jsonpath='{.data.password}' | base64 -d)
+   echo "Username: $NEW_USER"
+   echo "Password: $NEW_PASS"
    ```
 
-5. **Update the Mastodon database URL secret:**
+5. **Update the Mastodon database credentials secret (preserving the existing key structure):**
    ```bash
    kubectl create secret generic mastodon-db-url -n mastodon \
-     --from-literal=DATABASE_URL="postgresql://mastodon:<password>@database-cnpg-pooler-rw.mastodon.svc.cluster.local:5432/mastodon?sslmode=verify-ca" \
+     --from-literal=DB_USER="$NEW_USER" \
+     --from-literal=DB_PASS="$NEW_PASS" \
      --dry-run=client -o yaml | kubectl apply -f -
    ```
+   **Note:** This preserves the `DB_USER` and `DB_PASS` keys that Mastodon deployments expect via `envFrom`.
 
-6. **Update the ConfigMap with the new host:**
+6. **Update the database host configuration:**
+   Update `kubernetes/apps/platform/mastodon/configs/mastodon-database.env` to point to the new pooler:
+   ```bash
+   sed -i 's/DB_HOST=.*/DB_HOST=database-cnpg-pooler-rw.mastodon.svc.cluster.local/' \
+     kubernetes/apps/platform/mastodon/configs/mastodon-database.env
+   ```
+   Commit and push this change, or manually patch the ConfigMap:
    ```bash
    kubectl patch configmap mastodon-database -n mastodon --type merge -p '{
      "data":{
@@ -94,13 +104,41 @@
 1. **Remove the Zalando manifest from Git:**
    Edit `kubernetes/apps/platform/mastodon/resources/workloads/kustomization.yaml` and delete the `- database.yaml` entry.
 
-2. **Replace the replica manifest:**
+2. **Replace the replica manifest with the promoted one:**
    ```bash
    mv kubernetes/apps/platform/mastodon/resources/workloads/database-cnpg-promoted.yaml \
      kubernetes/apps/platform/mastodon/resources/workloads/database-cnpg.yaml
    ```
+   **Note:** The promoted manifest now includes all Pooler resources to prevent service disruption.
 
-3. **Optionally scale down the Zalando operator:**
+3. **Remove the external cluster configuration (optional cleanup):**
+   Edit `kubernetes/apps/platform/mastodon/resources/workloads/database-cnpg.yaml` and remove:
+   - The `bootstrap.pg_basebackup` section
+   - The `replica` section  
+   - The `externalClusters` section
+   
+   This is optional as these sections are ignored once the cluster is promoted.
+
+4. **Commit and push the changes:**
+   ```bash
+   git add kubernetes/apps/platform/mastodon/
+   git commit -m "chore: complete CNPG migration, remove Zalando operator"
+   git push
+   ```
+
+5. **Verify ArgoCD syncs the changes without disruption:**
+   ```bash
+   kubectl get pods -n mastodon -l cnpg.io/cluster=database-cnpg
+   kubectl get pooler -n mastodon
+   ```
+
+6. **Optionally scale down the Zalando operator:**
    ```bash
    kubectl scale deployment zalando-postgres-operator -n postgres-operator --replicas=0
    ```
+
+7. **Remove the zalando-standby-secret ExternalSecret (no longer needed):**
+   ```bash
+   rm kubernetes/apps/platform/mastodon/resources/secrets/zalando-standby-secret.yaml
+   ```
+   Update `kubernetes/apps/platform/mastodon/resources/secrets/kustomization.yaml` to remove the reference.

@@ -69,30 +69,8 @@ spec:
       - host replication standby 0.0.0.0/0 md5
       - host replication standby ::/0 md5
   certificates:
-    serverCASecret: mastodon-postgresql-ca
-    clientCASecret: mastodon-postgresql-ca
     serverTLSSecret: mastodon-postgresql-server
-    serverAltDNSNames:
-      - database-cnpg
-      - database-cnpg.mastodon
-      - database-cnpg.mastodon.svc
-      - database-cnpg.mastodon.svc.cluster.local
-      - database-cnpg-rw
-      - database-cnpg-rw.mastodon
-      - database-cnpg-rw.mastodon.svc
-      - database-cnpg-rw.mastodon.svc.cluster.local
-      - database-cnpg-ro
-      - database-cnpg-ro.mastodon
-      - database-cnpg-ro.mastodon.svc
-      - database-cnpg-ro.mastodon.svc.cluster.local
-      - database-cnpg-pooler-rw
-      - database-cnpg-pooler-rw.mastodon
-      - database-cnpg-pooler-rw.mastodon.svc
-      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
-      - database-cnpg-pooler-ro
-      - database-cnpg-pooler-ro.mastodon
-      - database-cnpg-pooler-ro.mastodon.svc
-      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
+    serverCASecret: mastodon-postgresql-server
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -107,11 +85,89 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
-  tolerations:
-    - key: "autoscaler-node"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+    tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-rw
+  namespace: mastodon
+spec:
+  cluster:
+    name: database-cnpg
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "1000"
+      default_pool_size: "125"
+  template:
+    metadata:
+      labels:
+        app: database-cnpg-pooler-rw
+    spec:
+      containers:
+        - resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
+            limits:
+              memory: 100Mi
+          name: pgbouncer
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - database-cnpg-pooler-rw
+              topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-ro
+  namespace: mastodon
+spec:
+  cluster:
+    name: database-cnpg
+  instances: 2
+  type: ro
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "1000"
+      default_pool_size: "125"
+  template:
+    metadata:
+      labels:
+        app: database-cnpg-pooler-ro
+    spec:
+      containers:
+        - resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
+            limits:
+              memory: 100Mi
+          name: pgbouncer
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - database-cnpg-pooler-ro
+              topologyKey: "kubernetes.io/hostname"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup

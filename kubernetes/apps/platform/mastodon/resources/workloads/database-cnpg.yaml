@@ -1,14 +1,4 @@
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zalando-standby-credentials
-  namespace: mastodon
-type: kubernetes.io/basic-auth
-stringData:
-  username: standby
-  password: REPLACE_WITH_ZALANDO_STANDBY_PASSWORD
----
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -32,31 +22,10 @@ spec:
   monitoring:
     enablePodMonitor: true
   certificates:
-    serverCASecret: mastodon-postgresql-ca
-    clientCASecret: mastodon-postgresql-ca
     serverTLSSecret: mastodon-postgresql-server
-    serverAltDNSNames:
-      - database-cnpg
-      - database-cnpg.mastodon
-      - database-cnpg.mastodon.svc
-      - database-cnpg.mastodon.svc.cluster.local
-      - database-cnpg-rw
-      - database-cnpg-rw.mastodon
-      - database-cnpg-rw.mastodon.svc
-      - database-cnpg-rw.mastodon.svc.cluster.local
-      - database-cnpg-ro
-      - database-cnpg-ro.mastodon
-      - database-cnpg-ro.mastodon.svc
-      - database-cnpg-ro.mastodon.svc.cluster.local
-      - database-cnpg-pooler-rw
-      - database-cnpg-pooler-rw.mastodon
-      - database-cnpg-pooler-rw.mastodon.svc
-      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
-      - database-cnpg-pooler-ro
-      - database-cnpg-pooler-ro.mastodon
-      - database-cnpg-pooler-ro.mastodon.svc
-      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
+    serverCASecret: mastodon-postgresql-server
   postgresql:
+    enableAlterSystem: true
     parameters:
       max_connections: "300"
       shared_buffers: "512MB"
@@ -100,11 +69,11 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
-  tolerations:
-    - key: "autoscaler-node"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+    tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
