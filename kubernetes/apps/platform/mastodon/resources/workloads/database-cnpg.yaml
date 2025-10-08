@@ -5,14 +5,10 @@ metadata:
   name: database-cnpg
   namespace: mastodon
 spec:
-  instances: 2
+  instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
-  bootstrap:
-    pg_basebackup:
-      source: zalando-cluster
-  replica:
-    enabled: true
-    source: zalando-cluster
+  enableSuperuserAccess: true
+  
   storage:
     size: 40Gi
     storageClass: hcloud-volumes-encrypted-xfs
@@ -21,9 +17,6 @@ spec:
     storageClass: hcloud-volumes-encrypted-xfs
   monitoring:
     enablePodMonitor: true
-  certificates:
-    serverTLSSecret: mastodon-postgresql-server
-    serverCASecret: mastodon-postgresql-server
   postgresql:
     enableAlterSystem: true
     parameters:
@@ -52,7 +45,7 @@ spec:
         host: mastodon-postgresql.mastodon.svc.cluster.local
         port: "5432"
         user: standby
-        dbname: postgres
+        dbname: mastodon
         sslmode: verify-ca
       password:
         name: zalando-standby-credentials
