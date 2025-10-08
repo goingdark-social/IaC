@@ -139,14 +139,29 @@ bootstrap:
 ## What Gets Migrated
 
 The `bootstrap.initdb.import` configuration migrates:
-- ✅ All tables and data in the `mastodon` database
-- ✅ Indexes and constraints
-- ✅ Sequences (with current values)
-- ✅ Views and materialized views
-- ✅ Functions and procedures
-- ✅ The `mastodon` role (application user)
-- ❌ Ownership (handled by CNPG auto-generated credentials)
-- ❌ ACLs (permissions set by CNPG)
+
+✅ **Schema and Data**:
+- All tables with complete data
+- Indexes, constraints, and keys
+- Sequences (with current values preserved)
+- Views, materialized views
+- Functions, procedures, triggers
+- Custom types and enums
+- Comments on objects
+
+✅ **Roles** (specified in config):
+- The `mastodon` role definition
+- Password hashes (preserved)
+- Role attributes (LOGIN, CREATEDB, etc.)
+
+❌ **Not Imported** (due to `--no-owner --no-acl`):
+- Object ownership (CNPG reassigns to postgres/app user)
+- Access control lists (CNPG manages privileges)
+- Tablespace assignments
+- Server configuration settings
+- Replication configuration
+
+**Important**: The application will use CNPG's auto-generated `app` user (from `database-cnpg-app` secret), not the imported `mastodon` role. This provides better security and credential rotation capabilities.
 
 ## Verification Checklist
 

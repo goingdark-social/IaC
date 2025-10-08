@@ -68,8 +68,14 @@ kubernetes/apps/platform/mastodon/MIGRATION-SUMMARY.md (new)
 Before merging this PR:
 - [ ] Review comprehensive migration guide (MIGRATION-PGDUMP.md)
 - [ ] Verify ExternalSecret `zalando-standby-credentials` is syncing
+- [ ] **Verify standby user has sufficient privileges** (pg_read_all_data or superuser)
+- [ ] **Confirm externalClusters section is present** in database-cnpg.yaml
+- [ ] **Verify all required roles listed** in bootstrap.initdb.import.roles
 - [ ] Confirm TLS certificates exist (mastodon-postgresql-ca, mastodon-postgresql-server)
 - [ ] Test network connectivity from CNPG namespace to Zalando cluster
+- [ ] **Check disk space** on source and target (need 2x DB size on target)
+- [ ] **Verify PostgreSQL version compatibility** (both running v17)
+- [ ] **Perform staging/test run** if possible
 - [ ] Schedule maintenance window (recommend off-peak hours)
 - [ ] Notify users of planned downtime
 - [ ] Take manual backup of Zalando cluster as safety net
@@ -82,9 +88,32 @@ Before merging this PR:
 kubectl get externalsecret zalando-standby-credentials -n mastodon
 kubectl get secret zalando-standby-credentials -n mastodon
 
-# Check current database size (estimate import time)
+# CRITICAL: Verify standby user privileges
+kubectl exec -n mastodon mastodon-postgresql-0 -- \
+  psql -U postgres -c "
+    SELECT 
+      rolname,
+      rolsuper,
+      pg_has_role(rolname, 'pg_read_all_data', 'member') as has_read_all_data
+    FROM pg_roles 
+    WHERE rolname = 'standby';
+  "
+# Expected: rolsuper=t OR has_read_all_data=t
+
+# Check database size and disk space
 kubectl exec -n mastodon mastodon-postgresql-0 -- \
   psql -U postgres -c "SELECT pg_database.datname, pg_size_pretty(pg_database_size(pg_database.datname)) AS size FROM pg_database WHERE datname = 'mastodon';"
+
+kubectl exec -n mastodon mastodon-postgresql-0 -- df -h /home/postgres/pgdata
+
+# Verify all required roles
+kubectl exec -n mastodon mastodon-postgresql-0 -- \
+  psql -U postgres -c "SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg_%' AND rolname != 'postgres' ORDER BY rolname;"
+
+# Test connectivity
+kubectl run -n mastodon pg-test --rm -it --restart=Never \
+  --image=ghcr.io/cloudnative-pg/postgresql:17.5 \
+  -- psql -h mastodon-postgresql.mastodon.svc.cluster.local -U standby -d mastodon -c 'SELECT version();'
 ```
 
 ### 2. Phase 1: Initial Import (Zero Downtime)

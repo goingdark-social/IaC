@@ -9,6 +9,25 @@ This migration uses CloudNativePG's `bootstrap.initdb.import` feature with pg_du
 1. **Phase 1 (Zero Downtime)**: Initial import while production continues on Zalando cluster
 2. **Phase 2 (Short Maintenance)**: Final cutover to CloudNativePG cluster
 
+## Preflight Checks
+
+**Run the automated preflight script** to verify all prerequisites:
+
+```bash
+./scripts/cnpg-migration-preflight.sh
+```
+
+This validates:
+- kubectl and kubectl-cnpg plugin installed
+- Cluster connectivity
+- Zalando cluster running
+- Standby credentials secret exists
+- TLS certificates configured
+- CloudNativePG operator installed
+- Database size and disk space
+- PostgreSQL connectivity
+- Standby user privileges
+
 ## Pre-Cutover Checklist (Run by Operator)
 
 1. **Verify the ExternalSecret is syncing the standby credentials:**
