@@ -1,0 +1,231 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg
+  namespace: mastodon
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  primaryUpdateStrategy: unsupervised
+  enablePDB: true
+  env:
+    - name: AWS_REQUEST_CHECKSUM_CALCULATION
+      value: when_required
+    - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+      value: when_required
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_SECRET_ACCESS_KEY
+    - name: AWS_ENDPOINT
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ENDPOINT
+    - name: WAL_S3_BUCKET
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: WAL_S3_BUCKET
+  storage:
+    size: 40Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+  walStorage:
+    size: 10Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+  monitoring:
+    enablePodMonitor: true
+  postgresql:
+    parameters:
+      max_connections: "300"
+      shared_buffers: "512MB"
+      effective_cache_size: "512MB"
+      maintenance_work_mem: "128MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "100"
+      work_mem: "1702kB"
+      huge_pages: "off"
+      min_wal_size: "2GB"
+      max_wal_size: "8GB"
+      max_worker_processes: "4"
+      max_parallel_workers_per_gather: "2"
+      max_parallel_workers: "4"
+      max_parallel_maintenance_workers: "2"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+    pg_hba:
+      - host all all 0.0.0.0/0 md5
+      - host all all ::/0 md5
+      - host replication standby 0.0.0.0/0 md5
+      - host replication standby ::/0 md5
+  certificates:
+    serverCASecret: mastodon-postgresql-ca
+    clientCASecret: mastodon-postgresql-ca
+    serverTLSSecret: mastodon-postgresql-server
+    serverAltDNSNames:
+      - database-cnpg
+      - database-cnpg.mastodon
+      - database-cnpg.mastodon.svc
+      - database-cnpg.mastodon.svc.cluster.local
+      - database-cnpg-rw
+      - database-cnpg-rw.mastodon
+      - database-cnpg-rw.mastodon.svc
+      - database-cnpg-rw.mastodon.svc.cluster.local
+      - database-cnpg-ro
+      - database-cnpg-ro.mastodon
+      - database-cnpg-ro.mastodon.svc
+      - database-cnpg-ro.mastodon.svc.cluster.local
+      - database-cnpg-pooler-rw
+      - database-cnpg-pooler-rw.mastodon
+      - database-cnpg-pooler-rw.mastodon.svc
+      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
+      - database-cnpg-pooler-ro
+      - database-cnpg-pooler-ro.mastodon
+      - database-cnpg-pooler-ro.mastodon.svc
+      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: database-backup
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "2Gi"
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-rw
+  namespace: mastodon
+spec:
+  cluster:
+    name: database-cnpg
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "1000"
+      default_pool_size: "125"
+  template:
+    metadata:
+      labels:
+        app: database-cnpg-pooler-rw
+    spec:
+      containers:
+        - resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
+            limits:
+              memory: 100Mi
+          name: pgbouncer
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - database-cnpg-pooler-rw
+              topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-ro
+  namespace: mastodon
+spec:
+  cluster:
+    name: database-cnpg
+  instances: 2
+  type: ro
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "1000"
+      default_pool_size: "125"
+  template:
+    metadata:
+      labels:
+        app: database-cnpg-pooler-ro
+    spec:
+      containers:
+        - resources:
+            requests:
+              cpu: 10m
+              memory: 100Mi
+            limits:
+              memory: 100Mi
+          name: pgbouncer
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - database-cnpg-pooler-ro
+              topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: database-cnpg-backup
+  namespace: mastodon
+spec:
+  schedule: "0 0 6 * * 1,4"
+  backupOwnerReference: self
+  cluster:
+    name: database-cnpg
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup
+  namespace: mastodon
+spec:
+  configuration:
+    destinationPath: s3://mastovault/cnpg/mastodon-database
+    endpointURL: https://s3.jorijn.com
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+    data:
+      additionalCommandArgs:
+        - --max-archive-size=10GB
+        - --min-chunk-size=64MB
+        - --read-timeout=180
+  retentionPolicy: "14d"
