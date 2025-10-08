@@ -69,8 +69,30 @@ spec:
       - host replication standby 0.0.0.0/0 md5
       - host replication standby ::/0 md5
   certificates:
+    serverCASecret: mastodon-postgresql-ca
+    clientCASecret: mastodon-postgresql-ca
     serverTLSSecret: mastodon-postgresql-server
-    serverCASecret: mastodon-postgresql-server
+    serverAltDNSNames:
+      - database-cnpg
+      - database-cnpg.mastodon
+      - database-cnpg.mastodon.svc
+      - database-cnpg.mastodon.svc.cluster.local
+      - database-cnpg-rw
+      - database-cnpg-rw.mastodon
+      - database-cnpg-rw.mastodon.svc
+      - database-cnpg-rw.mastodon.svc.cluster.local
+      - database-cnpg-ro
+      - database-cnpg-ro.mastodon
+      - database-cnpg-ro.mastodon.svc
+      - database-cnpg-ro.mastodon.svc.cluster.local
+      - database-cnpg-pooler-rw
+      - database-cnpg-pooler-rw.mastodon
+      - database-cnpg-pooler-rw.mastodon.svc
+      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
+      - database-cnpg-pooler-ro
+      - database-cnpg-pooler-ro.mastodon
+      - database-cnpg-pooler-ro.mastodon.svc
+      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
