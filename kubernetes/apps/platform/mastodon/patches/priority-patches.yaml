@@ -10,14 +10,6 @@ spec:
     spec:
       priorityClassName: mastodon-critical
 ---
-apiVersion: acid.zalan.do/v1
-kind: postgresql
-metadata:
-  name: mastodon-postgresql
-  namespace: mastodon
-spec:
-  podPriorityClassName: mastodon-critical
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

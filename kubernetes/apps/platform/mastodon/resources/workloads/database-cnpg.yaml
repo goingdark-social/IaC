@@ -41,20 +41,7 @@ spec:
       max_parallel_maintenance_workers: "2"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
-  externalClusters:
-    - name: zalando-cluster
-      connectionParameters:
-        host: mastodon-postgresql.mastodon.svc.cluster.local
-        port: "5432"
-        user: standby
-        dbname: mastodon
-        sslmode: verify-ca
-      password:
-        name: zalando-standby-credentials
-        key: password
-      sslRootCert:
-        name: mastodon-postgresql-ca
-        key: ca.crt
+  # External cluster configuration removed - migration complete
   resources:
     requests:
       memory: "2Gi"
