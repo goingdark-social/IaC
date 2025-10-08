@@ -34,15 +34,15 @@ spec:
               value: "1"
             - name: PREPARED_STATEMENTS
               value: "false"
-            # Database connection
+            # Database connection - CNPG cluster
             - name: DB_HOST
-              value: "mastodon-postgresql-pooler"
+              value: "database-cnpg-pooler-rw"
             - name: DB_NAME
               value: "mastodon"
             - name: DB_SSLMODE
-              value: "require"
-            - name: DB_SSLROOTCERT
-              value: "/opt/mastodon/.postgresql/root.crt"
+              value: "verify-ca"
+            - name: PGSSLROOTCERT
+              value: "/etc/ssl/certs/postgresql/ca.crt"
             - name: DATABASE_TIMEOUT
               value: "60"
           envFrom:
@@ -54,12 +54,10 @@ spec:
                 name: mastodon-app-secrets
           volumeMounts:
             - name: db-ca
-              mountPath: /opt/mastodon/.postgresql/root.crt
-              subPath: ca.crt
+              mountPath: /etc/ssl/certs/postgresql
+              readOnly: true
       volumes:
         - name: db-ca
           secret:
-            secretName: mastodon-postgresql-ca
-            items:
-              - key: ca.crt
-                path: ca.crt
+            secretName: database-cnpg-ca
+            defaultMode: 0444

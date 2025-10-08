@@ -5,7 +5,7 @@ metadata:
   name: database-cnpg
   namespace: mastodon
 spec:
-  instances: 1
+  instances: 2
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   enableSuperuserAccess: true
   
@@ -15,17 +15,22 @@ spec:
         type: monolith
         databases:
           - mastodon
-        roles:
-          - mastodon
+        # Note: roles excluded - standby user lacks pg_authid read permissions
+        # CNPG will auto-generate app credentials in database-cnpg-app secret
         source:
           externalCluster: zalando-cluster
         # Run pg_dump with custom format for faster parallel restore
+        # Exclude monitoring extensions not available in CNPG image
+        # plpgsql and pg_stat_statements will be created by CNPG automatically
         pgDumpExtraOptions:
           - "--verbose"
           - "--format=custom"
           - "--no-owner"
           - "--no-acl"
-        # Restore with parallel jobs for better performance
+          - "--exclude-extension=pg_stat_kcache"
+          - "--exclude-extension=set_user"
+        # Restore with parallel jobs
+        # Note: --single-transaction disabled to allow partial restore if extensions fail
         pgRestoreExtraOptions:
           - "--verbose"
           - "--jobs=4"
@@ -62,31 +67,8 @@ spec:
       max_parallel_maintenance_workers: "2"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
-  certificates:
-    serverCASecret: mastodon-postgresql-ca
-    clientCASecret: mastodon-postgresql-ca
-    serverTLSSecret: mastodon-postgresql-server
-    serverAltDNSNames:
-      - database-cnpg
-      - database-cnpg.mastodon
-      - database-cnpg.mastodon.svc
-      - database-cnpg.mastodon.svc.cluster.local
-      - database-cnpg-rw
-      - database-cnpg-rw.mastodon
-      - database-cnpg-rw.mastodon.svc
-      - database-cnpg-rw.mastodon.svc.cluster.local
-      - database-cnpg-ro
-      - database-cnpg-ro.mastodon
-      - database-cnpg-ro.mastodon.svc
-      - database-cnpg-ro.mastodon.svc.cluster.local
-      - database-cnpg-pooler-rw
-      - database-cnpg-pooler-rw.mastodon
-      - database-cnpg-pooler-rw.mastodon.svc
-      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
-      - database-cnpg-pooler-ro
-      - database-cnpg-pooler-ro.mastodon
-      - database-cnpg-pooler-ro.mastodon.svc
-      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
+  # Note: CNPG will auto-generate its own TLS certificates
+  # The externalClusters section below uses Zalando's CA only for the migration import
   externalClusters:
     - name: zalando-cluster
       connectionParameters:
@@ -110,11 +92,11 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
-  tolerations:
-    - key: "autoscaler-node"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+    tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
@@ -144,6 +126,11 @@ spec:
             limits:
               memory: 100Mi
           name: pgbouncer
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -183,6 +170,11 @@ spec:
             limits:
               memory: 100Mi
           name: pgbouncer
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

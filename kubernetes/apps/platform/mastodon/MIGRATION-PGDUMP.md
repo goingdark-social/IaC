@@ -12,6 +12,12 @@ This document describes the production migration strategy for moving the Mastodo
 
 **Proven safety**: Logical backups are well-tested and provide clear verification points before and after migration.
 
+**How pg_dump works in CNPG**: The pg_dump client runs **inside the new CNPG pod** (not on the source cluster) and connects remotely to the Zalando cluster to stream data. This means:
+- pg_dump binary comes from the CNPG PostgreSQL image (`ghcr.io/cloudnative-pg/postgresql:17.5`)
+- Data flows: Zalando cluster → network → CNPG pod → local disk
+- No additional disk space needed on source cluster
+- The dump is compressed with `--format=custom` for efficiency
+
 ## Migration Strategy Overview
 
 This migration uses CloudNativePG's built-in `bootstrap.initdb.import` feature to automatically:
@@ -120,7 +126,15 @@ kubectl exec -n mastodon mastodon-postgresql-0 -- \
 - `rolsuper = t` (superuser), OR
 - `rolreplication = t` AND `has_read_all_data = t`
 
-**If privileges are insufficient**, create a dedicated dump user:
+**Known Limitation**: The Zalando-generated `standby` user typically has replication privileges which provide sufficient access to dump the database schema and data, **but NOT the `pg_authid` table** (role definitions). This is a PostgreSQL security restriction - only superusers can read `pg_authid`.
+
+**Recommendation**: **Exclude roles from the import configuration** and let CNPG auto-generate application credentials. This is the recommended approach for production migrations as it:
+- Avoids permission errors during import
+- Leverages CNPG's secure credential management
+- Provides fresh credentials with no legacy password hashes
+- Simplifies the migration process
+
+**If you must import roles** (e.g., to preserve role hierarchy or custom attributes), create a dedicated dump user with superuser privileges:
 
 ```bash
 # Create read-only dump user with required privileges

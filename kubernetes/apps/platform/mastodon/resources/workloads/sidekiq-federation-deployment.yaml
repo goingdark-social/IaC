@@ -61,17 +61,13 @@ spec:
           env:
             - name: DB_POOL
               value: "20"
-            - name: DB_SSLMODE
-              value: verify-ca
-            - name: DB_SSLROOTCERT
-              value: /opt/mastodon/.postgresql/root.crt
           volumeMounts:
             - name: db-ca
-              mountPath: /opt/mastodon/.postgresql/root.crt
-              subPath: ca.crt
+              mountPath: /etc/ssl/certs/postgresql
+              readOnly: true
             - name: es-ca
               mountPath: /opt/mastodon/.elasticsearch/ca.crt
-              subPath: ca.crt
+              readOnly: true
           livenessProbe:
             exec:
               command: ["sh", "-c", "ps aux | grep '[s]idekiq\\ 7'"]
@@ -95,13 +91,9 @@ spec:
       volumes:
         - name: db-ca
           secret:
-            secretName: mastodon-postgresql-ca
-            items:
-              - key: ca.crt
-                path: ca.crt
+            secretName: database-cnpg-ca
+            defaultMode: 0444
         - name: es-ca
           secret:
             secretName: mastodon-elastic-ca
-            items:
-              - key: ca.crt
-                path: ca.crt
+            defaultMode: 0444
