@@ -9,33 +9,7 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   enableSuperuserAccess: true
   
-  bootstrap:
-    initdb:
-      import:
-        type: monolith
-        databases:
-          - mastodon
-        # Note: roles excluded - standby user lacks pg_authid read permissions
-        # CNPG will auto-generate app credentials in database-cnpg-app secret
-        source:
-          externalCluster: zalando-cluster
-        # Run pg_dump with custom format for faster parallel restore
-        # Exclude monitoring extensions not available in CNPG image
-        # plpgsql and pg_stat_statements will be created by CNPG automatically
-        pgDumpExtraOptions:
-          - "--verbose"
-          - "--format=custom"
-          - "--no-owner"
-          - "--no-acl"
-          - "--exclude-extension=pg_stat_kcache"
-          - "--exclude-extension=set_user"
-        # Restore with parallel jobs
-        # Note: --single-transaction disabled to allow partial restore if extensions fail
-        pgRestoreExtraOptions:
-          - "--verbose"
-          - "--jobs=4"
-          - "--no-owner"
-          - "--no-acl"
+  # Migration complete - bootstrap configuration removed
   
   storage:
     size: 40Gi
@@ -67,22 +41,7 @@ spec:
       max_parallel_maintenance_workers: "2"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
-  # Note: CNPG will auto-generate its own TLS certificates
-  # The externalClusters section below uses Zalando's CA only for the migration import
-  externalClusters:
-    - name: zalando-cluster
-      connectionParameters:
-        host: mastodon-postgresql.mastodon.svc.cluster.local
-        port: "5432"
-        user: standby
-        dbname: mastodon
-        sslmode: verify-ca
-      password:
-        name: zalando-standby-credentials
-        key: password
-      sslRootCert:
-        name: mastodon-postgresql-ca
-        key: ca.crt
+  # External cluster configuration removed - migration complete
   resources:
     requests:
       memory: "2Gi"
