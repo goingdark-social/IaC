@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tor-proxy
+  namespace: mastodon
+spec:
+  selector:
+    app: tor-proxy
+  ports:
+    - name: http
+      port: 8118
+      targetPort: http

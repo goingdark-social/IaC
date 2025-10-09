@@ -87,9 +87,12 @@ All applications are managed through ArgoCD and deploy automatically when change
 
 ## Mastodon Tor Access
 
-- The external gateway now listens on port 80 without TLS so Tor traffic can reach the cluster without onion TLS termination.
-- A dedicated HTTPRoute sends `.onion` requests for `/api/v1/streaming` to the streaming service and everything else to the web pods.
-- Mastodon is configured with `ALLOW_ACCESS_TO_HIDDEN_SERVICE=true` so it accepts those hosts while preserving HTTPS for the public domain.
+- The external gateway exposes an HTTP listener on port 80 so Tor traffic reaches the cluster without onion TLS termination.
+- A dedicated HTTPRoute publishes the `.onion` hostname, sends `/api/v1/streaming` requests to the streaming service, routes everything else to the web pods, and adds an `Onion-Location` response header for Tor Browser.
+- A Tor hidden-service deployment forwards onion requests to the gateway load balancer and stores the generated hostname on a persistent volume so it survives pod restarts.
+- The `mastodon-app-secrets` ExternalSecret carries the onion hostname from Bitwarden so the value stays out of the repo and can be rotated alongside the Tor key material.
+- A Tor HTTP proxy runs inside the cluster on port 8118 and Mastodon points both `http_proxy` and `http_hidden_proxy` at it for federation with onion-only peers.
+- Mastodon sets `ALLOW_ACCESS_TO_HIDDEN_SERVICE=true` so it accepts the onion host while keeping HTTPS for the public domain.
 
 ## Tech Stack
 

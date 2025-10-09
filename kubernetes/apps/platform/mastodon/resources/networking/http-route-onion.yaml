@@ -8,26 +8,32 @@ spec:
     - name: external
       namespace: gateway
       sectionName: http-onion
+  hostnames:
+    - placeholder.onion
   rules:
     - matches:
-        - headers:
-            - name: Host
-              type: RegularExpression
-              value: .+\\.onion
-          path:
+        - path:
             type: PathPrefix
             value: /api/v1/streaming
       backendRefs:
         - name: mastodon-streaming
           port: 4000
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            add:
+              - name: Onion-Location
+                value: http://placeholder.onion
     - matches:
-        - headers:
-            - name: Host
-              type: RegularExpression
-              value: .+\\.onion
-          path:
+        - path:
             type: PathPrefix
             value: /
       backendRefs:
         - name: mastodon-web
           port: 3000
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            add:
+              - name: Onion-Location
+                value: http://placeholder.onion

@@ -62,6 +62,36 @@ resources:
 - configs/
 - resources/
 
+replacements:
+  - source:
+      kind: Secret
+      name: mastodon-app-secrets
+      fieldPath: stringData.ONION_DOMAIN
+    targets:
+      - select:
+          kind: HTTPRoute
+          name: mastodon-onion
+        fieldPaths:
+          - spec.hostnames.0
+      - select:
+          kind: HTTPRoute
+          name: mastodon-onion
+        fieldPaths:
+          - spec.rules.0.filters.0.responseHeaderModifier.add.0.value
+          - spec.rules.1.filters.0.responseHeaderModifier.add.0.value
+        options:
+          delimiter: http://
+          index: 1
+      - select:
+          kind: HTTPRoute
+          name: mastodon
+        fieldPaths:
+          - spec.rules.0.filters.0.responseHeaderModifier.add.0.value
+          - spec.rules.1.filters.0.responseHeaderModifier.add.0.value
+        options:
+          delimiter: http://
+          index: 1
+
 patches:
 - path: patches/priority-patches.yaml
 - path: patches/spread-patches.yaml
