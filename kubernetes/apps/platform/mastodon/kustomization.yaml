@@ -61,26 +61,10 @@ resources:
 - namespace.yaml
 - configs/
 - resources/
+ 
 
-replacements:
-  - source:
-      kind: Secret
-      name: mastodon-app-secrets
-      fieldPath: stringData.ONION_DOMAIN
-    targets:
-      - select:
-          kind: HTTPRoute
-          name: mastodon-onion
-        fieldPaths:
-          - spec.hostnames.0
-      - select:
-          kind: HTTPRoute
-          name: mastodon-onion
-        fieldPaths:
-          - spec.rules.0.filters.0.responseHeaderModifier.add.0.value
-          - spec.rules.1.filters.0.responseHeaderModifier.add.0.value
-        # Removed fragile delimiter/index replacement logic for robustness
-      # Note: the standard `mastodon` HTTPRoute no longer includes Onion-Location filters.
+# Replacements removed: onion hostname is managed separately and should be set directly in the
+# `mastodon-onion` HTTPRoute or injected by your deployment tooling outside of kustomize.
 
 patches:
 - path: patches/priority-patches.yaml

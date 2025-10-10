@@ -13,6 +13,32 @@ spec:
       labels:
         app: mastodon-onion
     spec:
+      initContainers:
+        - name: restore-onion
+          image: busybox:1.36
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -e
+              mkdir -p /var/lib/tor/hidden_service
+              # copy files from secret mount into PVC and fix perms
+              if [ -f /secret/hs_ed25519_public_key ]; then
+                cp /secret/hs_ed25519_public_key /var/lib/tor/hidden_service/hs_ed25519_public_key
+              fi
+              if [ -f /secret/hs_ed25519_secret_key ]; then
+                cp /secret/hs_ed25519_secret_key /var/lib/tor/hidden_service/hs_ed25519_secret_key
+              fi
+              if [ -f /secret/hostname ]; then
+                cp /secret/hostname /var/lib/tor/hidden_service/hostname
+              fi
+              chmod 700 /var/lib/tor/hidden_service
+              chmod 600 /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+          volumeMounts:
+            - name: onion-secret
+              mountPath: /secret
+              readOnly: true
+            - name: onion-data
+              mountPath: /var/lib/tor/hidden_service
       containers:
         - name: tor
           image: goldy/tor-hidden-service:v0.4.7.12-54c0e54
@@ -35,6 +61,9 @@ spec:
               cpu: 10m
               memory: 64Mi
       volumes:
+        - name: onion-secret
+          secret:
+            secretName: mastodon-onion-key
         - name: onion-data
           persistentVolumeClaim:
             claimName: mastodon-onion
