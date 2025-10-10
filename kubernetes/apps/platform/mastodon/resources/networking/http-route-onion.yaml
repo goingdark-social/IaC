@@ -9,7 +9,7 @@ spec:
       namespace: gateway
       sectionName: http-onion
   hostnames:
-    - placeholder.onion
+    - eopvgbrhvri7tj2gbvssa3zpgxzm6rbwf6ozmk33elox3kce3zo75gid.onion
   rules:
     - matches:
         - path:
@@ -23,7 +23,7 @@ spec:
           responseHeaderModifier:
             add:
               - name: Onion-Location
-                value: http://placeholder.onion
+                value: http://eopvgbrhvri7tj2gbvssa3zpgxzm6rbwf6ozmk33elox3kce3zo75gid.onion
     - matches:
         - path:
             type: PathPrefix
@@ -36,4 +36,4 @@ spec:
           responseHeaderModifier:
             add:
               - name: Onion-Location
-                value: http://placeholder.onion
+                value: http://eopvgbrhvri7tj2gbvssa3zpgxzm6rbwf6ozmk33elox3kce3zo75gid.onion

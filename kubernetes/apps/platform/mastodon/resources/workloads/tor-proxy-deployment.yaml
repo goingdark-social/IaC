@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: proxy
-          image: dperson/torproxy:0.4.7-amd64
+          image: ghcr.io/avpnusr/torprivoxy:04-10-2025
           ports:
             - containerPort: 8118
               name: http

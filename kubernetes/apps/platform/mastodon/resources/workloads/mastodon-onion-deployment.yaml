@@ -63,7 +63,7 @@ spec:
       volumes:
         - name: onion-secret
           secret:
-            secretName: mastodon-onion-key
+            secretName: mastodon-onion-keys
         - name: onion-data
           persistentVolumeClaim:
             claimName: mastodon-onion
