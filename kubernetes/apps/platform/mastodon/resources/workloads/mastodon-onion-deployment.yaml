@@ -42,18 +42,22 @@ spec:
               mountPath: /var/lib/tor/hidden_service
       containers:
         - name: tor
-          image: goldy/tor-hidden-service:v0.4.7.12-54c0e54
-          env:
-            - name: SERVICE1_TOR_SERVICE_HOSTS
-              value: "80:mastodon-web.mastodon.svc.cluster.local:3000"
-            - name: SERVICE1_TOR_SERVICE_VERSION
-              value: "3"
+          # Use the official Tor Project hidden service image
+          image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
+          # Run Tor with our custom torrc
+          command: ["tor", "-f", "/etc/tor/torrc"]
+          env: []
           ports:
             - containerPort: 80
               name: http
+            - containerPort: 4000
+              name: streaming
           volumeMounts:
             - mountPath: /var/lib/tor/hidden_service/
               name: onion-data
+            - name: torrc
+              mountPath: /etc/tor/torrc
+              subPath: torrc
           resources:
             limits:
               cpu: 200m
@@ -68,3 +72,9 @@ spec:
         - name: onion-data
           persistentVolumeClaim:
             claimName: mastodon-onion
+        - name: torrc
+          configMap:
+            name: mastodon-onion-torrc
+            items:
+              - key: torrc
+                path: torrc

@@ -63,9 +63,24 @@ resources:
 - resources/
  
 
-# Replacements removed: onion hostname is managed separately and should be set directly in the
-# `mastodon-onion` HTTPRoute or injected by your deployment tooling outside of kustomize.
-
 patches:
 - path: patches/priority-patches.yaml
 - path: patches/spread-patches.yaml
+
+# Inject the current onion hostname into the HTTPRoute's Onion-Location header.
+replacements:
+  - source:
+      kind: Secret
+      name: mastodon-onion-keys
+      namespace: mastodon
+      fieldPath: data.hostname
+    targets:
+      - select:
+          kind: HTTPRoute
+          name: mastodon
+          namespace: mastodon
+        fieldPaths:
+          - spec.rules.[0].filters.[0].responseHeaderModifier.add.[0].value
+          - spec.rules.[1].filters.[0].responseHeaderModifier.add.[0].value
+        options:
+          stringEncoding: base64

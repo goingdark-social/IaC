@@ -3,6 +3,5 @@ kind: Kustomization
 resources:
 - elastic-networkpolicy.yaml
 - http-route.yaml
-- http-route-onion.yaml
 - httproute-es.yaml
 - redis-NetworkPolicy.yaml

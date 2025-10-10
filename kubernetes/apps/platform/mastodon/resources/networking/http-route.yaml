@@ -17,6 +17,12 @@ spec:
       backendRefs:
         - name: mastodon-streaming
           port: 4000
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            add:
+              - name: Onion-Location
+                value: "http://REPLACE_ME"
     - matches:
         - path:
             type: PathPrefix
@@ -24,3 +30,9 @@ spec:
       backendRefs:
         - name: mastodon-web
           port: 3000
+      filters:
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            add:
+              - name: Onion-Location
+                value: "http://REPLACE_ME"
