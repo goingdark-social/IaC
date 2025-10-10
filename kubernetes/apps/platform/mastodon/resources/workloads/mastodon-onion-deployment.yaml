@@ -15,24 +15,25 @@ spec:
     spec:
       initContainers:
         - name: restore-onion
-          image: busybox:1.36
-          command: ["/bin/sh","-c"]
+          image: goldy/tor-hidden-service:v0.4.7.12-54c0e54
+          command: ["/bin/sh","-ceu"]
           args:
             - |
-              set -e
+              set -eux
               mkdir -p /var/lib/tor/hidden_service
-              # copy files from secret mount into PVC and fix perms
-              if [ -f /secret/hs_ed25519_public_key ]; then
-                cp /secret/hs_ed25519_public_key /var/lib/tor/hidden_service/hs_ed25519_public_key
-              fi
-              if [ -f /secret/hs_ed25519_secret_key ]; then
-                cp /secret/hs_ed25519_secret_key /var/lib/tor/hidden_service/hs_ed25519_secret_key
-              fi
-              if [ -f /secret/hostname ]; then
-                cp /secret/hostname /var/lib/tor/hidden_service/hostname
-              fi
+              # copy keys in if provided
+              [ -f /secret/hs_ed25519_public_key ] && cp /secret/hs_ed25519_public_key /var/lib/tor/hidden_service/hs_ed25519_public_key
+              [ -f /secret/hs_ed25519_secret_key ] && cp /secret/hs_ed25519_secret_key /var/lib/tor/hidden_service/hs_ed25519_secret_key
+              [ -f /secret/hostname ] && cp /secret/hostname /var/lib/tor/hidden_service/hostname
+
+              # find Tor user in THIS image (debian-tor on Debian, tor on Alpine)
+              UID="$(getent passwd tor 2>/dev/null | awk -F: '{print $3}')"
+              [ -z "${UID}" ] && UID="$(getent passwd debian-tor 2>/dev/null | awk -F: '{print $3}')"
+              [ -z "${UID}" ] && { echo "Failed to detect tor uid"; exit 1; }
+
+              chown -R "${UID}:${UID}" /var/lib/tor/hidden_service
               chmod 700 /var/lib/tor/hidden_service
-              chmod 600 /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+              [ -f /var/lib/tor/hidden_service/hs_ed25519_secret_key ] && chmod 600 /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
           volumeMounts:
             - name: onion-secret
               mountPath: /secret
@@ -44,7 +45,7 @@ spec:
           image: goldy/tor-hidden-service:v0.4.7.12-54c0e54
           env:
             - name: SERVICE1_TOR_SERVICE_HOSTS
-              value: "80:mastodon-web.mastodon.svc.cluster.local:80"
+              value: "80:mastodon-web.mastodon.svc.cluster.local:3000"
             - name: SERVICE1_TOR_SERVICE_VERSION
               value: "3"
           ports:
