@@ -18,7 +18,7 @@ spec:
           image: goldy/tor-hidden-service:v0.4.7.12-54c0e54
           env:
             - name: SERVICE1_TOR_SERVICE_HOSTS
-              value: "80:10.0.96.240:80"
+              value: "80:mastodon-web.mastodon.svc.cluster.local:80"
             - name: SERVICE1_TOR_SERVICE_VERSION
               value: "3"
           ports:
