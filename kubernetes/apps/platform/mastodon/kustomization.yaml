@@ -79,18 +79,14 @@ replacements:
         fieldPaths:
           - spec.rules.0.filters.0.responseHeaderModifier.add.0.value
           - spec.rules.1.filters.0.responseHeaderModifier.add.0.value
-        options:
-          delimiter: http://
-          index: 1
+        # Removed fragile delimiter/index replacement logic for robustness
       - select:
           kind: HTTPRoute
           name: mastodon
         fieldPaths:
           - spec.rules.0.filters.0.responseHeaderModifier.add.0.value
           - spec.rules.1.filters.0.responseHeaderModifier.add.0.value
-        options:
-          delimiter: http://
-          index: 1
+        # Removed fragile delimiter/index replacement logic for robustness
 
 patches:
 - path: patches/priority-patches.yaml
