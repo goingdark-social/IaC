@@ -6,6 +6,7 @@ metadata:
 data:
   torrc: |
     RunAsDaemon 0
+    Log notice stdout
     DataDirectory /var/lib/tor
     HiddenServiceDir /var/lib/tor/hidden_service
     HiddenServiceVersion 3

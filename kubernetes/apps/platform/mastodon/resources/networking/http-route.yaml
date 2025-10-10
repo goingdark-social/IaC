@@ -22,7 +22,7 @@ spec:
           responseHeaderModifier:
             add:
               - name: Onion-Location
-                value: "http://REPLACE_ME"
+                value: "http://jg74roik4q27julhy34eyspyb7yduyl4t5ahzuklifq5iobx3vex64ad.onion"
     - matches:
         - path:
             type: PathPrefix
@@ -35,4 +35,4 @@ spec:
           responseHeaderModifier:
             add:
               - name: Onion-Location
-                value: "http://REPLACE_ME"
+                value: "http://jg74roik4q27julhy34eyspyb7yduyl4t5ahzuklifq5iobx3vex64ad.onion"

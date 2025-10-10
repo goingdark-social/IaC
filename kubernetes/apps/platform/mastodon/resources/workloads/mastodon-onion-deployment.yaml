@@ -13,24 +13,25 @@ spec:
       labels:
         app: mastodon-onion
     spec:
+      # Init container runs as root to copy key files and set permissions
       initContainers:
         - name: restore-onion
-          image: goldy/tor-hidden-service:v0.4.7.12-54c0e54
+          image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
+          securityContext:
+            runAsUser: 0
           command: ["/bin/sh","-ceu"]
           args:
             - |
               set -eux
               mkdir -p /var/lib/tor/hidden_service
               # copy keys in if provided
-              [ -f /secret/hs_ed25519_public_key ] && cp /secret/hs_ed25519_public_key /var/lib/tor/hidden_service/hs_ed25519_public_key
-              [ -f /secret/hs_ed25519_secret_key ] && cp /secret/hs_ed25519_secret_key /var/lib/tor/hidden_service/hs_ed25519_secret_key
-              [ -f /secret/hostname ] && cp /secret/hostname /var/lib/tor/hidden_service/hostname
-
-              # find Tor user in THIS image (debian-tor on Debian, tor on Alpine)
-              UID="$(getent passwd tor 2>/dev/null | awk -F: '{print $3}')"
-              [ -z "${UID}" ] && UID="$(getent passwd debian-tor 2>/dev/null | awk -F: '{print $3}')"
-              [ -z "${UID}" ] && { echo "Failed to detect tor uid"; exit 1; }
-
+              [ -f /secret/hs_ed25519_public_key ] && cp /secret/hs_ed25519_public_key /var/lib/tor/hidden_service/hs_ed25519_public_key || true
+              [ -f /secret/hs_ed25519_secret_key ] && cp /secret/hs_ed25519_secret_key /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+              [ -f /secret/hostname ] && cp /secret/hostname /var/lib/tor/hidden_service/hostname || true
+              # detect the tor user UID inside this image (fallback to 100 if not found)
+              UID="$(getent passwd tor 2>/dev/null | awk -F: '{print $3}' || true)"
+              [ -z "$UID" ] && UID="$(getent passwd debian-tor 2>/dev/null | awk -F: '{print $3}' || true)"
+              [ -z "$UID" ] && UID="100"
               chown -R "${UID}:${UID}" /var/lib/tor/hidden_service
               chmod 700 /var/lib/tor/hidden_service
               [ -f /var/lib/tor/hidden_service/hs_ed25519_secret_key ] && chmod 600 /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
@@ -42,18 +43,17 @@ spec:
               mountPath: /var/lib/tor/hidden_service
       containers:
         - name: tor
-          # Use the official Tor Project hidden service image
+          # Official Tor Project onion-service image
           image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
-          # Run Tor with our custom torrc
+          # Start tor and tell it to use our torrc
           command: ["tor", "-f", "/etc/tor/torrc"]
-          env: []
           ports:
             - containerPort: 80
               name: http
             - containerPort: 4000
               name: streaming
           volumeMounts:
-            - mountPath: /var/lib/tor/hidden_service/
+            - mountPath: /var/lib/tor/hidden_service
               name: onion-data
             - name: torrc
               mountPath: /etc/tor/torrc
