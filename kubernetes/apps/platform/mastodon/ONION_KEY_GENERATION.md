@@ -31,6 +31,17 @@ ls -la /tmp/hs
 # then outside the pod, copy files to local machine
 kubectl -n mastodon cp onion-copy:/tmp/hs/ ./hs
 kubectl -n mastodon delete pod onion-copy
+
+Note: the Job manifest is configured to keep completed pods for 24 hours (ttlSecondsAfterFinished: 86400). If the Job pod still exists you can copy files directly from it without creating a busybox helper:
+
+```bash
+# find the Job pod
+kubectl -n mastodon get pods -l job-name=mastodon-onion-keygen
+# copy files from the job pod (replace POD with the pod name)
+kubectl -n mastodon cp POD:/var/lib/tor/hidden_service ./hs
+```
+
+If the Job pod has already been removed and you still have the PVC, use the busybox method above to mount the PVC and extract the files.
 ```
 
 4. The `hs` directory on your machine should contain:
