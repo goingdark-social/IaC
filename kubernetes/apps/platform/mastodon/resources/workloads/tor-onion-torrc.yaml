@@ -7,6 +7,7 @@ data:
   torrc: |
     RunAsDaemon 0
     Log notice stdout
+    Log info file /var/lib/tor/notice.log
     DataDirectory /var/lib/tor
     HiddenServiceDir /var/lib/tor/hidden_service
     HiddenServiceVersion 3
