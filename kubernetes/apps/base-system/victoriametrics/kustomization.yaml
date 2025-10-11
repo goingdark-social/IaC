@@ -11,7 +11,7 @@ resources:
 
 helmCharts:
   - name: victoria-metrics-k8s-stack
-    version: "0.61.4"
+    version: "0.61.6"
     releaseName: vm
     namespace: victoriametrics
     valuesFile: helm-values.yaml
