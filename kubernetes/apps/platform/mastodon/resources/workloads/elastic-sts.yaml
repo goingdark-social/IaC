@@ -107,12 +107,50 @@ spec:
           subPath: app-logs-dir
         - name: data
           mountPath: /usr/share/elasticsearch/data
-        - name: elasticsearch-secrets
+        - name: elasticsearch-secrets-writable
           mountPath: /usr/share/elasticsearch/config/secrets
         - name: elasticsearch-certificates
           mountPath: /usr/share/elasticsearch/config/certs
           readOnly: true
       initContainers:
+      - name: fix-secret-permissions
+        image: ubuntu:24.04
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -ec
+        - |
+          # Copy secrets from read-only projected volume to writable emptyDir
+          # and set correct permissions (0400) required by Elasticsearch
+          cp /secrets-ro/elasticsearch-password /secrets-rw/elasticsearch-password
+          chmod 0400 /secrets-rw/elasticsearch-password
+          echo "Fixed secret permissions: $(stat -c '%a' /secrets-rw/elasticsearch-password)"
+        volumeMounts:
+        - name: elasticsearch-secrets
+          mountPath: /secrets-ro
+          readOnly: true
+        - name: elasticsearch-secrets-writable
+          mountPath: /secrets-rw
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+            ephemeral-storage: 10Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          seccompProfile:
+            type: RuntimeDefault
       - name: sysctl
         image: ubuntu:24.04
         imagePullPolicy: IfNotPresent
@@ -154,6 +192,8 @@ spec:
           sources:
           - secret:
               name: elasticsearch-credentials
+      - name: elasticsearch-secrets-writable
+        emptyDir: {}
       - name: elasticsearch-certificates
         secret:
           defaultMode: 256
