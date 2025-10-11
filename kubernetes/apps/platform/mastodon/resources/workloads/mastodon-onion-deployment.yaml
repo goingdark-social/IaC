@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-onion
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-onion
+  template:
+    metadata:
+      labels:
+        app: mastodon-onion
+    spec:
+      initContainers:
+        - name: restore-onion
+          image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
+          securityContext:
+            runAsUser: 0
+          command: ["/bin/sh","-ceu"]
+          args:
+            - |
+              set -eux
+              # Make sure the HS dir exists
+              mkdir -p /var/lib/tor/hidden_service
+
+              # If keys are present in the Secret, restore them into the HS dir
+              # The secret stores keys as base64-encoded, so decode them
+              [ -f /secret/hs_ed25519_public_key ] && base64 -d /secret/hs_ed25519_public_key > /var/lib/tor/hidden_service/hs_ed25519_public_key || true
+              [ -f /secret/hs_ed25519_secret_key ] && base64 -d /secret/hs_ed25519_secret_key > /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+              [ -f /secret/hostname ] && base64 -d /secret/hostname > /var/lib/tor/hidden_service/hostname || true
+
+              # Determine tor uid in THIS image
+              UID="$(getent passwd tor 2>/dev/null | awk -F: '{print $3}' || true)"
+              [ -z "$UID" ] && UID="$(getent passwd debian-tor 2>/dev/null | awk -F: '{print $3}' || true)"
+              [ -z "$UID" ] && UID="100"
+
+              # Strict ownership/permissions Tor requires (on parent and HS dir)
+              chown -R "$UID:$UID" /var/lib/tor
+              chmod 700 /var/lib/tor
+              chmod 700 /var/lib/tor/hidden_service
+              [ -f /var/lib/tor/hidden_service/hs_ed25519_secret_key ] && chmod 600 /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+          volumeMounts:
+            - name: onion-secret
+              mountPath: /secret
+              readOnly: true
+            - name: onion-data
+              mountPath: /var/lib/tor
+      containers:
+        - name: tor
+          # Official Tor Project onion-service image
+          image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
+          # Start tor and tell it to use our torrc
+          command: ["tor","-f","/etc/tor/torrc"]
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 4000
+              name: streaming
+          volumeMounts:
+            - name: onion-data
+              mountPath: /var/lib/tor
+            - name: torrc
+              mountPath: /etc/tor/torrc
+              subPath: torrc
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+      volumes:
+        - name: onion-secret
+          secret:
+            secretName: mastodon-onion-keys
+        - name: onion-data
+          persistentVolumeClaim:
+            claimName: mastodon-onion
+        - name: torrc
+          configMap:
+            name: mastodon-onion-torrc
+            items:
+              - key: torrc
+                path: torrc

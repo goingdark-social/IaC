@@ -61,6 +61,7 @@ resources:
 - namespace.yaml
 - configs/
 - resources/
+ 
 
 patches:
 - path: patches/priority-patches.yaml

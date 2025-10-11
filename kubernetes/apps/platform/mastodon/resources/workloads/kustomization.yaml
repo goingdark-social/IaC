@@ -10,3 +10,6 @@ resources:
 - sidekiq-scheduler-deployment.yaml
 - streaming-deployment.yaml
 - web-deployment.yaml
+- mastodon-onion-deployment.yaml
+- tor-proxy-deployment.yaml
+- tor-onion-torrc.yaml

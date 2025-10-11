@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mastodon-onion-torrc
+  namespace: mastodon
+data:
+  torrc: |
+    RunAsDaemon 0
+    Log notice stdout
+    Log info file /var/lib/tor/notice.log
+    DataDirectory /var/lib/tor
+    HiddenServiceDir /var/lib/tor/hidden_service
+    HiddenServiceVersion 3
+    HiddenServicePort 80 mastodon-web.mastodon.svc.cluster.local:3000
+    HiddenServicePort 4000 mastodon-streaming.mastodon.svc.cluster.local:4000

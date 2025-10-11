@@ -5,3 +5,4 @@ resources:
 - redis-svc.yaml
 - svc-streaming.yaml
 - web-svc.yaml
+- tor-proxy-service.yaml

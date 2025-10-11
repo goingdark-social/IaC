@@ -85,6 +85,15 @@ All applications are managed through ArgoCD and deploy automatically when change
 - Sidekiq default and federation workers scale on the `sidekiq_queue_latency_seconds` metric (10 seconds for default, 30 seconds for federation) so they grow only when the queues back up.
 - Streaming workers follow the `mastodon_streaming_connected_clients` metric and add capacity once a pod carries around 200 live connections.
 
+## Mastodon Tor Access
+
+- The external gateway exposes an HTTP listener on port 80 so Tor traffic reaches the cluster without onion TLS termination.
+- A dedicated HTTPRoute publishes the `.onion` hostname, sends `/api/v1/streaming` requests to the streaming service, routes everything else to the web pods, and adds an `Onion-Location` response header for Tor Browser.
+- A Tor hidden-service deployment forwards onion requests to the gateway load balancer and stores the generated hostname on a persistent volume so it survives pod restarts.
+- The `mastodon-app-secrets` ExternalSecret carries the onion hostname from Bitwarden so the value stays out of the repo and can be rotated alongside the Tor key material.
+- A Tor HTTP proxy runs inside the cluster on port 8118 and Mastodon points both `http_proxy` and `http_hidden_proxy` at it for federation with onion-only peers.
+- Mastodon sets `ALLOW_ACCESS_TO_HIDDEN_SERVICE=true` so it accepts the onion host while keeping HTTPS for the public domain.
+
 ## Tech Stack
 
 **Infrastructure**: Hetzner Cloud, Talos Linux, OpenTofu
