@@ -152,6 +152,7 @@ spec:
         emptyDir: {}
       - name: elasticsearch-secrets
         projected:
+          defaultMode: 256
           sources:
           - secret:
               name: elasticsearch-credentials
