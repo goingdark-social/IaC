@@ -9,7 +9,15 @@ data:
     Log notice stdout
     Log info file /var/lib/tor/notice.log
     DataDirectory /var/lib/tor
+
+    # Hidden Service Configuration
     HiddenServiceDir /var/lib/tor/hidden_service
     HiddenServiceVersion 3
-    HiddenServicePort 80 mastodon-web.mastodon.svc.cluster.local:3000
-    HiddenServicePort 4000 mastodon-streaming.mastodon.svc.cluster.local:4000
+    HiddenServicePort 80 mastodon-web:3000
+    HiddenServicePort 4000 mastodon-streaming:4000
+
+    # DNS and connectivity settings for Kubernetes
+    # Allow Tor to use system DNS resolver for backend services
+    ServerDNSResolvConfFile /etc/resolv.conf
+    # Test reachability settings
+    AssumeReachable 1

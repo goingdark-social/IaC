@@ -4,4 +4,5 @@ resources:
 - elastic-networkpolicy.yaml
 - http-route.yaml
 - httproute-es.yaml
+- mastodon-onion-networkpolicy.yaml
 - redis-NetworkPolicy.yaml
