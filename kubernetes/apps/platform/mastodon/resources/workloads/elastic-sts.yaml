@@ -142,8 +142,6 @@ spec:
           privileged: true
           runAsUser: 0
       securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: Always
         supplementalGroups: []
         sysctls: []
       serviceAccountName: elasticsearch-master
