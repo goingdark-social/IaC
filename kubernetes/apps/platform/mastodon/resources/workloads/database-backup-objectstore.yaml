@@ -5,8 +5,8 @@ metadata:
   name: database-backup
   namespace: mastodon
 spec:
-  destinationPath: 's3://mastovault/cnpg/mastodon-database'
   configuration:
+    destinationPath: 's3://mastovault/cnpg/mastodon-database'
     endpointURL: https://s3.jorijn.com
     s3Credentials:
       accessKeyId:
