@@ -1,0 +1,23 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup
+  namespace: mastodon
+spec:
+  configuration:
+    endpointURL: https://s3.jorijn.com
+    s3Credentials:
+      accessKeyId:
+        name: database-s3-credentials
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: database-s3-credentials
+        key: ACCESS_SECRET_KEY
+  wal:
+    compression: gzip
+    maxParallel: 8
+  data:
+    compression: gzip
+    jobs: 2
+  retentionPolicy: "14d"
