@@ -21,8 +21,8 @@ spec:
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
-      barmanObjectName: database-backup
-
+      parameters:
+        barmanObjectName: database-backup
   storage:
     size: 40Gi
     storageClass: hcloud-volumes-encrypted-xfs
