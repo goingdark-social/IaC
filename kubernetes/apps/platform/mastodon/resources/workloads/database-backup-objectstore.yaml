@@ -20,4 +20,5 @@ spec:
   data:
     compression: gzip
     jobs: 2
+  destinationPath: 's3://mastovault/cnpg/mastodon-database'
   retentionPolicy: "14d"
