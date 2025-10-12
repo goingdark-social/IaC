@@ -58,7 +58,7 @@ spec:
           volumes:
             - name: db-ca
               secret:
-                secretName: mastodon-postgresql-ca
+                secretName: database-cnpg-ca
                 items:
                   - key: ca.crt
                     path: ca.crt
