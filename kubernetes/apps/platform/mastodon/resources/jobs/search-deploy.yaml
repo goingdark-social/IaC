@@ -4,7 +4,7 @@ metadata:
   labels:
     job-name: mastodon-search-deploy
   name: mastodon-search-deploy
-  namespace: goingdark-social
+  namespace: mastodon
 spec:
   parallelism: 1
   podReplacementPolicy: TerminatingOrFailed
@@ -19,11 +19,16 @@ spec:
       name: mastodon-search-deploy
     spec:
       restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
       containers:
       - command:
         - bash
         - -c
-        - bin/tootctl search deploy --concurrency 16 --batch_size 4096
+        - bin/tootctl search deploy --concurrency 4 --batch_size 1024
         env:
         - name: ES_PASS
           valueFrom:
@@ -34,23 +39,46 @@ spec:
           valueFrom:
             secretKeyRef:
               key: username
-              name: database-app
+              name: database-cnpg-app
         - name: DB_PASS
           valueFrom:
             secretKeyRef:
               key: password
-              name: database-app
+              name: database-cnpg-app
         envFrom:
-        - configMapRef:
-            name: mastodon-env
         - secretRef:
-            name: mastodon-secrets-env
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core
+        - configMapRef:
+            name: mastodon-database
+        - configMapRef:
+            name: mastodon-redis
+        - configMapRef:
+            name: mastodon-search
+        - configMapRef:
+            name: mastodon-features
+        - configMapRef:
+            name: mastodon-external-services
+        - configMapRef:
+            name: mastodon-jobs
         image: ghcr.io/glitch-soc/mastodon:v4.4.5
         imagePullPolicy: IfNotPresent
         name: search-deploy
         resources:
           limits:
-            memory: 6Gi
+            memory: 3Gi
           requests:
-            cpu: "4"
-            memory: 6Gi
+            cpu: "1"
+            memory: 2Gi
+        volumeMounts:
+        - name: db-ca
+          mountPath: /etc/ssl/certs/postgresql
+          readOnly: true
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-cnpg-ca
+          defaultMode: 0444

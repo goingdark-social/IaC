@@ -1,0 +1,14 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: database-backup-test
+  namespace: mastodon
+spec:
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+    parameters:
+      barmanObjectName: database-backup
+  cluster:
+    name: database-cnpg
