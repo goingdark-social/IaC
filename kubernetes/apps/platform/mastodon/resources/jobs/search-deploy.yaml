@@ -4,7 +4,7 @@ metadata:
   labels:
     job-name: mastodon-search-deploy
   name: mastodon-search-deploy
-  namespace: goingdark-social
+  namespace: mastodon
 spec:
   parallelism: 1
   podReplacementPolicy: TerminatingOrFailed
@@ -19,6 +19,11 @@ spec:
       name: mastodon-search-deploy
     spec:
       restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
       containers:
       - command:
         - bash
