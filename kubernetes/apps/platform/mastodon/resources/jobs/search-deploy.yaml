@@ -73,3 +73,12 @@ spec:
           requests:
             cpu: "1"
             memory: 2Gi
+        volumeMounts:
+        - name: db-ca
+          mountPath: /etc/ssl/certs/postgresql
+          readOnly: true
+      volumes:
+      - name: db-ca
+        secret:
+          secretName: database-cnpg-ca
+          defaultMode: 0444
