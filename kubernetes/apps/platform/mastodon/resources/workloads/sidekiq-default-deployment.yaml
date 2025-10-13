@@ -28,7 +28,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: sidekiq-default
-          image: ghcr.io/glitch-soc/mastodon:v4.4.5
+          image: ghcr.io/glitch-soc/mastodon:v4.4.6
           args:
             - bundle
             - exec
