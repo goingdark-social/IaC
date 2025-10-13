@@ -24,12 +24,16 @@ spec:
                   memory: "512Mi"
                   cpu: "500m"
               image: postgres:18
-              envFrom:
-                - secretRef:
-                    name: mastodon-db-url        # provides DB_USER, DB_PASS
-                - configMapRef:
-                    name: mastodon-database        # provides DB_HOST, DB_PORT, DB_NAME
               env:
+                # Database connection details
+                - name: DB_HOST
+                  value: "database-cnpg-pooler-rw"
+                - name: DB_PORT
+                  value: "5432"
+                - name: DB_NAME
+                  value: "mastodon"
+                
+                # PostgreSQL client environment variables
                 - name: PGUSER
                   valueFrom:
                     secretKeyRef:

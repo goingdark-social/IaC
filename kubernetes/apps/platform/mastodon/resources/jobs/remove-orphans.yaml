@@ -19,35 +19,121 @@ spec:
       name: mastodon-remove-orphans
     spec:
       restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: database-cnpg-ca
+            defaultMode: 0444
+      
       containers:
       - command:
         - bash
         - -c
         - bin/tootctl media remove-orphans
         env:
-        - name: ES_PASS
-          valueFrom:
-            secretKeyRef:
-              key: elastic
-              name: elasticsearch-es-elastic-user
-        - name: DB_USER
-          valueFrom:
-            secretKeyRef:
-              key: username
-              name: database-cnpg-app
-        - name: DB_PASS
-          valueFrom:
-            secretKeyRef:
-              key: password
-              name: database-cnpg-app
+          # Core Rails environment
+          - name: RAILS_ENV
+            value: "production"
+          - name: NODE_ENV
+            value: "production"
+          - name: TZ
+            value: "Europe/Stockholm"
+          - name: SINGLE_USER_MODE
+            value: "false"
+          - name: MASTODON_USE_LIBVIPS
+            value: "true"
+          - name: RAILS_LOG_TO_STDOUT
+            value: "true"
+          
+          # Job-specific configuration
+          - name: DB_POOL
+            value: "1"
+          - name: PREPARED_STATEMENTS
+            value: "false"
+          
+          # Database configuration
+          - name: DB_HOST
+            value: "database-cnpg-pooler-rw"
+          - name: DB_PORT
+            value: "5432"
+          - name: DB_NAME
+            value: "mastodon"
+          - name: DB_SSLMODE
+            value: "verify-ca"
+          - name: PGSSLROOTCERT
+            value: "/etc/ssl/certs/postgresql/ca.crt"
+          - name: DATABASE_TIMEOUT
+            value: "60"
+          
+          # Database credentials from secrets
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: database-cnpg-app
+                key: username
+          - name: DB_PASS
+            valueFrom:
+              secretKeyRef:
+                name: database-cnpg-app
+                key: password
+          
+          # Redis configuration
+          - name: REDIS_HOST
+            value: "mastodon-redis-master"
+          - name: REDIS_PORT
+            value: "6379"
+          - name: REDIS_URL
+            value: "redis://mastodon-redis-master:6379/0"
+          - name: SIDEKIQ_REDIS_URL
+            value: "redis://mastodon-redis-master:6379/1"
+          - name: CACHE_REDIS_URL
+            value: "redis://mastodon-redis-master:6379/2"
+          
+          # S3 Storage configuration (required for media operations)
+          - name: S3_ENABLED
+            value: "true"
+          - name: S3_BUCKET
+            value: "mastodata"
+          - name: S3_ALIAS_HOST
+            value: "cdn.goingdark.social"
+          - name: S3_PROTOCOL
+            value: "https"
+          - name: S3_REGION
+            value: "auto"
+          - name: S3_PERMISSION
+            value: ""
+          - name: EXTRA_MEDIA_HOSTS
+            value: "https://cdn.goingdark.social"
+          
+          # Features configuration
+          - name: MAX_TOOT_CHARS
+            value: "1500"
+          - name: DEFAULT_LOCALE
+            value: "en"
+          - name: FORCE_DEFAULT_LOCALE
+            value: "true"
+        
         envFrom:
-        - configMapRef:
-            name: mastodon-env
-        - secretRef:
-            name: mastodon-secrets-env
+          # Application secrets only
+          - secretRef:
+              name: mastodon-app-secrets
+          - secretRef:
+              name: mastodon-db-url
+        
         image: ghcr.io/glitch-soc/mastodon:v4.4.6
         imagePullPolicy: IfNotPresent
         name: remove-orphans
+        
+        volumeMounts:
+          - name: db-ca
+            mountPath: /etc/ssl/certs/postgresql
+            readOnly: true
         resources:
           limits:
             memory: 4Gi
