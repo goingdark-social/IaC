@@ -11,7 +11,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: create-user
-          image: ghcr.io/cloudnative-pg/postgresql:17.5
+          image: ghcr.io/cloudnative-pg/postgresql:17.6
           command:
             - /bin/bash
             - -c
