@@ -12,23 +12,46 @@ spec:
 
   # Migration complete - bootstrap configuration removed
 
+  managed:
+    roles:
+      - name: app
+        ensure: present
+        login: true
+        passwordSecret:
+          name: database-cnpg-app
+        inRoles:
+          - pg_read_all_data
+          - pg_write_all_data
+
   env:
     - name: AWS_REQUEST_CHECKSUM_CALCULATION
       value: when_required
     - name: AWS_RESPONSE_CHECKSUM_VALIDATION
       value: when_required
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: mastodon-walg-s3
+          key: AWS_SECRET_ACCESS_KEY
 
-  plugins:
-    - name: barman-cloud.cloudnative-pg.io
-      isWALArchiver: true
-      parameters:
-        barmanObjectName: database-backup
   storage:
     size: 40Gi
     storageClass: hcloud-volumes-encrypted-xfs
   walStorage:
     size: 10Gi
     storageClass: hcloud-volumes-encrypted-xfs
+  
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: database-backup
+  
   monitoring:
     enablePodMonitor: true
   postgresql:

@@ -1,4 +1,3 @@
----
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
@@ -7,7 +6,8 @@ metadata:
 spec:
   configuration:
     destinationPath: 's3://mastovault/cnpg/mastodon-database'
-    endpointURL: https://s3.jorijn.com
+    # Proxy endpoint - proxy will forward to real R2 URL from secret
+    endpointURL: http://r2-proxy.mastodon.svc.cluster.local
     s3Credentials:
       accessKeyId:
         name: mastodon-walg-s3
@@ -22,3 +22,16 @@ spec:
       compression: gzip
       jobs: 2
   retentionPolicy: "14d"
+  instanceSidecarConfiguration:
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      - name: AWS_ENDPOINT_URL
+        valueFrom:
+          secretKeyRef:
+            name: s3-endpoint-config
+            key: ENDPOINT_URL
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"

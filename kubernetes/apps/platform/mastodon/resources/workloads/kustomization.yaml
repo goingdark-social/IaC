@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - database-cnpg.yaml
-- database-backup-objectstore.yaml
+# database-backup-objectstore.yaml now managed via overlays/endpoint/
 - database-backup-schedule.yaml
 - elastic-sts.yaml
 - redis-statefulset.yaml
