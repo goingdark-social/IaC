@@ -31,7 +31,7 @@ spec:
         command: ["/bin/bash","-lc"]
         args:
           - >
-            export RAILS_LOG_LEVEL=debug;
+            export RAILS_LOG_LEVEL=debug VERBOSE=true;
             stdbuf -oL -eL bin/tootctl search deploy --concurrency 4 --batch_size 1024
             2>&1 | stdbuf -oL tr '\r' '\n'
 
