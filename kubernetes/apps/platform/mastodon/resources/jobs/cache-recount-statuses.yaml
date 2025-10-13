@@ -34,12 +34,12 @@ spec:
           valueFrom:
             secretKeyRef:
               key: username
-              name: database-app
+              name: database-cnpg-app
         - name: DB_PASS
           valueFrom:
             secretKeyRef:
               key: password
-              name: database-app
+              name: database-cnpg-app
         envFrom:
         - configMapRef:
             name: mastodon-env
