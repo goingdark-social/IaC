@@ -66,4 +66,3 @@ resources:
 patches:
 - path: patches/priority-patches.yaml
 - path: patches/spread-patches.yaml
-- path: patches/endpoint-patch.yaml
