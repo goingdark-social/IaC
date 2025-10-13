@@ -66,3 +66,4 @@ resources:
 patches:
 - path: patches/priority-patches.yaml
 - path: patches/spread-patches.yaml
+- path: patches/elasticsearch-password-patch.yaml

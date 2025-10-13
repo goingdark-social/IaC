@@ -71,9 +71,6 @@ spec:
             - name: db-ca
               mountPath: /etc/ssl/certs/postgresql
               readOnly: true
-            - name: es-ca
-              mountPath: /opt/mastodon/.elasticsearch/ca.crt
-              readOnly: true
           readinessProbe:
             httpGet:
               path: /health
@@ -108,8 +105,4 @@ spec:
         - name: db-ca
           secret:
             secretName: database-cnpg-ca
-            defaultMode: 0444
-        - name: es-ca
-          secret:
-            secretName: mastodon-elastic-ca
             defaultMode: 0444

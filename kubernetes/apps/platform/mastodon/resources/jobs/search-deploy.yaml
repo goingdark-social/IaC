@@ -28,7 +28,7 @@ spec:
       - command:
         - bash
         - -c
-        - bin/tootctl search deploy --concurrency 16 --batch_size 4096
+        - bin/tootctl search deploy --concurrency 4 --batch_size 1024
         env:
         - name: ES_PASS
           valueFrom:
@@ -46,16 +46,30 @@ spec:
               key: password
               name: database-app
         envFrom:
-        - configMapRef:
-            name: mastodon-env
         - secretRef:
-            name: mastodon-secrets-env
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core
+        - configMapRef:
+            name: mastodon-database
+        - configMapRef:
+            name: mastodon-redis
+        - configMapRef:
+            name: mastodon-search
+        - configMapRef:
+            name: mastodon-features
+        - configMapRef:
+            name: mastodon-external-services
+        - configMapRef:
+            name: mastodon-jobs
         image: ghcr.io/glitch-soc/mastodon:v4.4.5
         imagePullPolicy: IfNotPresent
         name: search-deploy
         resources:
           limits:
-            memory: 6Gi
+            memory: 3Gi
           requests:
-            cpu: "4"
-            memory: 6Gi
+            cpu: "1"
+            memory: 2Gi
