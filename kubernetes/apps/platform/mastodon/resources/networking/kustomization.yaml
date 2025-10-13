@@ -4,4 +4,5 @@ resources:
 - http-route.yaml
 - httproute-es.yaml
 - mastodon-onion-networkpolicy.yaml
+- r2-proxy-nginx.yaml
 - redis-NetworkPolicy.yaml
