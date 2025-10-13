@@ -1,0 +1,2654 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
+  name: mastodon
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mastodon-eso-reader
+  namespace: mastodon
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: mastodon-redis-master
+  namespace: mastodon
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-store-role
+  namespace: mastodon
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - selfsubjectrulesreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-store-rolebinding
+  namespace: mastodon
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-store-role
+subjects:
+- kind: ServiceAccount
+  name: mastodon-eso-reader
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  ALLOW_ACCESS_TO_HIDDEN_SERVICE: "true"
+  ALTERNATE_DOMAINS: eopvgbrhvri7tj2gbvssa3zpgxzm6rbwf6ozmk33elox3kce3zo75gid.onion
+  MASTODON_PROMETHEUS_EXPORTER_ENABLED: "true"
+  MASTODON_PROMETHEUS_EXPORTER_LOCAL: "false"
+  MASTODON_PROMETHEUS_EXPORTER_PORT: "9394"
+  MASTODON_USE_LIBVIPS: "true"
+  NO_PROXY: localhost,127.0.0.1,.svc,.cluster.local,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  NODE_ENV: production
+  PREPARED_STATEMENTS: "false"
+  RAILS_ENV: production
+  RAILS_LOG_TO_STDOUT: "true"
+  SINGLE_USER_MODE: "false"
+  TZ: Europe/Stockholm
+  http_hidden_proxy: http://tor-proxy.mastodon.svc.cluster.local:8118
+  http_proxy: http://tor-proxy.mastodon.svc.cluster.local:8118
+  no_proxy: localhost,127.0.0.1,.svc,.cluster.local,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+kind: ConfigMap
+metadata:
+  name: mastodon-core-27hg5g645k
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  DATABASE_TIMEOUT: "60"
+  DB_HOST: database-cnpg-pooler-rw
+  DB_NAME: mastodon
+  DB_POOL: "15"
+  DB_PORT: "5432"
+  DB_SSLMODE: verify-ca
+  PGSSLROOTCERT: /etc/ssl/certs/postgresql/ca.crt
+  REPLICA_DB_HOST: database-cnpg-pooler-ro
+  REPLICA_DB_NAME: mastodon
+  REPLICA_DB_PORT: "5432"
+  REPLICA_DB_TASKS: "false"
+  REPLICA_PREPARED_STATEMENTS: "false"
+  STREAMING_DATABASE_TIMEOUT: "10"
+kind: ConfigMap
+metadata:
+  name: mastodon-database-g8b7d89tbc
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  EXTRA_MEDIA_HOSTS: https://cdn.goingdark.social
+  S3_ALIAS_HOST: cdn.goingdark.social
+  S3_BUCKET: mastodata
+  S3_ENABLED: "true"
+  S3_PERMISSION: ""
+  S3_PROTOCOL: https
+  S3_REGION: auto
+  SMTP_AUTH_METHOD: login
+  SMTP_DELIVERY_METHOD: smtp
+  SMTP_ENABLE_STARTTLS_AUTO: "true"
+  SMTP_OPENSSL_VERIFY_MODE: peer
+  SMTP_SSL: "false"
+  SMTP_TLS: "false"
+kind: ConfigMap
+metadata:
+  name: mastodon-external-services-6hff9675g9
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  DEFAULT_LOCALE: en
+  FETCH_REPLIES_COOLDOWN_MINUTES: "15"
+  FETCH_REPLIES_ENABLED: "true"
+  FETCH_REPLIES_INITIAL_WAIT_MINUTES: "5"
+  FETCH_REPLIES_MAX_GLOBAL: "1000"
+  FETCH_REPLIES_MAX_PAGES: "500"
+  FETCH_REPLIES_MAX_SINGLE: "500"
+  FORCE_DEFAULT_LOCALE: "true"
+  IP_RETENTION_PERIOD: "15552000"
+  MAX_TOOT_CHARS: "1500"
+kind: ConfigMap
+metadata:
+  name: mastodon-features-ckk9h64d79
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  DB_POOL: "1"
+  PREPARED_STATEMENTS: "false"
+kind: ConfigMap
+metadata:
+  name: mastodon-jobs-d7g4f6bmbg
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  torrc: |
+    RunAsDaemon 0
+    Log notice stdout
+    Log info file /var/lib/tor/notice.log
+    DataDirectory /var/lib/tor
+
+    # Hidden Service Configuration
+    HiddenServiceDir /var/lib/tor/hidden_service
+    HiddenServiceVersion 3
+    HiddenServicePort 80 mastodon-web:3000
+    HiddenServicePort 4000 mastodon-streaming:4000
+
+    # DNS and connectivity settings for Kubernetes
+    # Allow Tor to use system DNS resolver for backend services
+    ServerDNSResolvConfFile /etc/resolv.conf
+    # Test reachability settings
+    AssumeReachable 1
+kind: ConfigMap
+metadata:
+  name: mastodon-onion-torrc
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  CACHE_REDIS_URL: redis://mastodon-redis-master:6379/2
+  QUERY_CACHE_REDIS_URL: redis://mastodon-redis-master:6379/4
+  REDIS_HOST: mastodon-redis-master
+  REDIS_PORT: "6379"
+  REDIS_URL: redis://mastodon-redis-master:6379/0
+  SIDEKIQ_REDIS_URL: redis://mastodon-redis-master:6379/1
+  STREAMING_REDIS_URL: redis://mastodon-redis-master:6379/3
+kind: ConfigMap
+metadata:
+  name: mastodon-redis-69846c8hmh
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  master.conf: |-
+    dir /data
+    # User-supplied master configuration:
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+    # End of master configuration
+  redis.conf: |-
+    # User-supplied common configuration:
+    databases 16
+    maxclients 10000
+    timeout 0
+    tcp-keepalive 300
+    # End of common configuration
+  replica.conf: |-
+    dir /data
+    # User-supplied replica configuration:
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+    # End of replica configuration
+  users.acl: ""
+kind: ConfigMap
+metadata:
+  name: mastodon-redis-configuration
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  ping_liveness_local.sh: |-
+    #!/bin/bash
+
+    [[ -f $REDIS_PASSWORD_FILE ]] && export REDIS_PASSWORD="$(< "${REDIS_PASSWORD_FILE}")"
+    [[ -n "$REDIS_PASSWORD" ]] && export REDISCLI_AUTH="$REDIS_PASSWORD"
+    response=$(
+      timeout -s 15 $1 \
+      redis-cli \
+        -h localhost \
+        -p $REDIS_PORT \
+        ping
+    )
+    if [ "$?" -eq "124" ]; then
+      echo "Timed out"
+      exit 1
+    fi
+    responseFirstWord=$(echo $response | head -n1 | awk '{print $1;}')
+    if [ "$response" != "PONG" ] && [ "$responseFirstWord" != "LOADING" ] && [ "$responseFirstWord" != "MASTERDOWN" ]; then
+      echo "$response"
+      exit 1
+    fi
+  ping_liveness_local_and_master.sh: |-
+    script_dir="$(dirname "$0")"
+    exit_status=0
+    "$script_dir/ping_liveness_local.sh" $1 || exit_status=$?
+    "$script_dir/ping_liveness_master.sh" $1 || exit_status=$?
+    exit $exit_status
+  ping_liveness_master.sh: |-
+    #!/bin/bash
+
+    [[ -f $REDIS_MASTER_PASSWORD_FILE ]] && export REDIS_MASTER_PASSWORD="$(< "${REDIS_MASTER_PASSWORD_FILE}")"
+    [[ -n "$REDIS_MASTER_PASSWORD" ]] && export REDISCLI_AUTH="$REDIS_MASTER_PASSWORD"
+    response=$(
+      timeout -s 15 $1 \
+      redis-cli \
+        -h $REDIS_MASTER_HOST \
+        -p $REDIS_MASTER_PORT_NUMBER \
+        ping
+    )
+    if [ "$?" -eq "124" ]; then
+      echo "Timed out"
+      exit 1
+    fi
+    responseFirstWord=$(echo $response | head -n1 | awk '{print $1;}')
+    if [ "$response" != "PONG" ] && [ "$responseFirstWord" != "LOADING" ]; then
+      echo "$response"
+      exit 1
+    fi
+  ping_readiness_local.sh: |-
+    #!/bin/bash
+
+    [[ -f $REDIS_PASSWORD_FILE ]] && export REDIS_PASSWORD="$(< "${REDIS_PASSWORD_FILE}")"
+    [[ -n "$REDIS_PASSWORD" ]] && export REDISCLI_AUTH="$REDIS_PASSWORD"
+    response=$(
+      timeout -s 15 $1 \
+      redis-cli \
+        -h localhost \
+        -p $REDIS_PORT \
+        ping
+    )
+    if [ "$?" -eq "124" ]; then
+      echo "Timed out"
+      exit 1
+    fi
+    if [ "$response" != "PONG" ]; then
+      echo "$response"
+      exit 1
+    fi
+  ping_readiness_local_and_master.sh: |-
+    script_dir="$(dirname "$0")"
+    exit_status=0
+    "$script_dir/ping_readiness_local.sh" $1 || exit_status=$?
+    "$script_dir/ping_readiness_master.sh" $1 || exit_status=$?
+    exit $exit_status
+  ping_readiness_master.sh: |-
+    #!/bin/bash
+
+    [[ -f $REDIS_MASTER_PASSWORD_FILE ]] && export REDIS_MASTER_PASSWORD="$(< "${REDIS_MASTER_PASSWORD_FILE}")"
+    [[ -n "$REDIS_MASTER_PASSWORD" ]] && export REDISCLI_AUTH="$REDIS_MASTER_PASSWORD"
+    response=$(
+      timeout -s 15 $1 \
+      redis-cli \
+        -h $REDIS_MASTER_HOST \
+        -p $REDIS_MASTER_PORT_NUMBER \
+        ping
+    )
+    if [ "$?" -eq "124" ]; then
+      echo "Timed out"
+      exit 1
+    fi
+    if [ "$response" != "PONG" ]; then
+      echo "$response"
+      exit 1
+    fi
+kind: ConfigMap
+metadata:
+  name: mastodon-redis-health
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  start-master.sh: |
+    #!/bin/bash
+
+    [[ -f $REDIS_PASSWORD_FILE ]] && export REDIS_PASSWORD="$(< "${REDIS_PASSWORD_FILE}")"
+    if [[ -f /opt/bitnami/redis/mounted-etc/master.conf ]];then
+        cp /opt/bitnami/redis/mounted-etc/master.conf /opt/bitnami/redis/etc/master.conf
+    fi
+    if [[ -f /opt/bitnami/redis/mounted-etc/redis.conf ]];then
+        cp /opt/bitnami/redis/mounted-etc/redis.conf /opt/bitnami/redis/etc/redis.conf
+    fi
+    if [[ -f /opt/bitnami/redis/mounted-etc/users.acl ]];then
+        cp /opt/bitnami/redis/mounted-etc/users.acl /opt/bitnami/redis/etc/users.acl
+    fi
+    ARGS=("--port" "${REDIS_PORT}")
+    ARGS+=("--protected-mode" "no")
+    ARGS+=("--include" "/opt/bitnami/redis/etc/redis.conf")
+    ARGS+=("--include" "/opt/bitnami/redis/etc/master.conf")
+    exec redis-server "${ARGS[@]}"
+kind: ConfigMap
+metadata:
+  name: mastodon-redis-scripts
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  ES_CA_FILE: /opt/mastodon/.elasticsearch/ca.crt
+  ES_ENABLED: "true"
+  ES_HOST: https://elasticsearch-es-http
+  ES_PORT: "9200"
+  ES_PRESET: single_node_cluster
+  ES_SSL: "true"
+  ES_USER: mastodon
+kind: ConfigMap
+metadata:
+  name: mastodon-search-7mhk8kkkhf
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  SIDEKIQ_MEMORY_KILLER_MAX_RSS: "1000000"
+kind: ConfigMap
+metadata:
+  name: mastodon-sidekiq-7t5mb26889
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  STREAMING_PORT: "4000"
+kind: ConfigMap
+metadata:
+  name: mastodon-streaming-mbkd52mfgk
+  namespace: mastodon
+---
+apiVersion: v1
+data:
+  BIND: 0.0.0.0
+  MAX_THREADS: "5"
+  PORT: "3000"
+  RAILS_SERVE_STATIC_FILES: "true"
+  STREAMING_API_BASE_URL: wss://goingdark.social
+  WEB_CONCURRENCY: "3"
+kind: ConfigMap
+metadata:
+  name: mastodon-web-bkgmkbfh25
+  namespace: mastodon
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mastodon-onion
+    component: tor-hidden-service
+  name: mastodon-onion
+  namespace: mastodon
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: streaming
+    port: 4000
+    targetPort: 4000
+  selector:
+    app: mastodon-onion
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mastodon-redis-headless
+  namespace: mastodon
+spec:
+  clusterIP: None
+  ports:
+  - name: tcp-redis
+    port: 6379
+    targetPort: redis
+  selector:
+    app.kubernetes.io/instance: mastodon-redis
+    app.kubernetes.io/name: redis
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mastodon-redis-master
+  namespace: mastodon
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: tcp-redis
+    nodePort: null
+    port: 6379
+    targetPort: redis
+  selector:
+    app.kubernetes.io/component: master
+    app.kubernetes.io/instance: mastodon-redis
+    app.kubernetes.io/name: redis
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mastodon-streaming
+  namespace: mastodon
+spec:
+  ports:
+  - name: http
+    port: 4000
+    targetPort: 4000
+  selector:
+    app: mastodon-streaming
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mastodon-web
+    component: web
+  name: mastodon-web
+  namespace: mastodon
+spec:
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+  - name: metrics
+    port: 9394
+    targetPort: 9394
+  selector:
+    app: mastodon-web
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tor-proxy
+  namespace: mastodon
+spec:
+  ports:
+  - name: http
+    port: 8118
+    targetPort: http
+  selector:
+    app: tor-proxy
+---
+apiVersion: scheduling.k8s.io/v1
+description: Keep core datastores online under pressure
+globalDefault: false
+kind: PriorityClass
+metadata:
+  name: mastodon-critical
+value: 1000000000
+---
+apiVersion: scheduling.k8s.io/v1
+description: Important stateless services
+globalDefault: false
+kind: PriorityClass
+metadata:
+  name: mastodon-high
+value: 900000000
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mastodon-onion
+  namespace: mastodon
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-onion
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-onion
+  template:
+    metadata:
+      labels:
+        app: mastodon-onion
+    spec:
+      containers:
+      - command:
+        - tor
+        - -f
+        - /etc/tor/torrc
+        image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
+        name: tor
+        ports:
+        - containerPort: 80
+          name: http
+        - containerPort: 4000
+          name: streaming
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        volumeMounts:
+        - mountPath: /var/lib/tor
+          name: onion-data
+        - mountPath: /etc/tor/torrc
+          name: torrc
+          subPath: torrc
+      initContainers:
+      - args:
+        - |
+          set -eux
+          # Make sure the HS dir exists
+          mkdir -p /var/lib/tor/hidden_service
+
+          # If keys are present in the Secret, restore them into the HS dir
+          # The secret stores keys as base64-encoded, so decode them
+          [ -f /secret/hs_ed25519_public_key ] && base64 -d /secret/hs_ed25519_public_key > /var/lib/tor/hidden_service/hs_ed25519_public_key || true
+          [ -f /secret/hs_ed25519_secret_key ] && base64 -d /secret/hs_ed25519_secret_key > /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+          [ -f /secret/hostname ] && base64 -d /secret/hostname > /var/lib/tor/hidden_service/hostname || true
+
+          # Determine tor uid in THIS image
+          UID="$(getent passwd tor 2>/dev/null | awk -F: '{print $3}' || true)"
+          [ -z "$UID" ] && UID="$(getent passwd debian-tor 2>/dev/null | awk -F: '{print $3}' || true)"
+          [ -z "$UID" ] && UID="100"
+
+          # Strict ownership/permissions Tor requires (on parent and HS dir)
+          chown -R "$UID:$UID" /var/lib/tor
+          chmod 700 /var/lib/tor
+          chmod 700 /var/lib/tor/hidden_service
+          [ -f /var/lib/tor/hidden_service/hs_ed25519_secret_key ] && chmod 600 /var/lib/tor/hidden_service/hs_ed25519_secret_key || true
+        command:
+        - /bin/sh
+        - -ceu
+        image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine
+        name: restore-onion
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - mountPath: /secret
+          name: onion-secret
+          readOnly: true
+        - mountPath: /var/lib/tor
+          name: onion-data
+      volumes:
+      - name: onion-secret
+        secret:
+          secretName: mastodon-onion-keys
+      - name: onion-data
+        persistentVolumeClaim:
+          claimName: mastodon-onion
+      - configMap:
+          items:
+          - key: torrc
+            path: torrc
+          name: mastodon-onion-torrc
+        name: torrc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mastodon-sidekiq-background
+    queue-type: background
+  name: mastodon-sidekiq-background
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-background
+  template:
+    metadata:
+      labels:
+        app: mastodon-sidekiq-background
+        elasticsearch-client: "true"
+        queue-type: background
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: mastodon-sidekiq-background
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - bundle
+        - exec
+        - sidekiq
+        - -q
+        - pull
+        - -q
+        - mailers
+        - -q
+        - fasp
+        - -c
+        - "10"
+        env:
+        - name: DB_POOL
+          value: "10"
+        envFrom:
+        - secretRef:
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core-27hg5g645k
+        - configMapRef:
+            name: mastodon-database-g8b7d89tbc
+        - configMapRef:
+            name: mastodon-redis-69846c8hmh
+        - configMapRef:
+            name: mastodon-search-7mhk8kkkhf
+        - configMapRef:
+            name: mastodon-features-ckk9h64d79
+        - configMapRef:
+            name: mastodon-external-services-6hff9675g9
+        - configMapRef:
+            name: mastodon-sidekiq-7t5mb26889
+        image: ghcr.io/glitch-soc/mastodon:v4.4.5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - ps aux | grep '[s]idekiq\ 7'
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        name: sidekiq-background
+        resources:
+          limits:
+            memory: 800Mi
+          requests:
+            cpu: 200m
+            memory: 500Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 991
+          runAsNonRoot: true
+          runAsUser: 991
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+        - mountPath: /opt/mastodon/.elasticsearch/ca.crt
+          name: es-ca
+          readOnly: true
+      priorityClassName: mastodon-high
+      securityContext:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: mastodon-sidekiq-background
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+      - name: es-ca
+        secret:
+          defaultMode: 292
+          secretName: mastodon-elastic-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mastodon-sidekiq-default
+    queue-type: default
+  name: mastodon-sidekiq-default
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-default
+  template:
+    metadata:
+      labels:
+        app: mastodon-sidekiq-default
+        elasticsearch-client: "true"
+        queue-type: default
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: mastodon-sidekiq-default
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - bundle
+        - exec
+        - sidekiq
+        - -q
+        - default
+        - -c
+        - "15"
+        env:
+        - name: DB_POOL
+          value: "15"
+        envFrom:
+        - secretRef:
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core-27hg5g645k
+        - configMapRef:
+            name: mastodon-database-g8b7d89tbc
+        - configMapRef:
+            name: mastodon-redis-69846c8hmh
+        - configMapRef:
+            name: mastodon-search-7mhk8kkkhf
+        - configMapRef:
+            name: mastodon-features-ckk9h64d79
+        - configMapRef:
+            name: mastodon-external-services-6hff9675g9
+        - configMapRef:
+            name: mastodon-sidekiq-7t5mb26889
+        image: ghcr.io/glitch-soc/mastodon:v4.4.5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - ps aux | grep '[s]idekiq\ 7'
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        name: sidekiq-default
+        resources:
+          limits:
+            memory: 1.2Gi
+          requests:
+            cpu: 500m
+            memory: 800Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 991
+          runAsNonRoot: true
+          runAsUser: 991
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+        - mountPath: /opt/mastodon/.elasticsearch/ca.crt
+          name: es-ca
+          readOnly: true
+      priorityClassName: mastodon-high
+      securityContext:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: mastodon-sidekiq-default
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+      - name: es-ca
+        secret:
+          defaultMode: 292
+          secretName: mastodon-elastic-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mastodon-sidekiq-federation
+    queue-type: federation
+  name: mastodon-sidekiq-federation
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-federation
+  template:
+    metadata:
+      labels:
+        app: mastodon-sidekiq-federation
+        elasticsearch-client: "true"
+        queue-type: federation
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: mastodon-sidekiq-federation
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - bundle
+        - exec
+        - sidekiq
+        - -q
+        - push
+        - -q
+        - ingress
+        - -c
+        - "20"
+        env:
+        - name: DB_POOL
+          value: "20"
+        envFrom:
+        - secretRef:
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core-27hg5g645k
+        - configMapRef:
+            name: mastodon-database-g8b7d89tbc
+        - configMapRef:
+            name: mastodon-redis-69846c8hmh
+        - configMapRef:
+            name: mastodon-search-7mhk8kkkhf
+        - configMapRef:
+            name: mastodon-features-ckk9h64d79
+        - configMapRef:
+            name: mastodon-external-services-6hff9675g9
+        - configMapRef:
+            name: mastodon-sidekiq-7t5mb26889
+        image: ghcr.io/glitch-soc/mastodon:v4.4.5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - ps aux | grep '[s]idekiq\ 7'
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        name: sidekiq-federation
+        resources:
+          limits:
+            memory: 1.5Gi
+          requests:
+            cpu: 400m
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 991
+          runAsNonRoot: true
+          runAsUser: 991
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+        - mountPath: /opt/mastodon/.elasticsearch/ca.crt
+          name: es-ca
+          readOnly: true
+      priorityClassName: mastodon-high
+      securityContext:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: mastodon-sidekiq-federation
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+      - name: es-ca
+        secret:
+          defaultMode: 292
+          secretName: mastodon-elastic-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mastodon-sidekiq-scheduler
+    queue-type: scheduler
+  name: mastodon-sidekiq-scheduler
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-scheduler
+  template:
+    metadata:
+      labels:
+        app: mastodon-sidekiq-scheduler
+        elasticsearch-client: "true"
+        queue-type: scheduler
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: mastodon-sidekiq-scheduler
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - bundle
+        - exec
+        - sidekiq
+        - -q
+        - scheduler
+        - -c
+        - "5"
+        env:
+        - name: DB_POOL
+          value: "5"
+        envFrom:
+        - secretRef:
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core-27hg5g645k
+        - configMapRef:
+            name: mastodon-database-g8b7d89tbc
+        - configMapRef:
+            name: mastodon-redis-69846c8hmh
+        - configMapRef:
+            name: mastodon-search-7mhk8kkkhf
+        - configMapRef:
+            name: mastodon-features-ckk9h64d79
+        - configMapRef:
+            name: mastodon-external-services-6hff9675g9
+        - configMapRef:
+            name: mastodon-sidekiq-7t5mb26889
+        image: ghcr.io/glitch-soc/mastodon:v4.4.5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - ps aux | grep '[s]idekiq\ 7'
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        name: sidekiq-scheduler
+        resources:
+          limits:
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 300Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 991
+          runAsNonRoot: true
+          runAsUser: 991
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+        - mountPath: /opt/mastodon/.elasticsearch/ca.crt
+          name: es-ca
+          readOnly: true
+      priorityClassName: mastodon-high
+      securityContext:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: mastodon-sidekiq-scheduler
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+      - name: es-ca
+        secret:
+          defaultMode: 292
+          secretName: mastodon-elastic-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mastodon-streaming
+  name: mastodon-streaming
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-streaming
+  template:
+    metadata:
+      labels:
+        app: mastodon-streaming
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: mastodon-streaming
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - command:
+        - node
+        - ./streaming/index.js
+        env:
+        - name: PORT
+          value: "4000"
+        envFrom:
+        - secretRef:
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core-27hg5g645k
+        - configMapRef:
+            name: mastodon-database-g8b7d89tbc
+        - configMapRef:
+            name: mastodon-redis-69846c8hmh
+        - configMapRef:
+            name: mastodon-streaming-mbkd52mfgk
+        image: ghcr.io/glitch-soc/mastodon-streaming:v4.4.5
+        livenessProbe:
+          httpGet:
+            path: /api/v1/streaming/health
+            port: 4000
+          initialDelaySeconds: 20
+          periodSeconds: 15
+        name: streaming
+        ports:
+        - containerPort: 4000
+          name: streaming
+        readinessProbe:
+          httpGet:
+            path: /api/v1/streaming/health
+            port: 4000
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        resources:
+          limits:
+            memory: 100Mi
+          requests:
+            cpu: 21m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+      priorityClassName: mastodon-high
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: mastodon-streaming
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mastodon-web
+  name: mastodon-web
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-web
+  template:
+    metadata:
+      labels:
+        app: mastodon-web
+        elasticsearch-client: "true"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: mastodon-web
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - bundle exec puma -C config/puma.rb
+        envFrom:
+        - secretRef:
+            name: mastodon-app-secrets
+        - secretRef:
+            name: mastodon-db-url
+        - configMapRef:
+            name: mastodon-core-27hg5g645k
+        - configMapRef:
+            name: mastodon-database-g8b7d89tbc
+        - configMapRef:
+            name: mastodon-redis-69846c8hmh
+        - configMapRef:
+            name: mastodon-search-7mhk8kkkhf
+        - configMapRef:
+            name: mastodon-features-ckk9h64d79
+        - configMapRef:
+            name: mastodon-external-services-6hff9675g9
+        - configMapRef:
+            name: mastodon-web-bkgmkbfh25
+        image: ghcr.io/glitch-soc/mastodon:v4.4.5
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 3
+        name: web
+        ports:
+        - containerPort: 3000
+          name: http
+        - containerPort: 9394
+          name: metrics
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 2
+          periodSeconds: 10
+          timeoutSeconds: 3
+        resources:
+          limits:
+            memory: 2750Mi
+          requests:
+            cpu: 683m
+            memory: 2271Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 18
+          httpGet:
+            path: /health
+            port: 3000
+          periodSeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+        - mountPath: /opt/mastodon/.elasticsearch/ca.crt
+          name: es-ca
+          readOnly: true
+      priorityClassName: mastodon-high
+      securityContext:
+        fsGroup: 991
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: mastodon-web
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+      - name: es-ca
+        secret:
+          defaultMode: 292
+          secretName: mastodon-elastic-ca
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tor-proxy
+  namespace: mastodon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tor-proxy
+  template:
+    metadata:
+      labels:
+        app: tor-proxy
+    spec:
+      containers:
+      - image: ghcr.io/avpnusr/torprivoxy:11-10-2025
+        livenessProbe:
+          periodSeconds: 30
+          tcpSocket:
+            port: 8118
+        name: proxy
+        ports:
+        - containerPort: 8118
+          name: http
+        - containerPort: 9050
+          name: socks
+        readinessProbe:
+          periodSeconds: 10
+          tcpSocket:
+            port: 8118
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/component: master
+    app.kubernetes.io/instance: mastodon-redis
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/version: 8.2.0
+    helm.sh/chart: redis-22.0.1
+  name: mastodon-redis-master
+  namespace: mastodon
+spec:
+  minReadySeconds: 0
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: master
+      app.kubernetes.io/instance: mastodon-redis
+      app.kubernetes.io/name: redis
+  serviceName: mastodon-redis-headless
+  template:
+    metadata:
+      annotations:
+        checksum/configmap: 7884c3f5781aa07896c8be6491b47963ea8214b78e0cef49dc221e1ac4580cd9
+        checksum/health: aff24913d801436ea469d8d374b2ddb3ec4c43ee7ab24663d5f8ff1a1b6991a9
+        checksum/scripts: bdec350b84a1ace7cc118db113a21c9f160bde3425b07714e1c0c1da722621cf
+        checksum/secret: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
+      labels:
+        app.kubernetes.io/component: master
+        app.kubernetes.io/instance: mastodon-redis
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/version: 8.2.0
+        helm.sh/chart: redis-22.0.1
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: autoscaler-node
+                operator: NotIn
+                values:
+                - "true"
+            weight: 100
+        podAffinity: null
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: master
+                  app.kubernetes.io/instance: mastodon-redis
+                  app.kubernetes.io/name: redis
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - -ec
+        - /opt/bitnami/scripts/start-scripts/start-master.sh
+        command:
+        - /bin/bash
+        env:
+        - name: BITNAMI_DEBUG
+          value: "false"
+        - name: REDIS_REPLICATION_MODE
+          value: master
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        - name: REDIS_TLS_ENABLED
+          value: "no"
+        - name: REDIS_PORT
+          value: "6379"
+        image: docker.io/bitnami/redis:8.2.1-debian-12-r0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -ec
+            - /health/ping_liveness_local.sh 5
+          failureThreshold: 5
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 6
+        name: redis
+        ports:
+        - containerPort: 6379
+          name: redis
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -ec
+            - /health/ping_readiness_local.sh 1
+          failureThreshold: 5
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 1001
+          runAsNonRoot: true
+          runAsUser: 1001
+          seLinuxOptions: {}
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /opt/bitnami/scripts/start-scripts
+          name: start-scripts
+        - mountPath: /health
+          name: health
+        - mountPath: /data
+          name: redis-data
+        - mountPath: /opt/bitnami/redis/mounted-etc
+          name: config
+        - mountPath: /opt/bitnami/redis/etc/
+          name: empty-dir
+          subPath: app-conf-dir
+        - mountPath: /tmp
+          name: empty-dir
+          subPath: tmp-dir
+      enableServiceLinks: true
+      priorityClassName: mastodon-critical
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: Always
+        supplementalGroups: []
+        sysctls: []
+      serviceAccountName: mastodon-redis-master
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      volumes:
+      - configMap:
+          defaultMode: 493
+          name: mastodon-redis-scripts
+        name: start-scripts
+      - configMap:
+          defaultMode: 493
+          name: mastodon-redis-health
+        name: health
+      - configMap:
+          name: mastodon-redis-configuration
+        name: config
+      - emptyDir: {}
+        name: empty-dir
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+        app.kubernetes.io/component: master
+        app.kubernetes.io/instance: mastodon-redis
+        app.kubernetes.io/name: redis
+      name: redis-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 8Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mastodon-pg-amcheck-monthly
+  namespace: mastodon
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          containers:
+          - command:
+            - bash
+            - -ceu
+            - |
+              # Deep index check - stronger locks, schedule in a window
+              pg_amcheck \
+                -h "${DB_HOST}" -p "${DB_PORT}" -d "${DB_NAME}" \
+                --parent-check -j 2 -P -v
+            env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  key: DB_USER
+                  name: mastodon-db-url
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: DB_PASS
+                  name: mastodon-db-url
+            - name: PGSSLMODE
+              value: verify-ca
+            - name: PGSSLROOTCERT
+              value: /etc/postgres/ca.crt
+            envFrom:
+            - secretRef:
+                name: mastodon-db-url
+            - configMapRef:
+                name: mastodon-database-g8b7d89tbc
+            image: postgres:18
+            name: amcheck-monthly
+            volumeMounts:
+            - mountPath: /etc/postgres/ca.crt
+              name: db-ca
+              subPath: ca.crt
+          restartPolicy: Never
+          volumes:
+          - name: db-ca
+            secret:
+              items:
+              - key: ca.crt
+                path: ca.crt
+              secretName: mastodon-postgresql-ca
+  schedule: 45 3 1 * *
+  successfulJobsHistoryLimit: 1
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mastodon-pg-amcheck-weekly
+  namespace: mastodon
+spec:
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          containers:
+          - command:
+            - bash
+            - -ceu
+            - |
+              pg_amcheck \
+                -h "${DB_HOST}" -p "${DB_PORT}" -d "${DB_NAME}" \
+                -j 4 -P -v
+            env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  key: DB_USER
+                  name: mastodon-db-url
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: DB_PASS
+                  name: mastodon-db-url
+            - name: PGSSLMODE
+              value: verify-ca
+            - name: PGSSLROOTCERT
+              value: /etc/postgres/ca.crt
+            envFrom:
+            - secretRef:
+                name: mastodon-db-url
+            - configMapRef:
+                name: mastodon-database-g8b7d89tbc
+            image: postgres:18
+            name: amcheck-weekly
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 50Mi
+            volumeMounts:
+            - mountPath: /etc/postgres/ca.crt
+              name: db-ca
+              subPath: ca.crt
+          restartPolicy: Never
+          volumes:
+          - name: db-ca
+            secret:
+              items:
+              - key: ca.crt
+                path: ca.crt
+              secretName: mastodon-postgresql-ca
+  schedule: 30 3 * * 1
+  successfulJobsHistoryLimit: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-sidekiq-background-pdb
+  namespace: mastodon
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-background
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-sidekiq-default-pdb
+  namespace: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-default
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-sidekiq-federation-pdb
+  namespace: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-federation
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-sidekiq-scheduler-pdb
+  namespace: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-scheduler
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-streaming-pdb
+  namespace: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-streaming
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-web-pdb
+  namespace: mastodon
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-web
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-sidekiq-background-hpa
+  namespace: mastodon
+spec:
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+    scaleUp:
+      stabilizationWindowSeconds: 300
+  maxReplicas: 3
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 80
+        type: Utilization
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mastodon-sidekiq-background
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-sidekiq-default-hpa
+  namespace: mastodon
+spec:
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      policies:
+      - periodSeconds: 30
+        type: Pods
+        value: 1
+      stabilizationWindowSeconds: 60
+  maxReplicas: 4
+  metrics:
+  - external:
+      metric:
+        name: sidekiq_queue_latency_seconds
+        selector:
+          matchLabels:
+            queue: default
+      target:
+        type: Value
+        value: "10"
+    type: External
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mastodon-sidekiq-default
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-sidekiq-federation-hpa
+  namespace: mastodon
+spec:
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+    scaleUp:
+      policies:
+      - periodSeconds: 45
+        type: Pods
+        value: 1
+      stabilizationWindowSeconds: 90
+  maxReplicas: 4
+  metrics:
+  - external:
+      metric:
+        name: sidekiq_queue_latency_seconds
+        selector:
+          matchLabels:
+            queue: push
+      target:
+        type: Value
+        value: "30"
+    type: External
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mastodon-sidekiq-federation
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-streaming-hpa
+  namespace: mastodon
+spec:
+  behavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 120
+        type: Pods
+        value: 1
+      stabilizationWindowSeconds: 300
+    scaleUp:
+      policies:
+      - periodSeconds: 30
+        type: Pods
+        value: 2
+      stabilizationWindowSeconds: 30
+  maxReplicas: 3
+  metrics:
+  - external:
+      metric:
+        name: mastodon_streaming_connected_clients
+      target:
+        averageValue: "200"
+        type: AverageValue
+    type: External
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mastodon-streaming
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  annotations:
+    autoscaling.alpha.kubernetes.io/conditions: |
+      PRIMARY: ruby_http_request_queue_duration_seconds_p95 - request queue time (target: 35ms)
+      SECONDARY: ruby_puma_request_backlog - actual request queue depth (target: 3 requests)
+      SAFETY NET: Memory utilization as Ruby apps are memory-bound, not CPU-bound
+  name: mastodon-web-hpa
+  namespace: mastodon
+spec:
+  behavior:
+    scaleDown:
+      policies:
+      - periodSeconds: 60
+        type: Pods
+        value: 1
+      selectPolicy: Min
+      stabilizationWindowSeconds: 180
+    scaleUp:
+      policies:
+      - periodSeconds: 30
+        type: Pods
+        value: 2
+      selectPolicy: Max
+      stabilizationWindowSeconds: 30
+  maxReplicas: 4
+  metrics:
+  - external:
+      metric:
+        name: ruby_http_request_queue_duration_seconds_p95
+        selector:
+          matchLabels:
+            job: mastodon-web
+      target:
+        type: Value
+        value: 35m
+    type: External
+  - external:
+      metric:
+        name: ruby_puma_request_backlog
+        selector:
+          matchLabels:
+            job: mastodon-web
+      target:
+        type: Value
+        value: "3"
+    type: External
+  - resource:
+      name: memory
+      target:
+        averageUtilization: 80
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mastodon-web
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "5"
+  name: elasticsearch-setup-mastodon-user
+  namespace: mastodon
+spec:
+  template:
+    metadata:
+      labels:
+        elasticsearch-client: "true"
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - |
+          # Create mastodon role with appropriate permissions
+          curl -k -X POST -u "elastic:${ELASTIC_PASSWORD}" \
+            "https://elasticsearch-es-http:9200/_security/role/mastodon_full_access" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "cluster": ["monitor"],
+              "indices": [{
+                "names": ["*"],
+                "privileges": ["read", "monitor", "write", "manage", "create_index", "delete_index"]
+              }]
+            }'
+
+          # Create mastodon user
+          curl -k -X POST -u "elastic:${ELASTIC_PASSWORD}" \
+            "https://elasticsearch-es-http:9200/_security/user/mastodon" \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "password": "'${MASTODON_PASSWORD}'",
+              "roles": ["mastodon_full_access"]
+            }'
+
+          echo "Mastodon user created successfully"
+        env:
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: elasticsearch-password
+              name: elasticsearch-credentials
+        - name: MASTODON_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: mastodon-user-password
+              name: elasticsearch-credentials
+        image: curlimages/curl:8.16.0
+        name: setup-user
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - |
+          until curl -k -u "elastic:${ELASTIC_PASSWORD}" https://elasticsearch-es-http:9200/_cluster/health?wait_for_status=yellow&timeout=30s; do
+            echo "Waiting for Elasticsearch to be ready..."
+            sleep 10
+          done
+        env:
+        - name: ELASTIC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: elasticsearch-password
+              name: elasticsearch-credentials
+        image: curlimages/curl:8.16.0
+        name: wait-for-elasticsearch
+      restartPolicy: OnFailure
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+  ttlSecondsAfterFinished: 300
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Database migration job with static configuration.
+      No longer depends on configMapGenerator to avoid hash-suffix issues.
+  name: mastodon-db-migrate
+  namespace: mastodon
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  template:
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - RAILS_ENV=production DB_PORT=5432 bundle exec rails db:migrate --trace
+        env:
+        - name: RAILS_ENV
+          value: production
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_POOL
+          value: "1"
+        - name: PREPARED_STATEMENTS
+          value: "false"
+        - name: DB_HOST
+          value: database-cnpg-pooler-rw
+        - name: DB_NAME
+          value: mastodon
+        - name: DB_SSLMODE
+          value: verify-ca
+        - name: PGSSLROOTCERT
+          value: /etc/ssl/certs/postgresql/ca.crt
+        - name: DATABASE_TIMEOUT
+          value: "60"
+        envFrom:
+        - secretRef:
+            name: mastodon-db-url
+        - secretRef:
+            name: mastodon-app-secrets
+        image: ghcr.io/glitch-soc/mastodon:v4.4.5
+        name: migrate
+        volumeMounts:
+        - mountPath: /etc/ssl/certs/postgresql
+          name: db-ca
+          readOnly: true
+      restartPolicy: Never
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+      volumes:
+      - name: db-ca
+        secret:
+          defaultMode: 292
+          secretName: database-cnpg-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mastodon-elastic-ca
+  namespace: mastodon
+spec:
+  commonName: mastodon-elastic-ca
+  duration: 87600h
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: internal-issuer
+  renewBefore: 43800h
+  secretName: mastodon-elastic-ca
+  usages:
+  - digital signature
+  - key encipherment
+  - cert sign
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mastodon-elastic-server
+  namespace: mastodon
+spec:
+  commonName: mastodon-elastic.mastodon.svc
+  dnsNames:
+  - mastodon-elastic.mastodon.svc
+  - mastodon-elastic
+  - mastodon-elastic.mastodon.svc.cluster.local
+  - mastodon-elastic-pooler
+  - mastodon-elastic-pooler.mastodon.svc
+  - null
+  - .mastodon.svc
+  - .mastodon.svc.cluster.local
+  duration: 2160h
+  issuerRef:
+    kind: ClusterIssuer
+    name: internal-issuer
+  renewBefore: 360h
+  secretName: mastodon-elastic-server
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mastodon-postgresql-ca
+  namespace: mastodon
+spec:
+  commonName: mastodon-postgresql-ca
+  duration: 87600h
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: internal-issuer
+  renewBefore: 43800h
+  secretName: mastodon-postgresql-ca
+  usages:
+  - digital signature
+  - key encipherment
+  - cert sign
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mastodon-postgresql-server
+  namespace: mastodon
+spec:
+  commonName: mastodon-postgresql.mastodon.svc
+  dnsNames:
+  - mastodon-postgresql.mastodon.svc
+  - mastodon-postgresql
+  - mastodon-postgresql.mastodon.svc.cluster.local
+  - mastodon-postgresql-pooler
+  - mastodon-postgresql-pooler.mastodon.svc
+  - database-cnpg
+  - database-cnpg.mastodon.svc
+  - database-cnpg.mastodon.svc.cluster.local
+  - database-cnpg-rw
+  - database-cnpg-rw.mastodon.svc
+  - database-cnpg-rw.mastodon.svc.cluster.local
+  - database-cnpg-ro
+  - database-cnpg-ro.mastodon.svc
+  - database-cnpg-ro.mastodon.svc.cluster.local
+  - database-cnpg-pooler-rw
+  - database-cnpg-pooler-rw.mastodon.svc
+  - database-cnpg-pooler-rw.mastodon.svc.cluster.local
+  - database-cnpg-pooler-ro
+  - database-cnpg-pooler-ro.mastodon.svc
+  - database-cnpg-pooler-ro.mastodon.svc.cluster.local
+  duration: 2160h
+  issuerRef:
+    kind: ClusterIssuer
+    name: internal-issuer
+  renewBefore: 360h
+  secretName: mastodon-postgresql-server
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+  - client auth
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+  namespace: mastodon
+spec:
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+  nodeSets:
+  - count: 1
+    name: default
+    podTemplate:
+      spec:
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 2Gi
+        tolerations:
+        - effect: NoSchedule
+          key: autoscaler-node
+          operator: Equal
+          value: "true"
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+  version: 8.18.1
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mastodon-app-pgbouncer-secrets
+  namespace: mastodon
+spec:
+  data:
+  - remoteRef:
+      key: app-mastodon-pgbouncer-admin-password
+    secretKey: adminPasswordKey
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden-backend
+  target:
+    creationPolicy: Owner
+    name: mastodon-app-pgbouncer-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mastodon-app-secrets
+  namespace: mastodon
+spec:
+  data:
+  - remoteRef:
+      key: app-mastodon-domain
+    secretKey: LOCAL_DOMAIN
+  - remoteRef:
+      key: app-mastodon-secret-key-base
+    secretKey: SECRET_KEY_BASE
+  - remoteRef:
+      key: app-mastodon-otp-secret
+    secretKey: OTP_SECRET
+  - remoteRef:
+      key: app-mastodon-vapid-private
+    secretKey: VAPID_PRIVATE_KEY
+  - remoteRef:
+      key: app-mastodon-vapid-public
+    secretKey: VAPID_PUBLIC_KEY
+  - remoteRef:
+      key: app-mastodon-ar-primary
+    secretKey: ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+  - remoteRef:
+      key: app-mastodon-ar-deterministic
+    secretKey: ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
+  - remoteRef:
+      key: app-mastodon-ar-salt
+    secretKey: ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
+  - remoteRef:
+      key: app-mastodon-smtp-server
+    secretKey: SMTP_SERVER
+  - remoteRef:
+      key: app-mastodon-smtp-port
+    secretKey: SMTP_PORT
+  - remoteRef:
+      key: app-mastodon-smtp-login
+    secretKey: SMTP_LOGIN
+  - remoteRef:
+      key: app-mastodon-smtp-password
+    secretKey: SMTP_PASSWORD
+  - remoteRef:
+      key: app-mastodon-smtp-from-address
+    secretKey: SMTP_FROM_ADDRESS
+  - remoteRef:
+      key: app-mastodon-s3-access-key
+    secretKey: AWS_ACCESS_KEY_ID
+  - remoteRef:
+      key: app-mastodon-s3-secret-key
+    secretKey: AWS_SECRET_ACCESS_KEY
+  - remoteRef:
+      key: app-mastodon-s3-endpoint-url
+    secretKey: S3_ENDPOINT
+  - remoteRef:
+      key: app-mastodon-hcaptcha-site-key
+    secretKey: HCAPTCHA_SITE_KEY
+  - remoteRef:
+      key: app-mastodon-hcaptcha-secret-key
+    secretKey: HCAPTCHA_SECRET_KEY
+  - remoteRef:
+      key: app-mastodon-elasticsearch-mastodon-password
+    secretKey: ES_PASS
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden-backend
+  target:
+    creationPolicy: Owner
+    name: mastodon-app-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mastodon-db-url
+  namespace: mastodon
+spec:
+  data:
+  - remoteRef:
+      key: database-cnpg-superuser
+      property: user
+    secretKey: username
+  - remoteRef:
+      key: database-cnpg-superuser
+      property: password
+    secretKey: password
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: SecretStore
+    name: cnpg-k8s-store
+  target:
+    creationPolicy: Owner
+    name: mastodon-db-url
+    template:
+      data:
+        DB_PASS: '{{ .password }}'
+        DB_USER: '{{ .username }}'
+      engineVersion: v2
+      type: Opaque
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mastodon-onion-keys
+  namespace: mastodon
+spec:
+  data:
+  - remoteRef:
+      key: app-mastodon-onion-hostname
+    secretKey: hostname
+  - remoteRef:
+      key: app-mastodon-onion-public_key
+    secretKey: hs_ed25519_public_key
+  - remoteRef:
+      key: app-mastodon-onion-secret_key
+    secretKey: hs_ed25519_secret_key
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden-backend
+  target:
+    creationPolicy: Owner
+    name: mastodon-onion-keys
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mastodon-walg-s3
+  namespace: mastodon
+spec:
+  data:
+  - remoteRef:
+      key: app-mastovault-s3-access-key
+    secretKey: AWS_ACCESS_KEY_ID
+  - remoteRef:
+      key: app-mastovault-s3-secret-key
+    secretKey: AWS_SECRET_ACCESS_KEY
+  - remoteRef:
+      key: app-mastovault-s3-endpoint-url
+    secretKey: AWS_ENDPOINT
+  - remoteRef:
+      key: app-mastovault-backup-bucket
+    secretKey: WAL_S3_BUCKET
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden-backend
+  target:
+    creationPolicy: Owner
+    name: mastodon-walg-s3
+    template:
+      data:
+        AWS_ACCESS_KEY_ID: '{{ .AWS_ACCESS_KEY_ID }}'
+        AWS_ENDPOINT: '{{ .AWS_ENDPOINT }}'
+        AWS_SECRET_ACCESS_KEY: '{{ .AWS_SECRET_ACCESS_KEY }}'
+        WAL_S3_BUCKET: '{{ .WAL_S3_BUCKET }}'
+      engineVersion: v2
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: cnpg-k8s-store
+  namespace: mastodon
+spec:
+  provider:
+    kubernetes:
+      auth:
+        serviceAccount:
+          name: mastodon-eso-reader
+      remoteNamespace: mastodon
+      server:
+        caProvider:
+          key: ca.crt
+          name: kube-root-ca.crt
+          type: ConfigMap
+        url: https://kubernetes.default.svc
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mastodon
+  namespace: mastodon
+spec:
+  hostnames:
+  - goingdark.social
+  parentRefs:
+  - name: external
+    namespace: gateway
+  rules:
+  - backendRefs:
+    - name: mastodon-streaming
+      port: 4000
+    filters:
+    - responseHeaderModifier:
+        add:
+        - name: Onion-Location
+          value: http://eopvgbrhvri7tj2gbvssa3zpgxzm6rbwf6ozmk33elox3kce3zo75gid.onion
+      type: ResponseHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/streaming
+  - backendRefs:
+    - name: mastodon-web
+      port: 3000
+    filters:
+    - responseHeaderModifier:
+        add:
+        - name: Onion-Location
+          value: http://eopvgbrhvri7tj2gbvssa3zpgxzm6rbwf6ozmk33elox3kce3zo75gid.onion
+      type: ResponseHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mastodon-es
+  namespace: mastodon
+spec:
+  hostnames:
+  - elastic.goingdark.social
+  parentRefs:
+  - name: internal
+    namespace: gateway
+  rules:
+  - backendRefs:
+    - name: kibana
+      port: 5601
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mastodon-onion
+  namespace: mastodon
+spec:
+  egress:
+  - {}
+  ingress: []
+  podSelector:
+    matchLabels:
+      app: mastodon-onion
+  policyTypes:
+  - Egress
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mastodon-redis
+  namespace: mastodon
+spec:
+  egress:
+  - {}
+  ingress:
+  - ports:
+    - port: 6379
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: mastodon-redis
+      app.kubernetes.io/name: redis
+  policyTypes:
+  - Ingress
+  - Egress
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  labels:
+    app: mastodon-web
+  name: mastodon-web-metrics
+  namespace: mastodon
+spec:
+  endpoints:
+  - honorLabels: true
+    interval: 30s
+    path: /metrics
+    port: metrics
+    relabelConfigs:
+    - sourceLabels:
+      - __meta_kubernetes_service_name
+      targetLabel: service
+    - sourceLabels:
+      - __meta_kubernetes_pod_name
+      targetLabel: pod
+    - sourceLabels:
+      - __meta_kubernetes_namespace
+      targetLabel: namespace
+    - replacement: mastodon-web
+      targetLabel: job
+  selector:
+    matchLabels:
+      app: mastodon-web
+      component: web
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg
+  namespace: mastodon
+spec:
+  affinity:
+    enablePodAntiAffinity: true
+    tolerations:
+    - effect: NoSchedule
+      key: autoscaler-node
+      operator: Equal
+      value: "true"
+    topologyKey: kubernetes.io/hostname
+  enableSuperuserAccess: true
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  instances: 2
+  monitoring:
+    enablePodMonitor: true
+  postgresql:
+    enableAlterSystem: true
+    parameters:
+      checkpoint_completion_target: "0.9"
+      default_statistics_target: "100"
+      effective_cache_size: 512MB
+      effective_io_concurrency: "100"
+      huge_pages: "off"
+      maintenance_work_mem: 128MB
+      max_connections: "300"
+      max_parallel_maintenance_workers: "2"
+      max_parallel_workers: "4"
+      max_parallel_workers_per_gather: "2"
+      max_wal_size: 8GB
+      max_worker_processes: "4"
+      min_wal_size: 2GB
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: all
+      random_page_cost: "1.1"
+      shared_buffers: 512MB
+      wal_buffers: 16MB
+      work_mem: 1702kB
+  resources:
+    limits:
+      memory: 2Gi
+    requests:
+      cpu: "1"
+      memory: 2Gi
+  storage:
+    size: 40Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+  walStorage:
+    size: 10Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-ro
+  namespace: mastodon
+spec:
+  cluster:
+    name: database-cnpg
+  instances: 2
+  pgbouncer:
+    parameters:
+      default_pool_size: "125"
+      max_client_conn: "1000"
+    poolMode: transaction
+  template:
+    metadata:
+      labels:
+        app: database-cnpg-pooler-ro
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - database-cnpg-pooler-ro
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: pgbouncer
+        resources:
+          limits:
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 100Mi
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+  type: ro
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-rw
+  namespace: mastodon
+spec:
+  cluster:
+    name: database-cnpg
+  instances: 2
+  pgbouncer:
+    parameters:
+      default_pool_size: "125"
+      max_client_conn: "1000"
+    poolMode: transaction
+  template:
+    metadata:
+      labels:
+        app: database-cnpg-pooler-rw
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - database-cnpg-pooler-rw
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: pgbouncer
+        resources:
+          limits:
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 100Mi
+      tolerations:
+      - effect: NoSchedule
+        key: autoscaler-node
+        operator: Equal
+        value: "true"
+  type: rw

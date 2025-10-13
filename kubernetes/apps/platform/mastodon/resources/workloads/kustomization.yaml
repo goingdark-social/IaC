@@ -13,4 +13,3 @@ resources:
 - mastodon-onion-deployment.yaml
 - tor-proxy-deployment.yaml
 - tor-onion-torrc.yaml
-- elastic-sts.yaml

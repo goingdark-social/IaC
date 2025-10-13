@@ -3,16 +3,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: elasticsearch-master
-  namespace: mastodon
-spec:
-  template:
-    spec:
-      priorityClassName: mastodon-critical
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
   name: mastodon-redis-master
   namespace: mastodon
 spec:
