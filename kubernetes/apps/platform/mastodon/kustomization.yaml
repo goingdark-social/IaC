@@ -61,7 +61,6 @@ resources:
 - namespace.yaml
 - configs/
 - resources/
-- overlays/endpoint/  # S3 endpoint configuration overlay
  
 
 patches:
