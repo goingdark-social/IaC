@@ -69,6 +69,7 @@ spec:
               readOnly: true
             - name: es-ca
               mountPath: /opt/mastodon/.elasticsearch/ca.crt
+              subPath: ca.crt
               readOnly: true
           livenessProbe:
             exec:
