@@ -5,9 +5,9 @@ metadata:
   namespace: mastodon
 spec:
   configuration:
+    # Use the real R2 endpoint
     destinationPath: 's3://mastovault/cnpg/mastodon-database'
-    # Proxy endpoint - proxy will forward to real R2 URL from secret
-    endpointURL: http://r2-proxy.mastodon.svc.cluster.local
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
     s3Credentials:
       accessKeyId:
         name: mastodon-walg-s3
@@ -22,16 +22,24 @@ spec:
       compression: gzip
       jobs: 2
   retentionPolicy: "14d"
+
+  # Add this to make Barman Cloud work reliably with R2
   instanceSidecarConfiguration:
     env:
+      # Required for Barman with R2 (prevents checksum mismatches)
       - name: AWS_REQUEST_CHECKSUM_CALCULATION
         value: "when_required"
       - name: AWS_RESPONSE_CHECKSUM_VALIDATION
         value: "when_required"
+
+      # CNPG/Barman expect the endpoint in env
       - name: AWS_ENDPOINT_URL
-        valueFrom:
-          secretKeyRef:
-            name: s3-endpoint-config
-            key: ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+
+      # Region is arbitrary for R2 but must be set (use 'auto' or 'us-east-1')
+      - name: AWS_REGION
+        value: "auto"
+
+      # Prevent sidecar from proxying localhost or internal domains
       - name: NO_PROXY
         value: "localhost,127.0.0.1,*.svc,cluster.local"
