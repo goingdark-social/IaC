@@ -25,7 +25,7 @@ spec:
 
       containers:
       - name: search-deploy
-        image: ghcr.io/glitch-soc/mastodon:v4.4.6
+        image: ghcr.io/glitch-soc/mastodon:v4.4.7
         imagePullPolicy: IfNotPresent
 
         command: ["/bin/bash","-lc"]

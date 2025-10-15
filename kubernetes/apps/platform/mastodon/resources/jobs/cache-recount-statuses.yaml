@@ -110,7 +110,7 @@ spec:
           - secretRef:
               name: mastodon-db-url
         
-        image: ghcr.io/glitch-soc/mastodon:v4.4.6
+        image: ghcr.io/glitch-soc/mastodon:v4.4.7
         name: cache-recount-statuses
         
         volumeMounts:

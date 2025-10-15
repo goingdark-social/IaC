@@ -32,7 +32,7 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
-          image: ghcr.io/glitch-soc/mastodon:v4.4.6
+          image: ghcr.io/glitch-soc/mastodon:v4.4.7
           command: ["/bin/bash", "-c", "bundle exec puma -C config/puma.rb"]
           ports:
             - name: http
