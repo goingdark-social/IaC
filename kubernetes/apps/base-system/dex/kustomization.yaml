@@ -5,7 +5,6 @@ namespace: dex
 resources:
   - namespace.yaml
   - secrets.yaml
-  - cert.yaml
   - http-route.yaml
 
 helmCharts:

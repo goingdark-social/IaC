@@ -3,7 +3,7 @@ configs:
   cm:
     create: true
     application.resourceTrackingMethod: label
-    admin.enabled: true
+  admin.enabled: false
     url: https://argocd.goingdark.social
     kustomize.buildOptions: '--enable-helm'
     accounts.kubechecks: apiKey

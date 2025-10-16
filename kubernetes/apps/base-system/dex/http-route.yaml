@@ -16,4 +16,4 @@ spec:
             value: /
       backendRefs:
         - name: dex
-          port: 443
+          port: 5556

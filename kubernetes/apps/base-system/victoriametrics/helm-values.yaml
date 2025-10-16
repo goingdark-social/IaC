@@ -54,7 +54,7 @@ grafana:
       slevel: info
     auth.generic_oauth:
       enabled: true
-      name: Mastodon
+      name: Mastodon via Dex
       allow_sign_up: true
       auth_url: https://idp.goingdark.social/auth
       token_url: https://idp.goingdark.social/token
@@ -64,8 +64,13 @@ grafana:
       login_attribute_path: preferred_username
       # Name from Dex if present. Fall back to preferred_username.
       name_attribute_path: name || preferred_username
-      # Synthesize an email for Grafana’s lookup.
+      # Synthesize an email for Grafanas lookup.
       email_attribute_path: join('', [preferred_username, '@goingdark.social'])
+      # Map role by checking 'groups' (Dex claim) for roles[*].name
+      role_attribute_path: >
+        contains(groups[*].name, 'Owner') && 'Admin' ||
+        contains(groups[*].name, 'Admin') && 'Admin' ||
+        contains(groups[*].name, 'Moderator') && 'Editor' || 'Viewer'
       role_attribute_strict: false
       auto_login: false
       use_pkce: false

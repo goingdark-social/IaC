@@ -1,7 +1,7 @@
 replicaCount: 3
 
 https:
-  enabled: true
+  enabled: false
 
 podDisruptionBudget:
   enabled: true
@@ -20,14 +20,9 @@ envFrom:
   - secretRef:
       name: dex-secrets
 
-volumes:
-  - name: dex-tls
-    secret:
-      secretName: dex-tls
+volumes: []
 
-volumeMounts:
-  - name: dex-tls
-    mountPath: /etc/dex/tls
+volumeMounts: []
 
 config:
   issuer: https://idp.goingdark.social
@@ -62,12 +57,7 @@ config:
       name: "Grafana"
       secretEnv: STATIC_CLIENT_GRAFANA_SECRET
 
-  web:
-    https: 0.0.0.0:5554
-    tlsCert: /etc/dex/tls/tls.crt
-    tlsKey: /etc/dex/tls/tls.key
-    tlsMinVersion: 1.2
-    tlsMaxVersion: 1.3
+  web: {}
 
   connectors:
     - type: oauth
@@ -79,29 +69,26 @@ config:
         redirectURI: https://idp.goingdark.social/callback
         authorizationURL: https://goingdark.social/oauth/authorize
         tokenURL: https://goingdark.social/oauth/token
-        # Prefer Mastodon's OIDC-style userinfo for a stable 'sub'.
-        userInfoURL: https://goingdark.social/oauth/userinfo
+        # Use Mastodon verify_credentials endpoint to surface roles
+        userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
         scopes:
-          - profile
-        # Map fields from userinfo to standard claims Dex emits.
-        userIDKey: sub
+          - read
+        # Map fields from returned object to standard claims Dex emits.
+        userIDKey: id
         claimMapping:
           userNameKey: acct
           preferredUsernameKey: acct
-          # Mastodon userinfo lacks email. We don't emit an email.
-          # Grafana will synthesize one from preferred_username.
+          # Surface Mastodon roles array (roles) as 'groups' claim for downstream
+          groupsKey: roles
 
 ingress:
   enabled: false
   className: nginx
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt
+    {}
   hosts:
     - host: idp.goingdark.social
       paths:
         - path: /
           pathType: ImplementationSpecific
-  tls:
-    - secretName: dex-tls
-      hosts:
-        - idp.goingdark.social
+  tls: []
