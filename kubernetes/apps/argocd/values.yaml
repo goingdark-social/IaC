@@ -24,7 +24,7 @@ configs:
           # See: /api/v1/accounts/verify_credentials
           userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
           scopes:
-            - read:accounts
+            - read
           # Map Mastodon JSON fields to standard OIDC claims Dex will include.
           # userNameKey and preferredUsernameKey are safe. groupsKey is best-effort, see note below.
           claimMapping:
@@ -116,14 +116,13 @@ redis:
   # keep it tiny
   auth:
     enabled: false
-  master:
-    resources:
-      requests:
-        cpu: 20m
-        memory: 64Mi
-      limits:
-        cpu: 100m
-        memory: 256Mi
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
 
 server:
   autoscaling:
