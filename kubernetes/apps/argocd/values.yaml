@@ -19,12 +19,11 @@ configs:
           redirectURI: https://argocd.goingdark.social/api/dex/callback
           authorizationURL: https://goingdark.social/oauth/authorize
           tokenURL: https://goingdark.social/oauth/token
-          # Prefer the official userinfo if your instance supports it (Mastodon ≥4.4),
-          # otherwise fall back to verify_credentials which includes role info.
-          # See: /oauth/userinfo and /api/v1/accounts/verify_credentials
+          # Use verify_credentials which works on all Mastodon ≥2.4 instances.
+          # This endpoint returns user account info and role data.
+          # See: /api/v1/accounts/verify_credentials
           userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
           scopes:
-            - profile
             - read:accounts
           # Map Mastodon JSON fields to standard OIDC claims Dex will include.
           # userNameKey and preferredUsernameKey are safe. groupsKey is best-effort, see note below.
