@@ -3,7 +3,7 @@ configs:
   cm:
     create: true
     application.resourceTrackingMethod: label
-    admin.enabled: false
+    admin.enabled: true
     url: https://argocd.goingdark.social
     kustomize.buildOptions: '--enable-helm'
     accounts.kubechecks: apiKey
@@ -19,19 +19,20 @@ configs:
           redirectURI: https://argocd.goingdark.social/api/dex/callback
           authorizationURL: https://goingdark.social/oauth/authorize
           tokenURL: https://goingdark.social/oauth/token
-          # Use verify_credentials which works on all Mastodon ≥2.4 instances.
-          # This endpoint returns user account info and role data.
-          # See: /api/v1/accounts/verify_credentials
-          userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
+          # Prefer Mastodon 4.4+ OIDC-style userinfo to get a real 'sub'
+          userInfoURL: https://goingdark.social/oauth/userinfo
           scopes:
-            - read
-          # Map Mastodon JSON fields to standard OIDC claims Dex will include.
-          # Dex can't flatten objects, but Mastodon ≥4.0 also returns `roles` as an array of objects.
-          # Dex can emit the raw stringified array, which ArgoCD RBAC can still pattern match on.
+            - profile
+
+          # Tell Dex which fields to treat as ID and “email”
+          # 'sub' is stable (actor URI) on /oauth/userinfo
+          userIDKey: sub
+          # Map fields to standard OIDC claim keys Dex emits
           claimMapping:
             userNameKey: acct
-            preferredUsernameKey: username
-            groupsKey: roles
+            preferredUsernameKey: acct
+            emailKey: acct
+            # Skip roles for now
 
   cmp:
     create: true
