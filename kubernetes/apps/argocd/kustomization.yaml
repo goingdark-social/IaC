@@ -13,7 +13,8 @@ resources:
   - vpa-server.yaml
   - vpa-applicationset.yaml
   - resource-quota.yaml
-
+  - externalsecret.yaml
+  
 helmCharts:
 - name: argo-cd
   namespace: argocd
