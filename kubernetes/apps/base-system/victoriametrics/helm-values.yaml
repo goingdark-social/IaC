@@ -35,7 +35,7 @@ grafana:
 
   sidecar:
     dashboards:
-      searchNamespace: victoriametrics
+      searchNamespace: ALL
       additionalDashboardAnnotations:
         argocd.argoproj.io/sync-options: ServerSideApply=true
 
@@ -47,7 +47,7 @@ grafana:
       root_url: https://monitoring.goingdark.social
       enable_gzip: true
     auth:
-      disable_login_form: false
+      disable_login_form: true
     log:
       mode: console
       slevel: info
@@ -65,7 +65,7 @@ grafana:
       email_attribute_path: acct
       role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Viewer'
       role_attribute_strict: true
-      auto_login: false
+      auto_login: true
       use_pkce: false
       use_refresh_token: true
 
