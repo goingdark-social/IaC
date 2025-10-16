@@ -1,0 +1,94 @@
+replicaCount: 3
+
+https:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 100Mi
+  limits:
+    memory: 100Mi
+
+envFrom:
+  - secretRef:
+      name: static-client-secrets
+  - secretRef:
+      name: dex-secrets
+
+volumes: []
+
+volumeMounts: []
+
+config:
+  issuer: https://idp.goingdark.social
+  logger:
+    level: info
+    format: text
+  storage:
+    type: kubernetes
+    config:
+      inCluster: true
+
+  enablePasswordDB: false
+
+  oauth2:
+    responseTypes:
+      - code
+      - id_token
+      - token
+    skipApprovalScreen: true
+    alwaysShowLoginScreen: false
+    
+  staticClients:
+    - id: argocd
+      redirectURIs:
+        - https://argocd.goingdark.social/auth/callback
+        - http://localhost:8085/auth/callback
+      name: "ArgoCD"
+      secretEnv: STATIC_CLIENT_ARGOCD_SECRET
+    - id: grafana
+      redirectURIs:
+        - https://monitoring.goingdark.social/login/generic_oauth
+      name: "Grafana"
+      secretEnv: STATIC_CLIENT_GRAFANA_SECRET
+
+  web: {}
+
+  connectors:
+    - type: oauth
+      id: mastodon
+      name: Mastodon (goingdark.social)
+      config:
+        clientID: $MASTODON_CLIENT_ID
+        clientSecret: $MASTODON_CLIENT_SECRET
+        redirectURI: https://idp.goingdark.social/callback
+        authorizationURL: https://goingdark.social/oauth/authorize
+        tokenURL: https://goingdark.social/oauth/token
+        # Use Mastodon verify_credentials endpoint to surface roles
+        userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
+        scopes:
+          - read
+        # Map fields from returned object to standard claims Dex emits.
+        userIDKey: id
+        claimMapping:
+          userNameKey: acct
+          preferredUsernameKey: acct
+          # Surface Mastodon roles array (roles) as 'groups' claim for downstream
+          groupsKey: roles
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    {}
+  hosts:
+    - host: idp.goingdark.social
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []

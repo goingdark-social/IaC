@@ -3,36 +3,21 @@ configs:
   cm:
     create: true
     application.resourceTrackingMethod: label
-    admin.enabled: false
+  admin.enabled: false
     url: https://argocd.goingdark.social
     kustomize.buildOptions: '--enable-helm'
     accounts.kubechecks: apiKey
-    dex.config: |
-      # Embedded Dex: generic OAuth2 connector to Mastodon
-      connectors:
-      - type: oauth
-        id: mastodon
-        name: Mastodon (goingdark.social)
-        config:
-          clientID: $dex.mastodon.clientId
-          clientSecret: $dex.mastodon.clientSecret
-          redirectURI: https://argocd.goingdark.social/api/dex/callback
-          authorizationURL: https://goingdark.social/oauth/authorize
-          tokenURL: https://goingdark.social/oauth/token
-          # Use verify_credentials which works on all Mastodon ≥2.4 instances.
-          # This endpoint returns user account info and role data.
-          # See: /api/v1/accounts/verify_credentials
-          userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
-          scopes:
-            - read
-          # Map Mastodon JSON fields to standard OIDC claims Dex will include.
-          # Dex can't flatten objects, but Mastodon ≥4.0 also returns `roles` as an array of objects.
-          # Dex can emit the raw stringified array, which ArgoCD RBAC can still pattern match on.
-          claimMapping:
-            userNameKey: acct
-            preferredUsernameKey: username
-            groupsKey: roles
-
+    oidc.config: |
+      name: Dex
+      issuer: https://idp.goingdark.social
+      clientID: argocd
+      clientSecret: $oidc.clientSecret
+      requestedScopes:
+        - openid
+        - profile
+      requestedIDTokenClaims:
+        email:
+          essential: false
   cmp:
     create: true
     plugins:
@@ -43,6 +28,8 @@ configs:
   params:
     controller.diff.server.side: true
     server.insecure: true
+  secret:
+    create: false
   rbac:
     create: true
     policy.csv: |
@@ -77,7 +64,7 @@ controller:
       memory: 800Mi
 
 dex:
-  enabled: true
+  enabled: false
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
