@@ -27,8 +27,8 @@ grafana:
       selector:
         matchLabels:
           app.kubernetes.io/instance: *instance
-  envFromSecrets:
-    - name: grafana-oidc-credentials
+  # envFromSecrets:
+  #   - name: grafana-oidc-credentials
 
   ingress:
     enabled: false
@@ -47,23 +47,23 @@ grafana:
       root_url: https://monitoring.goingdark.social
       enable_gzip: true
     auth:
-      disable_login_form: true
+      disable_login_form: false
     log:
       mode: console
       slevel: info
-    auth.generic_oauth:
-      enabled: true
-      name: Dex
-      allow_sign_up: true
-      scopes: profile email groups openid offline_access
-      email_attribute_path: email
-      login_attribute_path: preferred_username
-      name_attribute_path: name
-      role_attribute_path: contains(groups[*], 'goingdark-social:grafana-admin') && 'Admin'
-      role_attribute_strict: true
-      auto_login: true
-      use_pkce: false
-      use_refresh_token: true
+    # auth.generic_oauth:
+    #   enabled: true
+    #   name: Dex
+    #   allow_sign_up: true
+    #   scopes: profile email groups openid offline_access
+    #   email_attribute_path: email
+    #   login_attribute_path: preferred_username
+    #   name_attribute_path: name
+    #   role_attribute_path: contains(groups[*], 'goingdark-social:grafana-admin') && 'Admin'
+    #   role_attribute_strict: true
+    #   auto_login: true
+    #   use_pkce: false
+    #   use_refresh_token: true
     
   plugins:
     - victoriametrics-logs-datasource
@@ -87,12 +87,18 @@ defaultDashboards:
 vmsingle:
   enabled: true
   spec:
+    retentionPeriod: "14"  # Reduce from 30d to 14d to save memory
+    tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
     resources:
       requests:
-        cpu: 350m
-        memory: 1Gi
+        cpu: 250m
+        memory: 768Mi  # Reduced from 1Gi, adequate for 14d retention
       limits:
-        memory: 1Gi
+        memory: 768Mi
 
 vmcluster:
   enabled: false
