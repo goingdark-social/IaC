@@ -27,8 +27,8 @@ grafana:
       selector:
         matchLabels:
           app.kubernetes.io/instance: *instance
-  # envFromSecrets:
-  #   - name: grafana-oidc-credentials
+  envFromSecrets:
+    - name: grafana-oidc-credentials
 
   ingress:
     enabled: false
@@ -47,24 +47,28 @@ grafana:
       root_url: https://monitoring.goingdark.social
       enable_gzip: true
     auth:
-      disable_login_form: false
+      disable_login_form: true
     log:
       mode: console
       slevel: info
-    # auth.generic_oauth:
-    #   enabled: true
-    #   name: Dex
-    #   allow_sign_up: true
-    #   scopes: profile email groups openid offline_access
-    #   email_attribute_path: email
-    #   login_attribute_path: preferred_username
-    #   name_attribute_path: name
-    #   role_attribute_path: contains(groups[*], 'goingdark-social:grafana-admin') && 'Admin'
-    #   role_attribute_strict: true
-    #   auto_login: true
-    #   use_pkce: false
-    #   use_refresh_token: true
-    
+    auth.generic_oauth:
+      enabled: true
+      name: Mastodon
+      allow_sign_up: true
+      auth_url: https://goingdark.social/oauth/authorize
+      token_url: https://goingdark.social/oauth/token
+      api_url:   https://goingdark.social/api/v1/accounts/verify_credentials
+      scopes: read
+      login_attribute_path: acct
+      name_attribute_path: display_name || username
+      # Use a real field as email; no quotes so JMESPath treats it as a property.
+      email_attribute_path: acct
+      role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Viewer'
+      role_attribute_strict: true
+      auto_login: true
+      use_pkce: false
+      use_refresh_token: true
+
   plugins:
     - victoriametrics-logs-datasource
 

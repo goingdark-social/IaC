@@ -3,25 +3,38 @@ configs:
   cm:
     create: true
     application.resourceTrackingMethod: label
-    admin.enabled: true
+    admin.enabled: false
     url: https://argocd.goingdark.social
     kustomize.buildOptions: '--enable-helm'
     accounts.kubechecks: apiKey
-    # OIDC Configuration
-    # dex.config: |
-    #   connectors:
-    #   - config:
-    #       issuer: https://sso.goingdark.social/application/o/argocd/
-    #       clientID: $dex.authentik.clientId
-    #       clientSecret: $dex.authentik.clientSecret
-    #       insecureEnableGroups: true
-    #       scopes:
-    #         - openid
-    #         - profile
-    #         - email
-    #     name: authentik
-    #     type: oidc
-    #     id: authentik
+    dex.config: |
+      # Embedded Dex: generic OAuth2 connector to Mastodon
+      connectors:
+      - type: oauth
+        id: mastodon
+        name: Mastodon (goingdark.social)
+        config:
+          clientID: $dex.mastodon.clientId
+          clientSecret: $dex.mastodon.clientSecret
+          redirectURI: https://argocd.goingdark.social/api/dex/callback
+          authorizationURL: https://goingdark.social/oauth/authorize
+          tokenURL: https://goingdark.social/oauth/token
+          # Prefer the official userinfo if your instance supports it (Mastodon ≥4.4),
+          # otherwise fall back to verify_credentials which includes role info.
+          # See: /oauth/userinfo and /api/v1/accounts/verify_credentials
+          userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
+          scopes:
+            - profile
+            - read:accounts
+          # Map Mastodon JSON fields to standard OIDC claims Dex will include.
+          # userNameKey and preferredUsernameKey are safe. groupsKey is best-effort, see note below.
+          claimMapping:
+            userNameKey: acct
+            preferredUsernameKey: username
+            # If your Mastodon returns role as a *string* (older servers), this works:
+            # groupsKey: role
+            # If it returns a Role *object* (Mastodon ≥4.0), Dex cannot map nested objects to groups.
+            # Leave groupsKey unset and use the RBAC default or explicit user mappings (see note).
 
   cmp:
     create: true
@@ -36,6 +49,11 @@ configs:
   rbac:
     create: true
     policy.csv: |
+      # Map SSO groups to roles.
+      # If Dex was able to emit a 'groups' claim with 'Admin' or 'Moderator',
+      # these two lines grant access as requested.
+      g, Admin, role:admin
+      g, Moderator, role:readonly
       g, ArgoCD Admins, role:admin
       g, ArgoCD Viewers, role:readonly
       g, ArgoCDAdmins, role:admin
@@ -72,16 +90,22 @@ controller:
       memory: 800Mi
 
 dex:
-  enabled: false
+  enabled: true
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
       effect: NoSchedule
+    - key: "autoscaler-node"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
   resources:
     requests:
       cpu: 10m
       memory: 32Mi
     limits:
+      cpu: 100m
       memory: 128Mi
 
 # Disable HA Redis, use single Redis
