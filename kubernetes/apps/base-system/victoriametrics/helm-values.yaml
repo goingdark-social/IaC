@@ -27,8 +27,8 @@ grafana:
       selector:
         matchLabels:
           app.kubernetes.io/instance: *instance
-  # envFromSecrets:
-  #   - name: grafana-oidc-credentials
+  envFromSecrets:
+    - name: grafana-oidc-credentials
 
   ingress:
     enabled: false
@@ -51,19 +51,25 @@ grafana:
     log:
       mode: console
       slevel: info
-    # auth.generic_oauth:
-    #   enabled: true
-    #   name: Dex
-    #   allow_sign_up: true
-    #   scopes: profile email groups openid offline_access
-    #   email_attribute_path: email
-    #   login_attribute_path: preferred_username
-    #   name_attribute_path: name
-    #   role_attribute_path: contains(groups[*], 'goingdark-social:grafana-admin') && 'Admin'
-    #   role_attribute_strict: true
-    #   auto_login: true
-    #   use_pkce: false
-    #   use_refresh_token: true
+    auth.generic_oauth:
+      enabled: true
+      name: Mastodon
+      allow_sign_up: true
+      # pulled from env via ExternalSecret:
+      # GF_AUTH_GENERIC_OAUTH_CLIENT_ID / GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+      auth_url: https://goingdark.social/oauth/authorize
+      token_url: https://goingdark.social/oauth/token
+      api_url:   https://goingdark.social/api/v1/accounts/verify_credentials
+      scopes: read
+      login_attribute_path: acct
+      name_attribute_path: display_name || username
+      email_attribute_path:
+      # Gate by Mastodon role. Only Owner/Admin/Moderator get a Grafana role.
+      role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Viewer'
+      role_attribute_strict: true
+      auto_login: false
+      use_pkce: false
+      use_refresh_token: true
     
   plugins:
     - victoriametrics-logs-datasource
