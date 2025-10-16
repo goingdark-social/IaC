@@ -63,7 +63,6 @@ grafana:
       scopes: read
       login_attribute_path: acct
       name_attribute_path: display_name || username
-      email_attribute_path:
       # Gate by Mastodon role. Only Owner/Admin/Moderator get a Grafana role.
       role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Viewer'
       role_attribute_strict: true
