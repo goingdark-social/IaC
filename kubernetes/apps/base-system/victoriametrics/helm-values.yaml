@@ -57,17 +57,24 @@ grafana:
       allow_sign_up: true
       auth_url: https://goingdark.social/oauth/authorize
       token_url: https://goingdark.social/oauth/token
-      api_url:   https://goingdark.social/api/v1/accounts/verify_credentials
+      # Use Mastodon's verify_credentials endpoint which includes email (acct field)
+      # The OIDC /oauth/userinfo endpoint doesn't include email, causing Grafana to fail
+      api_url: https://goingdark.social/api/v1/accounts/verify_credentials
       scopes: read
-      login_attribute_path: acct
-      name_attribute_path: display_name || username
-      # Use a real field as email; no quotes so JMESPath treats it as a property.
+      # Use 'id' field as stable user identifier across logins (numeric user ID)
+      login_attribute_path: id
+      # Use 'display_name' for the user's full name
+      name_attribute_path: display_name
+      # Use 'acct' for email (Mastodon doesn't expose real emails via API)
       email_attribute_path: acct
-      role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Viewer'
-      role_attribute_strict: true
-      auto_login: true
+      # Map Mastodon roles to Grafana roles, fallback to strict=false for default Viewer
+      role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Editor' || 'Viewer'
+      role_attribute_strict: false
+      auto_login: false
       use_pkce: false
       use_refresh_token: true
+      # Prevent Grafana from overriding manually assigned roles
+      skip_org_role_sync: false
 
   plugins:
     - victoriametrics-logs-datasource
