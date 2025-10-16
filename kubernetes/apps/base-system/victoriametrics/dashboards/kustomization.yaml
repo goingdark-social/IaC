@@ -26,3 +26,7 @@ configMapGenerator:
     files:
       - hpa-vpa.json
     options: *options
+  - name: mastodon
+    files:
+      - mastodon.json
+    options: *options
