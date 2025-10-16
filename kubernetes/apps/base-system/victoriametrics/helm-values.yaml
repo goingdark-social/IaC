@@ -35,7 +35,7 @@ grafana:
 
   sidecar:
     dashboards:
-      searchNamespace: ALL
+      searchNamespace: victoriametrics
       additionalDashboardAnnotations:
         argocd.argoproj.io/sync-options: ServerSideApply=true
 
@@ -55,21 +55,20 @@ grafana:
       enabled: true
       name: Mastodon
       allow_sign_up: true
-      # pulled from env via ExternalSecret:
-      # GF_AUTH_GENERIC_OAUTH_CLIENT_ID / GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
       auth_url: https://goingdark.social/oauth/authorize
       token_url: https://goingdark.social/oauth/token
       api_url:   https://goingdark.social/api/v1/accounts/verify_credentials
       scopes: read
       login_attribute_path: acct
       name_attribute_path: display_name || username
-      # Gate by Mastodon role. Only Owner/Admin/Moderator get a Grafana role.
+      # Use a real field as email; no quotes so JMESPath treats it as a property.
+      email_attribute_path: acct
       role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Viewer'
       role_attribute_strict: true
       auto_login: false
       use_pkce: false
       use_refresh_token: true
-    
+
   plugins:
     - victoriametrics-logs-datasource
 
