@@ -22,3 +22,7 @@ configMapGenerator:
     files:
       - cluster-autoscaler.json
     options: *options
+  - name: hpa-vpa
+    files:
+      - hpa-vpa.json
+    options: *options
