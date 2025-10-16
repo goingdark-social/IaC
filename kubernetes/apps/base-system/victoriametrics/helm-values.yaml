@@ -48,6 +48,7 @@ grafana:
       enable_gzip: true
     auth:
       disable_login_form: true
+      oauth_allow_insecure_email_lookup: true
     log:
       mode: console
       slevel: info
@@ -61,18 +62,18 @@ grafana:
       # The OIDC /oauth/userinfo endpoint doesn't include email, causing Grafana to fail
       api_url: https://goingdark.social/api/v1/accounts/verify_credentials
       scopes: read
-      # Use 'id' field as stable user identifier across logins (numeric user ID)
-      login_attribute_path: id
+      # Use 'acct' field as stable user identifier (username for locals, username@domain for remotes)
+      login_attribute_path: acct
       # Use 'display_name' for the user's full name
       name_attribute_path: display_name
-      # Use 'acct' for email (Mastodon doesn't expose real emails via API)
-      email_attribute_path: acct
+      # Construct email from acct field (Mastodon doesn't expose real emails via API)
+      email_attribute_path: join('', [acct, '@goingdark.social'])
       # Map Mastodon roles to Grafana roles, fallback to strict=false for default Viewer
-      role_attribute_path: role.name=='Owner' && 'Admin' || role.name=='Admin' && 'Admin' || role.name=='Moderator' && 'Editor' || 'Viewer'
+      role_attribute_path: contains(roles[].name, 'Owner') && 'Admin' || contains(roles[].name, 'Admin') && 'Admin' || contains(roles[].name, 'Moderator') && 'Editor' || 'Viewer'
       role_attribute_strict: false
       auto_login: false
       use_pkce: false
-      use_refresh_token: true
+      use_refresh_token: false
       # Prevent Grafana from overriding manually assigned roles
       skip_org_role_sync: false
 
