@@ -18,3 +18,7 @@ configMapGenerator:
     files:
       - redis.json
     options: *options
+  - name: cluster-autoscaler
+    files:
+      - cluster-autoscaler.json
+    options: *options
