@@ -13,7 +13,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: ??
+            value: /
       backendRefs:
-        - name: ??
-          port: ??
+        - name: dex
+          port: 443

@@ -56,20 +56,16 @@ grafana:
       enabled: true
       name: Mastodon
       allow_sign_up: true
-      auth_url: https://goingdark.social/oauth/authorize
-      token_url: https://goingdark.social/oauth/token
-      # Use Mastodon's verify_credentials endpoint which includes email (acct field)
-      # The OIDC /oauth/userinfo endpoint doesn't include email, causing Grafana to fail
-      api_url: https://goingdark.social/api/v1/accounts/verify_credentials
-      scopes: read
-      # Use 'acct' field as stable user identifier (username for locals, username@domain for remotes)
-      login_attribute_path: acct
-      # Use 'display_name' for the user's full name
-      name_attribute_path: display_name
-      # Construct email from acct field (Mastodon doesn't expose real emails via API)
-      email_attribute_path: join('', [acct, '@goingdark.social'])
-      # Map Mastodon roles to Grafana roles, fallback to strict=false for default Viewer
-      role_attribute_path: contains(roles[].name, 'Owner') && 'Admin' || contains(roles[].name, 'Admin') && 'Admin' || contains(roles[].name, 'Moderator') && 'Editor' || 'Viewer'
+      auth_url: https://idp.goingdark.social/auth
+      token_url: https://idp.goingdark.social/token
+      api_url:   https://idp.goingdark.social/userinfo
+      scopes: openid profile
+      # Use preferred_username from Dex as stable login.
+      login_attribute_path: preferred_username
+      # Name from Dex if present. Fall back to preferred_username.
+      name_attribute_path: name || preferred_username
+      # Synthesize an email for Grafana’s lookup.
+      email_attribute_path: join('', [preferred_username, '@goingdark.social'])
       role_attribute_strict: false
       auto_login: false
       use_pkce: false

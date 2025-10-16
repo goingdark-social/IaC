@@ -7,33 +7,17 @@ configs:
     url: https://argocd.goingdark.social
     kustomize.buildOptions: '--enable-helm'
     accounts.kubechecks: apiKey
-    dex.config: |
-      # Embedded Dex: generic OAuth2 connector to Mastodon
-      connectors:
-      - type: oauth
-        id: mastodon
-        name: Mastodon (goingdark.social)
-        config:
-          clientID: $dex.mastodon.clientId
-          clientSecret: $dex.mastodon.clientSecret
-          redirectURI: https://argocd.goingdark.social/api/dex/callback
-          authorizationURL: https://goingdark.social/oauth/authorize
-          tokenURL: https://goingdark.social/oauth/token
-          # Prefer Mastodon 4.4+ OIDC-style userinfo to get a real 'sub'
-          userInfoURL: https://goingdark.social/oauth/userinfo
-          scopes:
-            - profile
-
-          # Tell Dex which fields to treat as ID and “email”
-          # 'sub' is stable (actor URI) on /oauth/userinfo
-          userIDKey: sub
-          # Map fields to standard OIDC claim keys Dex emits
-          claimMapping:
-            userNameKey: acct
-            preferredUsernameKey: acct
-            emailKey: acct
-            # Skip roles for now
-
+    oidc.config: |
+      name: Dex
+      issuer: https://idp.goingdark.social
+      clientID: argocd
+      clientSecret: $oidc.clientSecret
+      requestedScopes:
+        - openid
+        - profile
+      requestedIDTokenClaims:
+        email:
+          essential: false
   cmp:
     create: true
     plugins:
@@ -44,6 +28,8 @@ configs:
   params:
     controller.diff.server.side: true
     server.insecure: true
+  secret:
+    create: false
   rbac:
     create: true
     policy.csv: |
@@ -78,7 +64,7 @@ controller:
       memory: 800Mi
 
 dex:
-  enabled: true
+  enabled: false
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
