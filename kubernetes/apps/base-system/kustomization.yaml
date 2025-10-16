@@ -10,3 +10,4 @@ resources:
 - victoriametrics
 - victorialogs
 - descheduler
+- dex

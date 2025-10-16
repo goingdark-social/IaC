@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: idp-route
+  namespace: dex
+spec:
+  parentRefs:
+    - name: external
+      namespace: gateway
+  hostnames:
+    - "idp.goingdark.social"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: ??
+      backendRefs:
+        - name: ??
+          port: ??
