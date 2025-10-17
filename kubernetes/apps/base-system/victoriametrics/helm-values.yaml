@@ -64,7 +64,7 @@ grafana:
       login_attribute_path: preferred_username
       # Name from Dex if present. Fall back to preferred_username.
       name_attribute_path: name || preferred_username
-      # Synthesize an email for Grafanas lookup.
+      # Synthesize an email for Grafana's lookup.
       email_attribute_path: join('', [preferred_username, '@goingdark.social'])
       # Map role by checking 'groups' (Dex claim) for roles[*].name
       role_attribute_path: >
