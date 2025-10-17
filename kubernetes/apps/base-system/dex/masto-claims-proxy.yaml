@@ -56,7 +56,7 @@ spec:
     spec:
       initContainers:
         - name: install-deps
-          image: python:3.11-slim
+          image: python:3.14-slim
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -68,7 +68,7 @@ spec:
               mountPath: /deps
       containers:
         - name: app
-          image: python:3.11-slim
+          image: python:3.14-slim
           command: ["/bin/sh", "-c"]
           args:
             - |
