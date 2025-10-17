@@ -6,6 +6,7 @@ resources:
   - namespace.yaml
   - secrets.yaml
   - http-route.yaml
+  - masto-claims-proxy.yaml
 
 helmCharts:
   - name: dex
