@@ -43,7 +43,8 @@ config:
       - token
     skipApprovalScreen: true
     alwaysShowLoginScreen: false
-    
+
+  # Clients must request 'groups' to receive the groups claim
   staticClients:
     - id: argocd
       redirectURIs:
@@ -69,23 +70,23 @@ config:
         redirectURI: https://idp.goingdark.social/callback
         authorizationURL: https://goingdark.social/oauth/authorize
         tokenURL: https://goingdark.social/oauth/token
-        # Use Mastodon verify_credentials endpoint to surface roles
-        userInfoURL: https://goingdark.social/api/v1/accounts/verify_credentials
+        # Proxy returns id, acct, groups:[string]
+        userInfoURL: http://masto-claims-proxy.dex.svc.cluster.local/userinfo
+        # Mastodon 4.3+ 'profile' scope for verify_credentials
         scopes:
-          - read
-        # Map fields from returned object to standard claims Dex emits.
+          - profile
+        # Build a stable sub from Mastodon numeric ID
         userIDKey: id
         claimMapping:
           userNameKey: acct
           preferredUsernameKey: acct
-          # Surface Mastodon roles array (roles) as 'groups' claim for downstream
-          groupsKey: roles
+          # Map proxy-provided groups to Dex 'groups'
+          groupsKey: groups
 
 ingress:
   enabled: false
   className: nginx
-  annotations:
-    {}
+  annotations: {}
   hosts:
     - host: idp.goingdark.social
       paths:

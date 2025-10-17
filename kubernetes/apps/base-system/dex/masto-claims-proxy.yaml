@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: masto-claims-proxy
+  namespace: dex
+data:
+  requirements.txt: |
+    fastapi==0.115.0
+    httpx==0.27.2
+    uvicorn[standard]==0.32.0
+  main.py: |
+    import os, json
+    from fastapi import FastAPI, Request, Response
+    import httpx
+    BASE = os.getenv("MASTODON_BASE", "https://goingdark.social").rstrip("/")
+    app = FastAPI()
+    @app.get("/healthz")
+    async def h(): return {"ok": True}
+    @app.get("/userinfo")
+    async def ui(req: Request):
+      auth = req.headers.get("authorization")
+      if not auth: return Response(status_code=401, content="missing auth")
+      async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.get(f"{BASE}/api/v1/accounts/verify_credentials", headers={"authorization": auth})
+      if r.status_code != 200: return Response(status_code=r.status_code, content=r.text)
+      acct = r.json()
+      groups = []
+      role = acct.get("role")
+      if isinstance(role, dict) and isinstance(role.get("name"), str) and role["name"]:
+        groups.append(f"mastodon:{role['name']}")
+      for ro in acct.get("roles") or []:
+        if isinstance(ro, dict) and isinstance(ro.get("name"), str):
+          val = f"mastodon:{ro['name']}"
+          if val not in groups: groups.append(val)
+      resp = {"id": acct.get("id"), "acct": acct.get("acct"), "groups": groups}
+      return Response(content=json.dumps(resp), media_type="application/json")
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: masto-claims-proxy
+  namespace: dex
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: masto-claims-proxy } }
+  template:
+    metadata: { labels: { app: masto-claims-proxy } }
+    spec:
+      initContainers:
+        - name: install-deps
+          image: python:3.11-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              pip install --target=/deps -r /config/requirements.txt
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: deps
+              mountPath: /deps
+      containers:
+        - name: app
+          image: python:3.11-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              export PYTHONPATH=/deps:$PYTHONPATH
+              python -m uvicorn main:app --host 0.0.0.0 --port 80
+          workingDir: /app
+          ports: [{ containerPort: 80 }]
+          env:
+            - name: MASTODON_BASE
+              value: "https://goingdark.social"
+          readinessProbe: { httpGet: { path: /healthz, port: 80 }, initialDelaySeconds: 3, periodSeconds: 10 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 80 }, initialDelaySeconds: 10, periodSeconds: 20 }
+          volumeMounts:
+            - name: app
+              mountPath: /app
+            - name: deps
+              mountPath: /deps
+      volumes:
+        - name: config
+          configMap:
+            name: masto-claims-proxy
+            items: [{ key: requirements.txt, path: requirements.txt }]
+        - name: app
+          configMap:
+            name: masto-claims-proxy
+            items: [{ key: main.py, path: main.py }]
+        - name: deps
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: masto-claims-proxy
+  namespace: dex
+spec:
+  selector: { app: masto-claims-proxy }
+  ports: [{ name: http, port: 80, targetPort: 80 }]

@@ -59,18 +59,18 @@ grafana:
       auth_url: https://idp.goingdark.social/auth
       token_url: https://idp.goingdark.social/token
       api_url:   https://idp.goingdark.social/userinfo
-      scopes: openid profile
+      scopes: openid profile groups
       # Use preferred_username from Dex as stable login.
       login_attribute_path: preferred_username
       # Name from Dex if present. Fall back to preferred_username.
       name_attribute_path: name || preferred_username
       # Synthesize an email for Grafana's lookup.
       email_attribute_path: join('', [preferred_username, '@goingdark.social'])
-      # Map role by checking 'groups' (Dex claim) for roles[*].name
+      # Map role by checking 'groups' (Dex claim) for string values like 'mastodon:Admin'
       role_attribute_path: >
-        contains(groups[*].name, 'Owner') && 'Admin' ||
-        contains(groups[*].name, 'Admin') && 'Admin' ||
-        contains(groups[*].name, 'Moderator') && 'Editor' || 'Viewer'
+        contains(groups, 'mastodon:Owner') && 'Admin' ||
+        contains(groups, 'mastodon:Admin') && 'Admin' ||
+        contains(groups, 'mastodon:Moderator') && 'Editor' || 'Viewer'
       role_attribute_strict: false
       auto_login: false
       use_pkce: false

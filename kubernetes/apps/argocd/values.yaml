@@ -15,9 +15,7 @@ configs:
       requestedScopes:
         - openid
         - profile
-      requestedIDTokenClaims:
-        email:
-          essential: false
+        - groups
   cmp:
     create: true
     plugins:
@@ -33,16 +31,10 @@ configs:
   rbac:
     create: true
     policy.csv: |
-      # Map SSO groups to roles - supports both string and object formats
-      # Direct string matches (for older Mastodon or if Dex flattens successfully)
-      g, Owner, role:admin
-      g, Admin, role:admin
-      g, Moderator, role:readonly
-      
-      # JSON object pattern matches (for Mastodon ≥4.0 roles array)
-      # Matches stringified JSON like [{"name":"Owner"}] or [{"name":"Admin"}]
-      g, "[{""name"":""Owner""}]", role:admin
-      g, "[{""name"":""Admin""}]", role:admin
+      # Map SSO groups to roles - Dex provides groups as strings: mastodon:Admin, mastodon:Moderator, etc.
+      g, mastodon:Owner, role:admin
+      g, mastodon:Admin, role:admin
+      g, mastodon:Moderator, role:readonly
 
 crds:
   install: true
