@@ -16,6 +16,7 @@ configs:
         - openid
         - profile
         - groups
+      claimGroups: groups
   cmp:
     create: true
     plugins:
@@ -35,6 +36,7 @@ configs:
       g, mastodon:Owner, role:admin
       g, mastodon:Admin, role:admin
       g, mastodon:Moderator, role:readonly
+    scopes: '[groups]'
 
 crds:
   install: true
