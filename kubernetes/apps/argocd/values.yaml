@@ -36,6 +36,8 @@ configs:
       g, mastodon:Owner, role:admin
       g, mastodon:Admin, role:admin
       g, mastodon:Moderator, role:readonly
+    # Deny access by default for users without a mapped group
+    policy.default: ""
     scopes: '[groups]'
 
 crds:

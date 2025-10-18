@@ -67,11 +67,12 @@ grafana:
       # Synthesize an email for Grafana's lookup.
       email_attribute_path: join('', [preferred_username, '@goingdark.social'])
       # Map role by checking 'groups' (Dex claim) for string values like 'mastodon:Admin'
+      # Users without a mapped role will be denied access (no default fallback)
       role_attribute_path: >
         contains(groups, 'mastodon:Owner') && 'Admin' ||
         contains(groups, 'mastodon:Admin') && 'Admin' ||
-        contains(groups, 'mastodon:Moderator') && 'Editor' || 'Viewer'
-      role_attribute_strict: false
+        contains(groups, 'mastodon:Moderator') && 'Editor'
+      role_attribute_strict: true
       auto_login: false
       use_pkce: false
       use_refresh_token: false
