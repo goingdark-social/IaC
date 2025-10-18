@@ -313,7 +313,7 @@ kube-state-metrics:
     enabled: true
     create: false
     name: custom-resource-state
-    key: custom-resource-state.yaml
+    key: kube-state-metrics-custom-resource-state.yaml
   vmScrape:
     spec:
       selector:
