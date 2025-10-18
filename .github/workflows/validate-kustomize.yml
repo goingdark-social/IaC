@@ -9,37 +9,26 @@ on:
       - '.github/workflows/validate-kustomize.yml'
 
 jobs:
-  validate-manifests:
-    name: Validate Kustomize Manifests
+  validate:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        
-      - name: Validate Kustomize manifests
-        uses: karancode/kustomize-github-action@v1.3.2
+      - uses: actions/checkout@v4
+
+      # Build every kustomization under kubernetes/** with Helm enabled.
+      - uses: int128/kustomize-action@v1
+        id: kustomize
         with:
-          kustomize_version: '5.7.1'
-          kustomize_build_dir: 'kubernetes'
-          enable_alpha_plugins: 'false'
-          enable_helm: 'true'
-          enable_exec: 'false'
-          
-      - name: Validate platform manifests without Helm
-        uses: karancode/kustomize-github-action@v1.3.2
-        with:
-          kustomize_version: '5.7.1'
-          kustomize_build_dir: 'kubernetes/apps/platform/mastodon'
-          enable_alpha_plugins: 'false'
-          enable_helm: 'false'
-          enable_exec: 'false'
-          
-      - name: Validate hypebot manifests
-        uses: karancode/kustomize-github-action@v1.3.2
-        with:
-          kustomize_version: '5.7.1'
-          kustomize_build_dir: 'kubernetes/apps/platform/hypebot'
-          enable_alpha_plugins: 'false'
-          enable_helm: 'false'
-          enable_exec: 'false'
+          kustomization: kubernetes/**/kustomization.yaml
+          kustomize-build-args: |
+            --enable-helm
+            --load-restrictor=LoadRestrictionsNone
+          max-process: 8
+
+      # Optional: list generated files
+      - name: Show outputs
+        run: |
+          echo "dir=${{ steps.kustomize.outputs.directory }}"
+          printf '%s\n' "${{ steps.kustomize.outputs.files }}"
