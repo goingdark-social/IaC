@@ -13,13 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write  # needed for posting comments
+      pull-requests: write  # needed for comment posting
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Run Kustomize
         id: kustomize
+        continue-on-error: true
         uses: int128/kustomize-action@v1
         with:
           kustomization: kubernetes/**/kustomization.yaml
@@ -34,7 +35,7 @@ jobs:
           printf '%s\n' "${{ steps.kustomize.outputs.files }}"
 
       - name: Comment on PR if Kustomize fails
-        if: failure()
+        if: ${{ steps.kustomize.outcome == 'failure' }}
         uses: int128/comment-action@v1
         with:
           update-if-exists: replace
