@@ -71,7 +71,7 @@ spec:
               readOnly: true
           livenessProbe:
             exec:
-              command: ["sh", "-c", "ps aux | grep '[s]idekiq\\ 7'"]
+              command: ["sh", "-c", "ps aux | grep '[s]idekiq\\ 8'"]
             initialDelaySeconds: 60
             periodSeconds: 30
           resources:
