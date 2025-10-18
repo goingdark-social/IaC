@@ -10,6 +10,10 @@ configMapGenerator:
     options: &options
       labels:
         grafana_dashboard: "1"
+  - name: hetzner-inventory
+    files:
+      - hetzner-inventory.json
+    options: *options
   - name: argocd
     files:
       - argocd.json

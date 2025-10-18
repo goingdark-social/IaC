@@ -14,6 +14,7 @@ resources:
   - dashboards
   - grafana-oidc-credentials.yaml
   - httproute.yaml
+  - hcloud-exporter.yaml
   # - prometheus-adapter.yaml  # Disabled: using helm chart prometheus-adapter instead
 
 helmCharts:
