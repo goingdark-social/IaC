@@ -96,6 +96,9 @@ kind: VMServiceScrape
 metadata:
   name: hcloud-exporter
   namespace: victoriametrics
+  labels:
+    app.kubernetes.io/name: hcloud-exporter
+    app.kubernetes.io/part-of: observability
 spec:
   selector:
     matchLabels:
