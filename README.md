@@ -85,6 +85,12 @@ All applications are managed through ArgoCD and deploy automatically when change
 - Sidekiq default and federation workers scale on the `sidekiq_queue_latency_seconds` metric (10 seconds for default, 30 seconds for federation) so they grow only when the queues back up.
 - Streaming workers follow the `mastodon_streaming_connected_clients` metric and add capacity once a pod carries around 200 live connections.
 
+## Gateway API Observability
+
+- `kube-state-metrics` now ships the Kuadrant CustomResourceState bundle so VictoriaMetrics receives the `gatewayapi_*` series for GatewayClasses, Gateways, HTTPRoutes, TCPRoutes, TLSRoutes, GRPCRoutes, and UDPRoutes.
+- The Grafana sidecar auto-imports the Gateway API dashboards that live in `kubernetes/apps/base-system/victoriametrics/dashboards/`; each ConfigMap is labeled `grafana_dashboard=1` so the new boards show up without manual imports.
+- All dashboards point at the VictoriaMetrics datasource, so the existing scrape jobs and retention settings still apply—no extra Prometheus configuration is required.
+
 ## Mastodon Tor Access
 
 - The external gateway exposes an HTTP listener on port 80 so Tor traffic reaches the cluster without onion TLS termination.

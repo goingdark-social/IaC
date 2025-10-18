@@ -30,3 +30,13 @@ configMapGenerator:
     files:
       - mastodon.json
     options: *options
+  - name: gateway-api
+    files:
+      - gateway-api-gatewayclasses.json
+      - gateway-api-gateways.json
+      - gateway-api-grpcroutes.json
+      - gateway-api-httproutes.json
+      - gateway-api-tcproutes.json
+      - gateway-api-tlsroutes.json
+      - gateway-api-udproutes.json
+    options: *options
