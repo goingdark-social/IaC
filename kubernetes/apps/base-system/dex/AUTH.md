@@ -147,7 +147,7 @@ Client secrets are stored in Bitwarden and synced via External Secrets Operator.
 - **TLS/HTTPS** is enforced for all authentication endpoints
 - **Group-based access control** ensures users only get permissions based on their Mastodon role
 - **No default access**: Users without a mapped role are explicitly denied access
-- **Skip approval screen** is enabled for better UX, but can be disabled if required
+- **Skip approval screen** is enabled for better UX via the Dex connector setting `skipApprovalScreen: true` in `kubernetes/apps/base-system/dex/helm-values.yaml`, but can be disabled if required
 - **Password database** is disabled in Dex (authentication only via Mastodon)
 
 ## Related Files
