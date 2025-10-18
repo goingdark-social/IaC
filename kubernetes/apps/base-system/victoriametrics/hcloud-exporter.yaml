@@ -82,6 +82,7 @@ metadata:
   namespace: victoriametrics
   labels:
     app.kubernetes.io/name: hcloud-exporter
+    app.kubernetes.io/part-of: observability
 spec:
   ports:
     - name: http
