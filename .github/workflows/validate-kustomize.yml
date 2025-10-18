@@ -1,0 +1,45 @@
+name: Validate Kustomize Manifests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kubernetes/**'
+      - '.github/workflows/validate-kustomize.yml'
+
+jobs:
+  validate-manifests:
+    name: Validate Kustomize Manifests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Validate Kustomize manifests
+        uses: karancode/kustomize-github-action@v1.3.2
+        with:
+          kustomize_version: '5.7.1'
+          kustomize_build_dir: 'kubernetes'
+          enable_alpha_plugins: 'false'
+          enable_helm: 'true'
+          enable_exec: 'false'
+          
+      - name: Validate platform manifests without Helm
+        uses: karancode/kustomize-github-action@v1.3.2
+        with:
+          kustomize_version: '5.7.1'
+          kustomize_build_dir: 'kubernetes/apps/platform/mastodon'
+          enable_alpha_plugins: 'false'
+          enable_helm: 'false'
+          enable_exec: 'false'
+          
+      - name: Validate hypebot manifests
+        uses: karancode/kustomize-github-action@v1.3.2
+        with:
+          kustomize_version: '5.7.1'
+          kustomize_build_dir: 'kubernetes/apps/platform/hypebot'
+          enable_alpha_plugins: 'false'
+          enable_helm: 'false'
+          enable_exec: 'false'
