@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: proxy
-          image: ghcr.io/avpnusr/torprivoxy:11-10-2025
+          image: ghcr.io/avpnusr/torprivoxy:18-10-2025
           ports:
             - containerPort: 8118
               name: http
