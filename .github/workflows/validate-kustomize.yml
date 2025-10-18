@@ -13,13 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: write  # needed for posting comments
 
     steps:
       - uses: actions/checkout@v4
 
-      # Build every kustomization under kubernetes/** with Helm enabled.
-      - uses: int128/kustomize-action@v1
+      - name: Run Kustomize
         id: kustomize
+        uses: int128/kustomize-action@v1
         with:
           kustomization: kubernetes/**/kustomization.yaml
           kustomize-build-args: |
@@ -27,8 +28,16 @@ jobs:
             --load-restrictor=LoadRestrictionsNone
           max-process: 8
 
-      # Optional: list generated files
       - name: Show outputs
         run: |
           echo "dir=${{ steps.kustomize.outputs.directory }}"
           printf '%s\n' "${{ steps.kustomize.outputs.files }}"
+
+      - name: Comment on PR if Kustomize fails
+        if: failure()
+        uses: int128/comment-action@v1
+        with:
+          update-if-exists: replace
+          post: |
+            :x: **Kustomize build failed**
+            ${{ steps.kustomize.outputs.pretty-errors }}
