@@ -1,0 +1,34 @@
+name: Validate Kustomize Manifests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'kubernetes/**'
+      - '.github/workflows/validate-kustomize.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build every kustomization under kubernetes/** with Helm enabled.
+      - uses: int128/kustomize-action@v1
+        id: kustomize
+        with:
+          kustomization: kubernetes/**/kustomization.yaml
+          kustomize-build-args: |
+            --enable-helm
+            --load-restrictor=LoadRestrictionsNone
+          max-process: 8
+
+      # Optional: list generated files
+      - name: Show outputs
+        run: |
+          echo "dir=${{ steps.kustomize.outputs.directory }}"
+          printf '%s\n' "${{ steps.kustomize.outputs.files }}"
