@@ -1,12 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: mastodon-db-migrate
+  name: mastodon-db-migrate-post-deployment
   namespace: mastodon
   annotations:
     kustomize.config.k8s.io/description: |
-      Database migration job with static configuration.
-      No longer depends on configMapGenerator to avoid hash-suffix issues.
+      Post-deployment database migration job for Mastodon 4.5.0-beta.1.
+      Runs migrations after new pods are deployed.
+      Does not set SKIP_POST_DEPLOYMENT_MIGRATIONS to run all remaining migrations.
 spec:
   parallelism: 1
   completions: 1
@@ -20,7 +21,7 @@ spec:
         value: "true"
         effect: "NoSchedule"
       containers:
-        - name: migrate
+        - name: migrate-post-deployment
           image: ghcr.io/glitch-soc/mastodon:v4.5.0-beta.1
           command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 bundle exec rails db:migrate --trace"]
           env:

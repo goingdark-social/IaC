@@ -1,12 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: mastodon-db-migrate
+  name: mastodon-db-migrate-pre-deployment
   namespace: mastodon
   annotations:
     kustomize.config.k8s.io/description: |
-      Database migration job with static configuration.
-      No longer depends on configMapGenerator to avoid hash-suffix issues.
+      Pre-deployment database migration job for Mastodon 4.5.0-beta.1.
+      Runs migrations before new pods are deployed.
+      Sets SKIP_POST_DEPLOYMENT_MIGRATIONS=true to only run pre-deployment migrations.
 spec:
   parallelism: 1
   completions: 1
@@ -20,15 +21,18 @@ spec:
         value: "true"
         effect: "NoSchedule"
       containers:
-        - name: migrate
+        - name: migrate-pre-deployment
           image: ghcr.io/glitch-soc/mastodon:v4.5.0-beta.1
-          command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 bundle exec rails db:migrate --trace"]
+          command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 SKIP_POST_DEPLOYMENT_MIGRATIONS=true bundle exec rails db:migrate --trace"]
           env:
             # Essential Rails environment
             - name: RAILS_ENV
               value: "production"
             - name: DB_PORT
               value: "5432"
+            # Skip post-deployment migrations
+            - name: SKIP_POST_DEPLOYMENT_MIGRATIONS
+              value: "true"
             # Database connection pool (optimized for migration jobs)
             - name: DB_POOL
               value: "1"
