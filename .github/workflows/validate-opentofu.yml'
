@@ -1,0 +1,21 @@
+name: Validate OpenTofu Modules
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'opentofu/**'
+      - '.github/workflows/validate-opentofu.yml'
+
+jobs:
+  validate-opentofu:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tofu validate
+        uses: dflook/tofu-validate@v2
+        with:
+          path: opentofu
