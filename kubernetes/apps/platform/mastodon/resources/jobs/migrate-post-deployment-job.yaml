@@ -28,28 +28,31 @@ spec:
             # Essential Rails environment
             - name: RAILS_ENV
               value: "production"
-            - name: DB_PORT
-              value: "5432"
-            # Database connection pool (optimized for migration jobs)
-            - name: DB_POOL
-              value: "1"
-            - name: PREPARED_STATEMENTS
-              value: "false"
             # Database connection - CNPG cluster
             - name: DB_HOST
               value: "database-cnpg-pooler-rw"
             - name: DB_NAME
               value: "mastodon"
-            - name: DB_SSLMODE
-              value: "verify-ca"
-            - name: PGSSLROOTCERT
-              value: "/etc/ssl/certs/postgresql/ca.crt"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: password
+            # Database connection pool (optimized for migration jobs)
+            - name: DB_POOL
+              value: "1"
+            - name: PREPARED_STATEMENTS
+              value: "false"
             - name: DATABASE_TIMEOUT
               value: "60"
           envFrom:
-            # Database credentials (essential)
-            - secretRef:
-                name: mastodon-db-url
             # Application secrets (needed for some migrations)
             - secretRef:
                 name: mastodon-app-secrets

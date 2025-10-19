@@ -8,6 +8,7 @@ spec:
   instances: 2
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   enablePDB: true
+  priorityClassName: mastodon-critical
   managed:
     roles:
       - name: app

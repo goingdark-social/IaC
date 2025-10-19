@@ -1,6 +1,4 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- migrate-job.yaml
-- migrate-pre-deployment-job.yaml
-- migrate-post-deployment-job.yaml
+ - migrate-job.yaml

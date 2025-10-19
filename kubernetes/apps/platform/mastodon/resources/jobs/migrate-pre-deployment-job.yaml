@@ -23,37 +23,40 @@ spec:
       containers:
         - name: migrate-pre-deployment
           image: ghcr.io/glitch-soc/mastodon:v4.5.0-beta.1
-          command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 SKIP_POST_DEPLOYMENT_MIGRATIONS=true bundle exec rails db:migrate --trace"]
+          command: ["/bin/bash", "-c", "RAILS_ENV=production bundle exec rails db:migrate --trace"]
           env:
             # Essential Rails environment
             - name: RAILS_ENV
               value: "production"
-            - name: DB_PORT
-              value: "5432"
             # Skip post-deployment migrations
             - name: SKIP_POST_DEPLOYMENT_MIGRATIONS
               value: "true"
+            # Database connection - matching CNPG cluster settings
+            - name: DB_HOST
+              value: "database-cnpg-pooler-rw"
+            - name: DB_NAME
+              value: "mastodon"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: password
             # Database connection pool (optimized for migration jobs)
             - name: DB_POOL
               value: "1"
             - name: PREPARED_STATEMENTS
               value: "false"
-            # Database connection - CNPG cluster
-            - name: DB_HOST
-              value: "database-cnpg-pooler-rw"
-            - name: DB_NAME
-              value: "mastodon"
-            - name: DB_SSLMODE
-              value: "verify-ca"
-            - name: PGSSLROOTCERT
-              value: "/etc/ssl/certs/postgresql/ca.crt"
             - name: DATABASE_TIMEOUT
               value: "60"
           envFrom:
-            # Database credentials (essential)
-            - secretRef:
-                name: mastodon-db-url
-            # Application secrets (needed for some migrations)
+            # Application secrets (encryption keys)
             - secretRef:
                 name: mastodon-app-secrets
           volumeMounts:
