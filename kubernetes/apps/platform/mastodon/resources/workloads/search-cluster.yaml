@@ -25,6 +25,7 @@ spec:
                 storage: 10Gi
       podTemplate:
         spec:
+          priorityClassName: mastodon-critical
           tolerations:
             - key: "autoscaler-node"
               operator: "Equal"
