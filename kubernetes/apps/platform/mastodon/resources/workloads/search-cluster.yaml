@@ -33,9 +33,12 @@ spec:
               effect: "NoSchedule"
           containers:
             - name: elasticsearch
+              env:
+                - name: ES_JAVA_OPTS
+                  value: "-Xms1g -Xmx1g"
               resources:
                 requests:
-                  cpu: 250m
-                  memory: 2Gi
+                  cpu: 200m
+                  memory: 1500Mi
                 limits:
                   memory: 2Gi
