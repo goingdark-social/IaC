@@ -33,7 +33,7 @@ def find-kustomize-dirs [root: string] {
 }
 
 def validate [dirs: list<string>] {
-  let kube_catalog = "https://kubernetesjsonschema.dev"
+  let kube_catalog = "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master"
   let datree_catalog = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
   let local_catalog = ($"($env.HOME)/.datree/crdSchemas")
 
