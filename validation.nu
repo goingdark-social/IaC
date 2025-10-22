@@ -15,12 +15,12 @@ def parse_entry_roots [entry: string] {
     | split row ","
     | each {|segment| $segment | str trim }
     | where {|segment| $segment != "" }
-    | each {|segment| $segment | path normalize }
+    | each {|segment| path normalize --path $segment }
 }
 
 def find_kustomize_dirs [root: string] {
   glob $'($root)/**/kustomization.yaml'
-    | each {|file| $file | path dirname | path normalize }
+    | each {|file| path dirname --path $file | path normalize }
     | uniq
 }
 
@@ -36,10 +36,10 @@ def changed_kustomize_dirs [known_dirs: list<string>] {
     | lines
     | where {|line| $line != "" }
     | each {|file|
-        let normalized_file = ($file | path normalize)
+        let normalized_file = (path normalize --path $file)
         $known_dirs
           | each {|dir|
-              let normalized_dir = ($dir | path normalize)
+              let normalized_dir = (path normalize --path $dir)
               if ($normalized_file == $normalized_dir) or ($normalized_file | str starts-with $'($normalized_dir)/') {
                 $normalized_dir
               } else {
@@ -55,7 +55,7 @@ def changed_kustomize_dirs [known_dirs: list<string>] {
 def kube_check [entries: list<string>] {
   let kube_catalog = "https://kubernetesjsonschema.dev"
   let datree_catalog = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
-  let local_catalog = ($env.HOME | path join ".datree/crdSchemas")
+  let local_catalog = (path join [$env.HOME ".datree/crdSchemas"])
   for $dir in $entries {
     print "\n"
     print $'(ansi blue)👀 Checking ($dir)(ansi reset)'
