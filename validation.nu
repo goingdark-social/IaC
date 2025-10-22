@@ -1,3 +1,6 @@
+# Nushell 0.93 compatible. No reliance on `path` subcommands.
+# Uses external `realpath` and `dirname` for canonicalization.
+
 export def execute [entry: string] {
   let repo_root = (workspace-root)
   let entry_path = (resolve-entry $entry $repo_root)
@@ -9,11 +12,36 @@ export def execute [entry: string] {
   run-validation $targets
 }
 
+# Helpers
+
+def canon [p: string] {
+  # Canonicalize without requiring the path to exist. GNU realpath supports -m.
+  try {
+    ^realpath -m $p | str trim
+  } catch {
+    # Fallback. Return input if realpath is unavailable.
+    $p | str trim
+  }
+}
+
+def dname [p: string] {
+  try {
+    ^dirname $p | str trim
+  } catch {
+    $p
+  }
+}
+
+def is-abs [p: string] {
+  # Linux runner. Treat leading slash as absolute.
+  $p | str starts-with "/"
+}
+
 def workspace-root [] {
-  if ($env | columns | any {|col| $col == "GITHUB_WORKSPACE"}) {
-    echo $env.GITHUB_WORKSPACE | path normalize
+  if ($env | columns | any {|c| $c == "GITHUB_WORKSPACE"}) {
+    canon $env.GITHUB_WORKSPACE
   } else {
-    echo (pwd) | path normalize
+    canon (pwd)
   }
 }
 
@@ -22,11 +50,10 @@ def resolve-entry [entry repo_root] {
   if ($trimmed | is-empty) {
     $repo_root
   } else {
-    let kind = (echo $trimmed | path type)
-    if $kind == "absolute" {
-      echo $trimmed | path normalize
+    if (is-abs $trimmed) {
+      canon $trimmed
     } else {
-      echo (path join $repo_root $trimmed) | path normalize
+      canon ($"($repo_root)/($trimmed)")
     }
   }
 }
@@ -41,11 +68,7 @@ def pick-targets [entry_path] {
 }
 
 def changed-kustomize-dirs [entry_path] {
-  let git_root = (try {
-      ^git rev-parse --show-toplevel | str trim
-    } catch {
-      ""
-    })
+  let git_root = (try { ^git rev-parse --show-toplevel | str trim } catch { "" })
   if ($git_root | is-empty) {
     []
   } else {
@@ -53,78 +76,60 @@ def changed-kustomize-dirs [entry_path] {
     if ($diff_ref | is-empty) {
       []
     } else {
-      let files = (try {
-          ^git diff --name-only $diff_ref HEAD | lines
-        } catch {
-          []
-        })
+      let files = (try { ^git diff --name-only $diff_ref HEAD | lines } catch { [] })
       $files
         | filter-manifest-paths $entry_path
         | uniq
         | sort
-        | each {|segment| echo $segment | path normalize }
+        | each {|seg| canon $seg }
     }
   }
 }
 
 def diff-target [] {
-  if ($env | columns | any {|col| $col == "GITHUB_BASE_REF"} && ($env.GITHUB_BASE_REF | str trim | is-empty) == false) {
+  if ($env | columns | any {|c| $c == "GITHUB_BASE_REF"} && ($env.GITHUB_BASE_REF | str trim | is-empty) == false) {
     $"origin/($env.GITHUB_BASE_REF)"
-  } else if ($env | columns | any {|col| $col == "GITHUB_EVENT_NAME"} && $env.GITHUB_EVENT_NAME == "push") {
-    (try {
-      ^git rev-parse HEAD^ | str trim
-    } catch {
-      ""
-    })
+  } else if ($env | columns | any {|c| $c == "GITHUB_EVENT_NAME"} && $env.GITHUB_EVENT_NAME == "push") {
+    try { ^git rev-parse HEAD^ | str trim } catch { "" }
   } else {
-    (try {
-      let default_branch = (^git symbolic-ref refs/remotes/origin/HEAD | str trim | str replace "refs/remotes/origin/" "")
-      if ($default_branch | is-empty) {
-        "origin/main"
-      } else {
-        $"origin/($default_branch)"
-      }
+    try {
+      let def = (^git symbolic-ref refs/remotes/origin/HEAD | str trim | str replace "refs/remotes/origin/" "")
+      if ($def | is-empty) { "origin/main" } else { $"origin/($def)" }
     } catch {
       "origin/main"
-    })
+    }
   }
 }
 
 def filter-manifest-paths [entry_path] {
-  let normalized_entry = (echo $entry_path | path normalize)
+  let base = (canon $entry_path)
   each {|file|
-    let normalized_file = (echo $file | path normalize)
-    if ($normalized_file | str contains $normalized_entry) {
-      echo $normalized_file | path dirname | path normalize
+    let f = (canon $file)
+    if ($f | str starts-with $"($base)/") or ($f == $base) {
+      canon (dname $f)
     } else {
       null
     }
-  }
-  | where {|value| $value != null }
-  | uniq
+  } | where {|v| $v != null } | uniq
 }
 
 def find-kustomize-dirs [entry_path] {
+  let base = (canon $entry_path)
   let patterns = [
-    $"($entry_path)/**/kustomization.yaml",
-    $"($entry_path)/**/kustomization.yml"
+    $"($base)/**/kustomization.yaml"
+    $"($base)/**/kustomization.yml"
   ]
   $patterns
-    | each {|pattern| glob $pattern }
+    | each {|pat| glob $pat }
     | flatten
-    | each {|file| echo $file | path dirname | path normalize }
+    | each {|f| canon (dname $f) }
     | uniq
     | sort
-    | each {|segment| echo $segment | path normalize }
 }
 
 def datree-cache-path [] {
-  let base = (if ($env | columns | any {|col| $col == "HOME"}) {
-      $env.HOME
-    } else {
-      (pwd)
-    })
-  echo (path join $base ".datree" "crdSchemas") | path normalize
+  let home = (if ($env | columns | any {|c| $c == "HOME"}) { $env.HOME } else { pwd })
+  canon ($"($home)/.datree/crdSchemas")
 }
 
 def run-validation [targets] {
@@ -132,33 +137,33 @@ def run-validation [targets] {
   let datree_catalog = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
   let local_catalog = (datree-cache-path)
   for dir in $targets {
-    let normalized_dir = (echo $dir | path normalize)
+    let d = (canon $dir)
     print "\n"
-    print $'(ansi blue)👀 Checking ($normalized_dir)(ansi reset)'
+    print $'(ansi blue)👀 Checking ($d)(ansi reset)'
     let validation = (try {
-        ^kustomize build $normalized_dir --enable-helm --load-restrictor LoadRestrictionsNone
+        ^kustomize build $d --enable-helm --load-restrictor LoadRestrictionsNone
         | ^kubeconform -schema-location default -schema-location $local_catalog -schema-location $kube_catalog -schema-location $datree_catalog -output json -ignore-missing-schemas -verbose
         | from json
       } catch {|err|
-        print $'(ansi red)❌ Failed to validate ($normalized_dir): ($err.msg)(ansi reset)'
+        print $'(ansi red)❌ Failed to validate ($d): ($err.msg)(ansi reset)'
         exit 1
       })
     if ($validation | is-empty) {
-      print $'(ansi red)❌ kubeconform returned no data for ($normalized_dir)(ansi reset)'
+      print $'(ansi red)❌ kubeconform returned no data for ($d)(ansi reset)'
       exit 1
     }
     let results = ($validation.resources | default [])
     if ($results | is-empty) {
-      print $'(ansi yellow)⚠️ No resources produced by kustomize for ($normalized_dir)(ansi reset)'
+      print $'(ansi yellow)⚠️ No resources produced by kustomize for ($d)(ansi reset)'
       continue
     }
-    let table_rows = ($results | reject filename)
-    print ($table_rows | table -w 200 -i false)
+    let rows = ($results | reject filename)
+    print ($rows | table -w 200 -i false)
     let failures = ($results | where status == "statusError")
     if ($failures | is-empty) {
       print $'(ansi green)✅ Nicely done, validation succeeded(ansi reset)'
     } else {
-      print $'(ansi red)❌ Validation failed for ($normalized_dir)(ansi reset)'
+      print $'(ansi red)❌ Validation failed for ($d)(ansi reset)'
       exit 1
     }
   }
