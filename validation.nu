@@ -11,9 +11,9 @@ export def execute [entry: string] {
 
 def workspace-root [] {
   if ($env | columns | any {|col| $col == "GITHUB_WORKSPACE"}) {
-    path normalize $env.GITHUB_WORKSPACE
+    echo $env.GITHUB_WORKSPACE | path normalize
   } else {
-    path normalize (pwd)
+    echo (pwd) | path normalize
   }
 }
 
@@ -24,9 +24,9 @@ def resolve-entry [entry repo_root] {
   } else {
     let kind = (echo $trimmed | path type)
     if $kind == "absolute" {
-      path normalize $trimmed
+      echo $trimmed | path normalize
     } else {
-      path normalize (path join $repo_root $trimmed)
+      echo (path join $repo_root $trimmed) | path normalize
     }
   }
 }
@@ -62,7 +62,7 @@ def changed-kustomize-dirs [entry_path] {
         | filter-manifest-paths $entry_path
         | uniq
         | sort
-        | each {|segment| path normalize $segment }
+        | each {|segment| echo $segment | path normalize }
     }
   }
 }
@@ -91,9 +91,9 @@ def diff-target [] {
 }
 
 def filter-manifest-paths [entry_path] {
-  let normalized_entry = (path normalize $entry_path)
+  let normalized_entry = (echo $entry_path | path normalize)
   each {|file|
-    let normalized_file = (path normalize $file)
+    let normalized_file = (echo $file | path normalize)
     if ($normalized_file | str contains $normalized_entry) {
       echo $normalized_file | path dirname | path normalize
     } else {
@@ -115,7 +115,7 @@ def find-kustomize-dirs [entry_path] {
     | each {|file| echo $file | path dirname | path normalize }
     | uniq
     | sort
-    | each {|segment| path normalize $segment }
+    | each {|segment| echo $segment | path normalize }
 }
 
 def datree-cache-path [] {
@@ -124,7 +124,7 @@ def datree-cache-path [] {
     } else {
       (pwd)
     })
-  path normalize (path join $base ".datree" "crdSchemas")
+  echo (path join $base ".datree" "crdSchemas") | path normalize
 }
 
 def run-validation [targets] {
@@ -132,7 +132,7 @@ def run-validation [targets] {
   let datree_catalog = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
   let local_catalog = (datree-cache-path)
   for dir in $targets {
-    let normalized_dir = (path normalize $dir)
+    let normalized_dir = (echo $dir | path normalize)
     print "\n"
     print $'(ansi blue)👀 Checking ($normalized_dir)(ansi reset)'
     let validation = (try {
