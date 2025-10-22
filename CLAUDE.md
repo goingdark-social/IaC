@@ -39,9 +39,9 @@ The repository follows a GitOps pattern with two main ApplicationSets:
 
 #### Platform Apps (`apps/platform/`)
 - **Mastodon** - Main social platform with custom 1000-character posts
-  - Web servers (glitch-soc/mastodon:v4.4.5, 2-4 replicas with HPA)
+  - Web servers (ghcr.io/glitch-soc/mastodon:v4.5.0-beta.2, tag set via the root Kustomize images block, 2-4 replicas with HPA)
   - Sidekiq workers: default (1-3 replicas), federation (1-3 replicas), background (1 replica), scheduler (1 replica)
-  - Streaming API (1-3 replicas with HPA)
+  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming:v4.5.0-beta.2, tag managed in the same images block, 1-3 replicas with HPA)
   - PostgreSQL cluster (CloudNative-PG) with S3 backups
   - Redis StatefulSet (master)
   - Elasticsearch StatefulSet for full-text search
@@ -236,7 +236,7 @@ Metrics exposed via port 9394 on web pods, scraped by VMServiceScrape.
 ### Common Tasks
 
 #### Version Updates
-1. **Container images**: Update image tags in workload manifests (Deployment/StatefulSet spec)
+1. **Container images**: Update centralized image tags and digests in `kubernetes/apps/platform/mastodon/kustomization.yaml`
 2. **Helm charts**: Renovate handles automatically, or manually update version in helmCharts section
 3. **Testing**: `kustomize build apps/platform/[app]` (fast), `kustomize build --enable-helm apps/[app]` (slow)
 4. **Validation**: `kubectl diff -k apps/platform/[app]` before committing
