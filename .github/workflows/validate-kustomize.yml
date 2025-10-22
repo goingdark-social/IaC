@@ -1,4 +1,6 @@
 name: Kustomize Nu Validation
+permissions:
+  contents: read
 
 on:
   push:
