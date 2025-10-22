@@ -2,7 +2,13 @@ name: Kustomize Nu Validation
 
 on:
   push:
+    paths:
+      - 'kubernetes/**'
+      - '.github/workflows/validate-kustomize.yml'
   pull_request:
+    paths:
+      - 'kubernetes/**'
+      - '.github/workflows/validate-kustomize.yml'
 
 jobs:
   validate-kustomize:
