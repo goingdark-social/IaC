@@ -158,7 +158,7 @@ prometheus-adapter:
         name:
           matches: "ruby_http_request_queue_duration_seconds_bucket"
           as: "ruby_http_request_queue_duration_seconds_p95"
-        metricsQuery: 'histogram_quantile(0.95, rate(<<.Series>>[2m]))'
+        metricsQuery: 'histogram_quantile(0.95, sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (le, namespace, job))'
         resources:
           overrides:
             namespace: {resource: "namespace"}
@@ -167,7 +167,7 @@ prometheus-adapter:
         name:
           matches: "ruby_puma_request_backlog"
           as: "ruby_puma_request_backlog"
-        metricsQuery: 'max(<<.Series>>)'
+        metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>}) by (namespace, job)'
         resources:
           overrides:
             namespace: {resource: "namespace"}
@@ -176,7 +176,7 @@ prometheus-adapter:
         name:
           matches: "ruby_http_requests_total"
           as: "ruby_http_requests_per_second"
-        metricsQuery: 'rate(<<.Series>>[2m])'
+        metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (namespace, job)'
         resources:
           overrides:
             namespace: {resource: "namespace"}
