@@ -29,6 +29,10 @@ The infrastructure follows GitOps principles with ArgoCD managing application de
   - [`hypebot/`](kubernetes/apps/platform/hypebot/) - Community engagement automation
 - [`kubernetes/apps/database/`](kubernetes/apps/database/) - Database operators and tooling
 
+## CI Validation
+
+Every pull request runs the **Validate Kustomize Manifests** workflow. It uses the [`omarluq/kustomize-nu-validation`](https://github.com/omarluq/kustomize-nu-validation) action to build everything under `kubernetes/` and check the rendered manifests with Kubeconform. The action relies on Nushell for readable output, so failed validations are easy to spot directly in the job logs.
+
 ## Deploy Infrastructure
 
 Install [OpenTofu](https://opentofu.org/docs/intro/install/) first, then provision the Hetzner Cloud infrastructure:

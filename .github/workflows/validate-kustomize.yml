@@ -18,26 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Kustomize
-        id: kustomize
-        uses: int128/kustomize-action@v1
+      - name: Validate manifests with Kubeconform
+        uses: omarluq/kustomize-nu-validation@alpha
         with:
-          kustomization: kubernetes/**/kustomization.yaml
-          kustomize-build-args: |
-            --enable-helm
-            --load-restrictor=LoadRestrictionsNone
-          max-process: 8
+          entry: ./kubernetes
 
-      - name: Show outputs
-        run: |
-          echo "dir=${{ steps.kustomize.outputs.directory }}"
-          printf '%s\n' "${{ steps.kustomize.outputs.files }}"
-
-      - name: Comment on PR if Kustomize fails
-        if: failure()
-        uses: int128/comment-action@v1
-        with:
-          update-if-exists: replace
-          post: |
-            :x: **Kustomize build failed**
-            ${{ steps.kustomize.outputs.pretty-errors }}
