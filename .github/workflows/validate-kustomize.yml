@@ -1,43 +1,14 @@
-name: Validate Kustomize Manifests
+name: Kustomize Nu Validation
 
 on:
+  push:
   pull_request:
-    branches:
-      - main
-    paths:
-      - 'kubernetes/**'
-      - '.github/workflows/validate-kustomize.yml'
 
 jobs:
-  validate:
+  validate-kustomize:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run Kustomize
-        id: kustomize
-        uses: int128/kustomize-action@v1
+      - uses: omarluq/kustomize-nu-validation@alpha
         with:
-          kustomization: kubernetes/**/kustomization.yaml
-          kustomize-build-args: |
-            --enable-helm
-            --load-restrictor=LoadRestrictionsNone
-          max-process: 8
-
-      - name: Show outputs
-        run: |
-          echo "dir=${{ steps.kustomize.outputs.directory }}"
-          printf '%s\n' "${{ steps.kustomize.outputs.files }}"
-
-      - name: Comment on PR if Kustomize fails
-        if: failure()
-        uses: int128/comment-action@v1
-        with:
-          update-if-exists: replace
-          post: |
-            :x: **Kustomize build failed**
-            ${{ steps.kustomize.outputs.pretty-errors }}
+          entry: ./kubernetes
