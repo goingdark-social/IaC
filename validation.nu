@@ -15,11 +15,9 @@ export def execute [entry: string] {
 # Helpers
 
 def canon [p: string] {
-  # Canonicalize without requiring the path to exist. GNU realpath supports -m.
   try {
     ^realpath -m $p | str trim
   } catch {
-    # Fallback. Return input if realpath is unavailable.
     $p | str trim
   }
 }
@@ -33,7 +31,6 @@ def dname [p: string] {
 }
 
 def is-abs [p: string] {
-  # Linux runner. Treat leading slash as absolute.
   $p | str starts-with "/"
 }
 
@@ -87,9 +84,9 @@ def changed-kustomize-dirs [entry_path] {
 }
 
 def diff-target [] {
-  if ($env | columns | any {|c| $c == "GITHUB_BASE_REF"} && ($env.GITHUB_BASE_REF | str trim | is-empty) == false) {
+  if ($env | columns | any {|c| $c == "GITHUB_BASE_REF"} and ($env.GITHUB_BASE_REF | str trim | is-empty) == false) {
     $"origin/($env.GITHUB_BASE_REF)"
-  } else if ($env | columns | any {|c| $c == "GITHUB_EVENT_NAME"} && $env.GITHUB_EVENT_NAME == "push") {
+  } else if ($env | columns | any {|c| $c == "GITHUB_EVENT_NAME"} and $env.GITHUB_EVENT_NAME == "push") {
     try { ^git rev-parse HEAD^ | str trim } catch { "" }
   } else {
     try {
