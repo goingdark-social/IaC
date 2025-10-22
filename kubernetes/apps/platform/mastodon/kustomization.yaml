@@ -3,6 +3,14 @@ kind: Kustomization
 
 namespace: mastodon
 
+images:
+  - name: ghcr.io/glitch-soc/mastodon
+    newTag: v4.5.0-beta.2
+    digest: sha256:e08719c12e7ddce2b03a14f8d2f3ebab87e1590934233e98a9c39a5e738b68cb
+  - name: ghcr.io/glitch-soc/mastodon-streaming
+    newTag: v4.5.0-beta.2
+    digest: sha256:8928b6bfe12c8349a365c7403ef36e724523ea46481f850bc2cb0d4f99e6dadc
+
 configMapGenerator:
   # Core application config - used by web, sidekiq, streaming
   - name: mastodon-core
