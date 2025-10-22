@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/glitch-soc/mastodon
+    digest: sha256:1b214ffeb712285a647fd4e3fc70e97be10990a914ff07ba921d7b40251d4fc8
+  - name: ghcr.io/glitch-soc/mastodon-streaming
+    digest: sha256:d7b12be42a9c19fa1025eca81dad6150cae7a6246aa02e180096ff6efe0b9400
+
+patches:
+  - path: patches/prod-hosts.yaml
+  - path: patches/prod-replicas.yaml

@@ -39,9 +39,9 @@ The repository follows a GitOps pattern with two main ApplicationSets:
 
 #### Platform Apps (`apps/platform/`)
 - **Mastodon** - Main social platform with custom 1000-character posts
-  - Web servers (ghcr.io/glitch-soc/mastodon:v4.5.0-beta.2, tag set via the root Kustomize images block, 2-4 replicas with HPA)
+  - Web servers (ghcr.io/glitch-soc/mastodon, digests pinned per environment overlay, 2-4 replicas with HPA)
   - Sidekiq workers: default (1-3 replicas), federation (1-3 replicas), background (1 replica), scheduler (1 replica)
-  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming:v4.5.0-beta.2, tag managed in the same images block, 1-3 replicas with HPA)
+  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming, digests pinned alongside web overlay values, 1-3 replicas with HPA)
   - PostgreSQL cluster (CloudNative-PG) with S3 backups
   - Redis StatefulSet (master)
   - Elasticsearch StatefulSet for full-text search
@@ -54,7 +54,7 @@ The repository follows a GitOps pattern with two main ApplicationSets:
 ## Common Design Patterns
 
 ### Kustomize Organization
-- **Nested kustomization layers**: app root → configs/ → resources/ → resource subdirectories
+- **Nested kustomization layers**: app root → base (namespace/configs/resources) → overlays/<env> → resource subdirectories
 - **Resource organization by type**: autoscaling/, disruption/, jobs/, monitoring/, networking/, secrets/, services/, storage/, workloads/
 - **One resource per file** with descriptive names (e.g., `web-deployment.yaml`, `sidekiq-default-hpa.yaml`)
 - **Strategic patches** in `patches/` directories (priority-patches.yaml, spread-patches.yaml)
@@ -186,19 +186,18 @@ All deployments handled by ArgoCD GitOps - push to `main` branch and ArgoCD sync
 ### GitOps
 - `kubernetes/application-set.yaml` - ArgoCD ApplicationSets for infrastructure and platform apps
   - **Infrastructure ApplicationSet**: sync-wave=-10, directories (argocd, base-system, database, crds, default, deployment, kube-system)
-  - **Platform ApplicationSet**: sync-wave=0, directories (platform/*)
+  - **Platform ApplicationSet**: sync-wave=0, generates one Application per `platform/<app>/overlays/<env>` path using go templates
   - **Sync policy**: automated (prune + selfHeal), ServerSideApply, PruneLast, RespectIgnoreDifferences
   - **Retry backoff**: infrastructure (10s→3m), platform (5s→3m)
 - `kubernetes/project.yaml` - ArgoCD project definitions (infrastructure, platform)
 - `kubernetes/kustomization.yaml` - Root Kustomize configuration
 
 ### Mastodon Configuration
-- `kubernetes/apps/platform/mastodon/kustomization.yaml` - Component orchestration with ConfigMaps
+- `kubernetes/apps/platform/mastodon/base/kustomization.yaml` - Shared namespace, ConfigMaps, and resources used by all environments
   - ConfigMapGenerator entries for all components (core, database, redis, search, features, external-services, web, sidekiq, streaming, jobs)
-  - References nested resources/ and configs/ directories
-  - Applies strategic patches for priority and spread
-- `kubernetes/apps/platform/mastodon/configs/` - Environment-based configuration files (.env files)
-- `kubernetes/apps/platform/mastodon/resources/` - Organized by resource type:
+  - Includes nested resources/ and configs/ directories plus base patches
+- `kubernetes/apps/platform/mastodon/base/configs/` - Environment-agnostic configuration files (.env files)
+- `kubernetes/apps/platform/mastodon/base/resources/` - Organized by resource type:
   - `workloads/` - Deployments, StatefulSets (web, streaming, sidekiq-*, database, redis, elasticsearch)
   - `autoscaling/` - HPA definitions (web, streaming, sidekiq-default, sidekiq-federation, sidekiq-background)
   - `networking/` - Services, HTTPRoutes, NetworkPolicies
@@ -207,7 +206,8 @@ All deployments handled by ArgoCD GitOps - push to `main` branch and ArgoCD sync
   - `storage/` - PersistentVolumeClaims
   - `jobs/` - Kubernetes Jobs (migrations, cache-recount, etc.)
   - `disruption/` - PodDisruptionBudgets
-- `kubernetes/apps/platform/mastodon/patches/` - Strategic patches (priority, topology spread)
+- `kubernetes/apps/platform/mastodon/base/patches/` - Strategic patches (priority, topology spread)
+- `kubernetes/apps/platform/mastodon/overlays/<env>/` - Environment overrides (image digests, hostnames, replica tuning)
 
 ## Mastodon Autoscaling Strategy
 
@@ -236,7 +236,7 @@ Metrics exposed via port 9394 on web pods, scraped by VMServiceScrape.
 ### Common Tasks
 
 #### Version Updates
-1. **Container images**: Update centralized image tags and digests in `kubernetes/apps/platform/mastodon/kustomization.yaml`
+1. **Container images**: Update per-environment digests in `kubernetes/apps/platform/mastodon/overlays/<env>/kustomization.yaml`
 2. **Helm charts**: Renovate handles automatically, or manually update version in helmCharts section
 3. **Testing**: `kustomize build apps/platform/[app]` (fast), `kustomize build --enable-helm apps/[app]` (slow)
 4. **Validation**: `kubectl diff -k apps/platform/[app]` before committing
@@ -254,9 +254,9 @@ Metrics exposed via port 9394 on web pods, scraped by VMServiceScrape.
 4. **VPA recommendations**: Check VPA status for resource recommendation updates
 
 #### Adding New Applications
-1. **Create directory structure**: `apps/platform/[app]/` with namespace.yaml, kustomization.yaml
-2. **Organize resources**: Follow pattern (workloads/, networking/, secrets/, etc.)
-3. **Add to ApplicationSet**: Platform ApplicationSet auto-discovers via `platform/*` path filter
+1. **Create directory structure**: `apps/platform/[app]/base/` plus `overlays/dev` and `overlays/prod`
+2. **Organize resources**: Follow pattern (workloads/, networking/, secrets/, etc.) inside `base/resources`
+3. **Add to ApplicationSet**: Platform ApplicationSet automatically picks up `platform/*/overlays/*`
 4. **Configure secrets**: Create ExternalSecret referencing Bitwarden items
 5. **Networking**: Create HTTPRoute attached to external Gateway, configure NetworkPolicies
 
