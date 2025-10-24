@@ -41,6 +41,7 @@ tofu apply    # Deploy infrastructure
 ```
 
 This creates the Kubernetes cluster, networking, storage, and security groups as defined in the OpenTofu configuration files.
+As part of the apply step Talos also syncs our Cilium L2 announcement policy, load balancer IP pool, and a ConfigMap with the chart values so the cluster comes up with our Cilium settings before ArgoCD takes over.
 
 ## Bootstrap Applications
 
