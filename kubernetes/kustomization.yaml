@@ -4,6 +4,3 @@ kind: Kustomization
 resources:
 - project.yaml
 - apps
-
-generatorOptions:
-  disableNameSuffixHash: true

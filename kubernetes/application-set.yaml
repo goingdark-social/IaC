@@ -55,6 +55,7 @@ spec:
           - ServerSideApply=true
           - PruneLast=true
           - RespectIgnoreDifferences=true
+
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -67,19 +68,30 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: '0'
 spec:
+  goTemplate: true
   generators:
     - git:
         repoURL: https://github.com/goingdark-social/IaC.git
         revision: main
         directories:
+          - path: kubernetes/apps/platform/*/overlays/*
+    - git:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        revision: main
+        directories:
           - path: kubernetes/apps/platform/*
+            exclude: kubernetes/apps/platform/mastodon
   template:
     metadata:
-      name: 'platform-{{path.basename}}'
+      {{- $parts := splitList "/" .path -}}
+      name: 'platform-{{ index $parts 3 }}{{- if ge (len $parts) 6 }}-{{ index $parts 5 }}{{- end }}'
       namespace: argocd
       labels:
-        app.kubernetes.io/component: 'platform-{{path.basename}}'
+        app.kubernetes.io/component: '{{ index $parts 3 }}'
         app.kubernetes.io/part-of: platform
+{{- if ge (len $parts) 6 }}
+        env: '{{ index $parts 5 }}'
+{{- end }}
       annotations:
         argocd.argoproj.io/sync-wave: '0'
     spec:
@@ -87,7 +99,7 @@ spec:
       source:
         repoURL: https://github.com/goingdark-social/IaC.git
         targetRevision: main
-        path: '{{path}}'
+        path: '{{.path}}'
       destination:
         server: https://kubernetes.default.svc
       syncPolicy:

@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mastodon
+
+resources:
+  - namespace.yaml
+  - configs
+  - resources
+
+configMapGenerator:
+  - name: mastodon-core
+    envs:
+      - configs/mastodon-core.env
+  - name: mastodon-database
+    envs:
+      - configs/mastodon-database.env
+  - name: mastodon-external-services
+    envs:
+      - configs/mastodon-smtp.env
+      - configs/mastodon-storage.env
+  - name: mastodon-features
+    envs:
+      - configs/mastodon-features.env
+  - name: mastodon-jobs
+    envs:
+      - configs/mastodon-jobs.env
+  - name: mastodon-redis
+    envs:
+      - configs/mastodon-redis.env
+  - name: mastodon-search
+    envs:
+      - configs/mastodon-search.env
+  - name: mastodon-sidekiq
+    envs:
+      - configs/mastodon-sidekiq.env
+  - name: mastodon-streaming
+    envs:
+      - configs/mastodon-streaming.env
+  - name: mastodon-web
+    envs:
+      - configs/mastodon-web.env
+
+patches:
+  - path: patches/priority-patches.yaml
+  - path: patches/spread-patches.yaml
+  - path: patches/elasticsearch-password-patch.yaml
