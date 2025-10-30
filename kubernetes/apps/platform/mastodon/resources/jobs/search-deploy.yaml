@@ -134,18 +134,6 @@ spec:
           # Features configuration
           - name: MAX_TOOT_CHARS
             value: "1500"
-          - name: FETCH_REPLIES_ENABLED
-            value: "true"
-          - name: FETCH_REPLIES_COOLDOWN_MINUTES
-            value: "15"
-          - name: FETCH_REPLIES_INITIAL_WAIT_MINUTES
-            value: "5"
-          - name: FETCH_REPLIES_MAX_GLOBAL
-            value: "1000"
-          - name: FETCH_REPLIES_MAX_SINGLE
-            value: "500"
-          - name: FETCH_REPLIES_MAX_PAGES
-            value: "500"
           - name: IP_RETENTION_PERIOD
             value: "15552000"
           - name: DEFAULT_LOCALE
