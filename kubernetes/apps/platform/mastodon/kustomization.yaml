@@ -5,9 +5,9 @@ namespace: mastodon
 
 images:
   - name: ghcr.io/glitch-soc/mastodon
-    newTag: v4.5.0-beta.2
+    newTag: v4.5.0-rc.1
   - name: ghcr.io/glitch-soc/mastodon-streaming
-    newTag: v4.5.0-beta.2
+    newTag: v4.5.0-rc.1
 
 configMapGenerator:
   # Core application config - used by web, sidekiq, streaming

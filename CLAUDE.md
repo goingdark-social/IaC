@@ -39,9 +39,9 @@ The repository follows a GitOps pattern with two main ApplicationSets:
 
 #### Platform Apps (`apps/platform/`)
 - **Mastodon** - Main social platform with custom 1000-character posts
-  - Web servers (ghcr.io/glitch-soc/mastodon:v4.5.0-beta.2, tag set via the root Kustomize images block, 2-4 replicas with HPA)
+  - Web servers (ghcr.io/glitch-soc/mastodon:v4.5.0-rc.1, tag set via the root Kustomize images block, 2-4 replicas with HPA)
   - Sidekiq workers: default (1-3 replicas), federation (1-3 replicas), background (1 replica), scheduler (1 replica)
-  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming:v4.5.0-beta.2, tag managed in the same images block, 1-3 replicas with HPA)
+  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming:v4.5.0-rc.1, tag managed in the same images block, 1-3 replicas with HPA)
   - PostgreSQL cluster (CloudNative-PG) with S3 backups
   - Redis StatefulSet (master)
   - Elasticsearch StatefulSet for full-text search
