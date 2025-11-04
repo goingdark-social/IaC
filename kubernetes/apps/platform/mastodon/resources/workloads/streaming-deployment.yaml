@@ -15,13 +15,6 @@ spec:
       labels:
         app: mastodon-streaming
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: autoscaler-node
-                    operator: DoesNotExist
       containers:
         - name: streaming
           image: ghcr.io/glitch-soc/mastodon-streaming

@@ -16,13 +16,6 @@ spec:
         app: mastodon-web
         elasticsearch-client: "true"
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: autoscaler-node
-                    operator: DoesNotExist
       securityContext:
         fsGroup: 991
       containers:
