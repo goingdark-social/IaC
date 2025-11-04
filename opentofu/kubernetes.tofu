@@ -16,7 +16,7 @@ module "kubernetes" {
     { name = "control", type = "cx22", location = "hel1", count = 1 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "cx32", location = "hel1", count = 1 }
+    { name = "worker", type = "cx43", location = "hel1", count = 1 }
   ]
   # Core Components (enabled by default)
   cilium_enabled                     = true
