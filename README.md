@@ -85,6 +85,12 @@ All applications are managed through ArgoCD and deploy automatically when change
 - Sidekiq default and federation workers scale on the `sidekiq_queue_latency_seconds` metric (10 seconds for default, 30 seconds for federation) so they grow only when the queues back up.
 - Streaming workers follow the `mastodon_streaming_connected_clients` metric and add capacity once a pod carries around 200 live connections.
 
+## Autoscaler Node Pool Placement
+
+- The autoscaler node pool is now limited to stateless deployments that the descheduler can freely evict.
+- Stateful components like PostgreSQL, Redis, and Elasticsearch, along with single-replica Sidekiq and streaming workers, are pinned to the fixed worker pool so scale-down drains stay possible.
+- The descheduler policy now treats nodes below roughly 40 % utilization as underused and balances pods away from the autoscaler nodes so Cluster Autoscaler can remove idle machines.
+
 ## Gateway API Observability
 
 - `kube-state-metrics` now ships the Kuadrant CustomResourceState bundle so VictoriaMetrics receives the `gatewayapi_*` series for GatewayClasses, Gateways, HTTPRoutes, TCPRoutes, TLSRoutes, GRPCRoutes, and UDPRoutes.
