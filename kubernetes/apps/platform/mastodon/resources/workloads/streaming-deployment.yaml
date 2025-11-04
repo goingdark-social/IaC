@@ -15,11 +15,13 @@ spec:
       labels:
         app: mastodon-streaming
     spec:
-      tolerations:
-        - key: "autoscaler-node"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: autoscaler-node
+                    operator: DoesNotExist
       containers:
         - name: streaming
           image: ghcr.io/glitch-soc/mastodon-streaming

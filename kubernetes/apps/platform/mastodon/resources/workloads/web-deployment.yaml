@@ -16,11 +16,13 @@ spec:
         app: mastodon-web
         elasticsearch-client: "true"
     spec:
-      tolerations:
-        - key: "autoscaler-node"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: autoscaler-node
+                    operator: DoesNotExist
       securityContext:
         fsGroup: 991
       containers:
