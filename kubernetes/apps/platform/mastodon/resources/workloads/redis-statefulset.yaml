@@ -36,20 +36,6 @@ spec:
         helm.sh/chart: redis-22.0.1
     spec:
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: "autoscaler-node"
-                    operator: DoesNotExist
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
-              - key: "autoscaler-node"
-                operator: NotIn
-                values: ["true"]
-        podAffinity: null
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - podAffinityTerm:

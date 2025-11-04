@@ -21,13 +21,6 @@ spec:
       securityContext:
         fsGroup: 991
         fsGroupChangePolicy: Always
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: autoscaler-node
-                    operator: DoesNotExist
       containers:
         - name: sidekiq-default
           image: ghcr.io/glitch-soc/mastodon

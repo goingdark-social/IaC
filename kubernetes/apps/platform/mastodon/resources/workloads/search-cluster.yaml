@@ -26,13 +26,6 @@ spec:
       podTemplate:
         spec:
           priorityClassName: mastodon-critical
-          affinity:
-            nodeAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms:
-                  - matchExpressions:
-                      - key: "autoscaler-node"
-                        operator: DoesNotExist
           containers:
             - name: elasticsearch
               env:
