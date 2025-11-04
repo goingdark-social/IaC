@@ -92,22 +92,11 @@ spec:
             limits:
               memory: 100Mi
           name: pgbouncer
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: autoscaler-node
-                    operator: DoesNotExist
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - database-cnpg-pooler-rw
-              topologyKey: "kubernetes.io/hostname"
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
@@ -137,19 +126,8 @@ spec:
             limits:
               memory: 100Mi
           name: pgbouncer
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: autoscaler-node
-                    operator: DoesNotExist
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - database-cnpg-pooler-ro
-              topologyKey: "kubernetes.io/hostname"
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
