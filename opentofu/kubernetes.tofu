@@ -13,7 +13,7 @@ module "kubernetes" {
   cluster_talosconfig_path = "talosconfig"
 
   control_plane_nodepools = [
-    { name = "control", type = "cx22", location = "hel1", count = 1 }
+    { name = "control", type = "cx23", location = "hel1", count = 1 }
   ]
   worker_nodepools = [
     { name = "worker", type = "cx43", location = "hel1", count = 1 }
@@ -99,7 +99,7 @@ firewall_extra_rules = [
 cluster_autoscaler_nodepools = [
   {
     name     = "autoscaler"
-    type     = "cx32"
+    type     = "cx33"
     location = "hel1"
     min      = 0
     max      = 2
