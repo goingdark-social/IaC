@@ -83,7 +83,16 @@ spec:
     metadata:
       labels:
         app: database-cnpg-pooler-rw
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: Exists  # Match all nodes with OS label (all nodes have this)
       containers:
         - resources:
             requests:
@@ -117,7 +126,16 @@ spec:
     metadata:
       labels:
         app: database-cnpg-pooler-ro
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: Exists  # Match all nodes with OS label (all nodes have this)
       containers:
         - resources:
             requests:

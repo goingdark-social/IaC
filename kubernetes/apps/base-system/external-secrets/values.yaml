@@ -178,11 +178,11 @@ metrics:
 
 nodeSelector: {}
 
-tolerations:
-  - key: "autoscaler-node"
-    operator: "Equal"
-    value: "true"
-    effect: "NoSchedule"
+# tolerations:
+#   - key: "autoscaler-node"
+#     operator: "Equal"
+#     value: "true"
+#     effect: "NoSchedule"
 
 topologySpreadConstraints: []
 
@@ -436,11 +436,11 @@ certController:
     name: ''
   nodeSelector: {}
 
-  tolerations:
-  - key: "autoscaler-node"
-    operator: "Equal"
-    value: "true"
-    effect: "NoSchedule"
+  # tolerations:
+  # - key: "autoscaler-node"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
 
   topologySpreadConstraints: []
 

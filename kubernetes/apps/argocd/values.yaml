@@ -65,10 +65,10 @@ dex:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
       effect: NoSchedule
-    - key: "autoscaler-node"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+    # - key: "autoscaler-node"
+    #   operator: "Equal"
+    #   value: "true"
+    #   effect: "NoSchedule"
 
   resources:
     requests:
@@ -253,8 +253,8 @@ redisSecretInit:
 
   # -- Tolerations to be added to the Redis secret-init Job
   # @default -- `[]` (defaults to global.tolerations)
-  tolerations:
-    - key: "autoscaler-node"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+  # tolerations:
+  #   - key: "autoscaler-node"
+  #     operator: "Equal"
+  #     value: "true"
+  #     effect: "NoSchedule"

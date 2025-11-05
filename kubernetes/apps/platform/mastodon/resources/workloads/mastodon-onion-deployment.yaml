@@ -13,6 +13,11 @@ spec:
       labels:
         app: mastodon-onion
     spec:
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       initContainers:
         - name: restore-onion
           image: containers.torproject.org/tpo/onion-services/onimages/tor:alpine

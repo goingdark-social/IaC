@@ -21,6 +21,11 @@ spec:
       securityContext:
         fsGroup: 991
         fsGroupChangePolicy: Always
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       containers:
         - name: sidekiq-scheduler
           image: ghcr.io/glitch-soc/mastodon
