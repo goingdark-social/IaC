@@ -28,12 +28,9 @@ spec:
           priorityClassName: mastodon-critical
           containers:
             - name: elasticsearch
-              env:
-                - name: ES_JAVA_OPTS
-                  value: "-Xms1g -Xmx1g"
               resources:
                 requests:
                   cpu: 200m
-                  memory: 1500Mi
+                  memory: 4Gi
                 limits:
-                  memory: 2Gi
+                  memory: 4Gi
