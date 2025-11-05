@@ -10,6 +10,21 @@ data:
     profiles:
       - name: default
         pluginConfig:
+          - name: RemovePodsViolatingInterPodAntiAffinity
+            args: {}
+          - name: RemovePodsViolatingNodeAffinity
+            args:
+              nodeAffinityType:
+                - requiredDuringSchedulingIgnoredDuringExecution
+          - name: RemovePodsViolatingNodeTaints
+            args: {}
+          - name: RemoveDuplicates
+            args: {}
+          - name: RemovePodsViolatingTopologySpreadConstraint
+            args:
+              constraints:
+                - DoNotSchedule
+                - ScheduleAnyway
           - name: LowNodeUtilization
             args:
               useDeviationThresholds: true
@@ -30,8 +45,8 @@ data:
               - RemovePodsViolatingInterPodAntiAffinity
               - RemovePodsViolatingNodeAffinity
               - RemovePodsViolatingNodeTaints
-              - RemovePodsViolatingTopologySpreadConstraint
           balance:
             enabled:
               - LowNodeUtilization
               - RemoveDuplicates
+              - RemovePodsViolatingTopologySpreadConstraint
