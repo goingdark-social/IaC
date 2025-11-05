@@ -30,7 +30,7 @@ data:
               - RemovePodsViolatingInterPodAntiAffinity
               - RemovePodsViolatingNodeAffinity
               - RemovePodsViolatingNodeTaints
-              - RemovePodsViolatingPodTopologySpread
+              - RemovePodsViolatingTopologySpreadConstraint
           balance:
             enabled:
               - LowNodeUtilization
