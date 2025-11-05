@@ -91,6 +91,10 @@ All applications are managed through ArgoCD and deploy automatically when change
 - Stateful components like PostgreSQL, Redis, and Elasticsearch, along with single-replica Sidekiq and streaming workers, are pinned to the fixed worker pool so scale-down drains stay possible.
 - The descheduler policy now treats nodes below roughly 40 % utilization as underused and balances pods away from the autoscaler nodes so Cluster Autoscaler can remove idle machines.
 
+## Worker Node Sysctls
+
+- Talos applies `vm.max_map_count=262144` to every worker through OpenTofu so Elasticsearch and other mmap-heavy services come up cleanly on fresh nodes with no manual tuning.
+
 ## Gateway API Observability
 
 - `kube-state-metrics` now ships the Kuadrant CustomResourceState bundle so VictoriaMetrics receives the `gatewayapi_*` series for GatewayClasses, Gateways, HTTPRoutes, TCPRoutes, TLSRoutes, GRPCRoutes, and UDPRoutes.

@@ -18,6 +18,15 @@ module "kubernetes" {
   worker_nodepools = [
     { name = "worker", type = "cx43", location = "hel1", count = 1 }
   ]
+  worker_config_patches = [
+    {
+      machine = {
+        sysctls = {
+          "vm.max_map_count" = "262144"
+        }
+      }
+    }
+  ]
   # Core Components (enabled by default)
   cilium_enabled                     = true
   talos_backup_s3_enabled            = true
