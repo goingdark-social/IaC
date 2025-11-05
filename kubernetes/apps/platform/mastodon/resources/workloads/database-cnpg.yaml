@@ -63,11 +63,6 @@ spec:
   affinity:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
-    tolerations:
-      - key: "autoscaler-node"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
@@ -88,7 +83,16 @@ spec:
     metadata:
       labels:
         app: database-cnpg-pooler-rw
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: Exists  # Match all nodes with OS label (all nodes have this)
       containers:
         - resources:
             requests:
@@ -102,16 +106,6 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - database-cnpg-pooler-rw
-              topologyKey: "kubernetes.io/hostname"
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
@@ -132,7 +126,16 @@ spec:
     metadata:
       labels:
         app: database-cnpg-pooler-ro
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: Exists  # Match all nodes with OS label (all nodes have this)
       containers:
         - resources:
             requests:
@@ -146,13 +149,3 @@ spec:
           operator: "Equal"
           value: "true"
           effect: "NoSchedule"
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - database-cnpg-pooler-ro
-              topologyKey: "kubernetes.io/hostname"

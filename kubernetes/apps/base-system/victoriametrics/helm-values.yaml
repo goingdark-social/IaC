@@ -102,11 +102,11 @@ vmsingle:
   enabled: true
   spec:
     retentionPeriod: "14"  # Reduce from 30d to 14d to save memory
-    tolerations:
-      - key: "autoscaler-node"
-        operator: "Equal"
-        value: "true"
-        effect: "NoSchedule"
+    # tolerations:
+    #   - key: "autoscaler-node"
+    #     operator: "Equal"
+    #     value: "true"
+    #     effect: "NoSchedule"
     resources:
       requests:
         cpu: 250m

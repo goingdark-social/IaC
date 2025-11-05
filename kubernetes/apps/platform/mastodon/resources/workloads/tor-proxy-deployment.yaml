@@ -13,9 +13,14 @@ spec:
       labels:
         app: tor-proxy
     spec:
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       containers:
         - name: proxy
-          image: ghcr.io/avpnusr/torprivoxy:18-10-2025
+          image: ghcr.io/avpnusr/torprivoxy:25-10-2025
           ports:
             - containerPort: 8118
               name: http

@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/instance: mastodon-redis
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/name: redis
-    app.kubernetes.io/version: 8.2.0
+    app.kubernetes.io/version: 8.2.1
     helm.sh/chart: redis-22.0.1
   name: mastodon-redis-master
   namespace: mastodon
@@ -32,24 +32,10 @@ spec:
         app.kubernetes.io/instance: mastodon-redis
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: redis
-        app.kubernetes.io/version: 8.2.0
+        app.kubernetes.io/version: 8.2.1
         helm.sh/chart: redis-22.0.1
     spec:
-      tolerations:
-        - key: "autoscaler-node"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
       affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
-              - key: "autoscaler-node"
-                operator: NotIn
-                values: ["true"]
-        podAffinity: null
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - podAffinityTerm:
@@ -61,6 +47,11 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       automountServiceAccountToken: false
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
       containers:
       - args:
         - -ec
@@ -78,7 +69,7 @@ spec:
           value: "no"
         - name: REDIS_PORT
           value: "6379"
-        image: docker.io/bitnami/redis:8.2.1-debian-12-r0
+        image: docker.io/bitnamilegacy/redis:8.2.1-debian-12-r0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
