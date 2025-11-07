@@ -36,14 +36,41 @@ def validate [dirs: list<string>] {
   let kube_catalog = "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master"
   let datree_catalog = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
   let local_catalog = ($"($env.HOME)/.datree/crdSchemas")
+  # Explicit CRD schema sources to eliminate "could not find schema" noise for common operators
+  let crd_catalogs = [
+    # cert-manager
+    "https://raw.githubusercontent.com/cert-manager/cert-manager/master/deploy/crds/{kind}.yaml"
+    # external-secrets
+    "https://raw.githubusercontent.com/external-secrets/external-secrets/main/config/crds/{kind}.yaml"
+    # cloudnative-pg
+    "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/config/crd/bases/{kind}.yaml"
+    # elastic operator
+    "https://raw.githubusercontent.com/elastic/cloud-on-k8s/main/config/crds/{kind}.yaml"
+    # gateway api (standard set)
+    "https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/main/config/crd/standard/{kind}.yaml"
+    # victoria metrics operator
+    "https://raw.githubusercontent.com/VictoriaMetrics/operator/master/config/crd/bases/{kind}.yaml"
+  ]
 
   for d in $dirs {
     print "\n"
     print $'(ansi blue)👀 Checking ($d)(ansi reset)'
 
+    let kubeconform_cmd = (['kubeconform'
+      '-output' 'json'
+      '-strict'
+      '-verbose'
+      # default built-in
+      '-schema-location' 'default'
+      # local cache
+      '-schema-location' $local_catalog
+      # generic catalogs
+      '-schema-location' $kube_catalog
+      '-schema-location' $datree_catalog] ++ ($crd_catalogs | each {|c| ['-schema-location' $c] } | flatten))
+
     let out = (try {
       ^kustomize build $d --enable-helm --load-restrictor LoadRestrictionsNone
-      | ^kubeconform -schema-location default -schema-location $local_catalog -schema-location $kube_catalog -schema-location $datree_catalog -output json -ignore-missing-schemas -verbose
+      | ^$kubeconform_cmd
       | from json
     } catch {|err|
       print $'(ansi red)❌ Failed to validate ($d): ($err.msg)(ansi reset)'
