@@ -13,10 +13,13 @@ module "kubernetes" {
   cluster_talosconfig_path = "talosconfig"
 
   control_plane_nodepools = [
-    { name = "control", type = "cx23", location = "hel1", count = 1 }
+    { name = "control", type = "cx33", location = "hel1", count = 1 }
   ]
   worker_nodepools = [
-    { name = "worker", type = "cx43", location = "hel1", count = 1 }
+    # Primary general-purpose worker nodepool (larger instance type)
+    { name = "worker", type = "cx43", location = "hel1", count = 1 },
+    # Secondary worker nodepool (smaller instance type) for mixed workloads / cost optimization
+    { name = "worker-secondary", type = "cx33", location = "hel1", count = 1 }
   ]
   worker_config_patches = [
     {
@@ -108,7 +111,7 @@ firewall_extra_rules = [
 cluster_autoscaler_nodepools = [
   {
     name     = "autoscaler"
-    type     = "cx33"
+    type     = "cx43"
     location = "hel1"
     min      = 0
     max      = 2

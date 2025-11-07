@@ -4,10 +4,15 @@ kind: ScheduledBackup
 metadata:
   name: database-backup
 spec:
-  schedule: "0 6 * * 1,4"  # Mondays and Thursdays at 06:00
+  # Daily full base backup at 06:00 UTC.
+  # Cron format: minute hour day-of-month month day-of-week
+  # "0 6 * * *" = 06:00 every day
+  schedule: "0 6 * * *"
   backupOwnerReference: self
   cluster:
     name: database-cnpg
   method: plugin
   pluginConfiguration:
     name: barman-cloud.cloudnative-pg.io
+    parameters:
+      barmanObjectName: database-backup
