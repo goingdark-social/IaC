@@ -140,50 +140,19 @@ cluster_autoscaler_helm_values = {
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
   ]
 
-  # talos_extra_inline_manifests = [
-  #   {
-  #     name     = "namespace-argocd"
-  #     contents = <<-EOF
-  #       apiVersion: v1
-  #       kind: Namespace
-  #       metadata:
-  #         name: argocd
-  #     EOF
-  #   },
-  #       {
-  #     name     = "namespace-eso"
-  #     contents = <<-EOF
-  #       apiVersion: v1
-  #       kind: Namespace
-  #       metadata:
-  #         name: external-secrets
-  #     EOF
-  #   },
-  #   {
-  #     name     = "bitwarden-secret"
-  #     contents = <<-EOF
-  #     apiVersion: v1
-  #     kind: Secret
-  #     metadata:
-  #       name: bitwarden-access-token
-  #       namespace: external-secrets
-  #     data:
-  #       token: ${base64encode(var.bitwarden_token)}
-  #   EOF
-  #   },
-  #   {
-  #     name     = "cloudflare-secret"
-  #     contents = <<-EOF
-  #       apiVersion: v1
-  #       kind: Secret
-  #       metadata:
-  #         name: cloudflare-api-token
-  #         namespace: cert-manager
-  #       data:
-  #         cloudflare-api-token: ${base64encode(var.cloudflare_api_token)}
-  #     EOF
-  #   }
-  # ]
+  talos_extra_inline_manifests = [
+    {
+      name     = "cilium-settings"
+      contents = join("\n---\n", [
+        file("${path.root}/../kubernetes/apps/base-system/cilium/announce.yaml"),
+        file("${path.root}/../kubernetes/apps/base-system/cilium/ip-pool.yaml"),
+        format(
+          "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cilium-helm-values\n  namespace: kube-system\n  labels:\n    app.kubernetes.io/name: cilium-helm-values\n    app.kubernetes.io/managed-by: talos-inline\n  data:\n    values.yaml: |-\n%s\n",
+          indent(6, trimspace(file("${path.root}/../kubernetes/apps/base-system/cilium/values.yaml")))
+        ),
+      ])
+    },
+  ]
 } # <-- closes module block
 
 # root-level variables
