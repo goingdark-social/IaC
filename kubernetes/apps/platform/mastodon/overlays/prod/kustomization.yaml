@@ -8,5 +8,12 @@ resources:
   - namespace.yaml
 
 patches:
+  # Platform hardening and HA (prod-specific)
+  - path: patches/priority-patches.yaml
+  - path: patches/spread-patches.yaml
+  - path: patches/autoscaler-affinity-patches.yaml
+  - path: patches/elasticsearch-password-patch.yaml
+  # Capacity and resource tuning
   - path: patches/hpa-replicas.yaml
   - path: patches/resources.yaml
+  - path: patches/database-resources.yaml

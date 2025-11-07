@@ -4,8 +4,8 @@ metadata:
   name: mastodon-db-migrate
   annotations:
     kustomize.config.k8s.io/description: |
-      Database migration job with static configuration.
-      No longer depends on configMapGenerator to avoid hash-suffix issues.
+      Database migration job using ConfigMap references.
+      ConfigMaps are hashed by kustomize for immutable configuration.
 spec:
   parallelism: 1
   completions: 1
