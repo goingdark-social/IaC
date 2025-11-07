@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mastodon-db-migrate
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Database migration job using ConfigMap references.
+      ConfigMaps are hashed by kustomize for immutable configuration.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: migrate
+          image: ghcr.io/glitch-soc/mastodon
+          command: ["/bin/bash", "-c", "RAILS_ENV=production DB_PORT=5432 bundle exec rails db:migrate --trace"]
+          env:
+            # Essential Rails environment
+            - name: RAILS_ENV
+              value: "production"
+            # Database connection - CNPG cluster
+            - name: DB_HOST
+              value: "database-cnpg-pooler-rw"
+            - name: DB_NAME
+              value: "mastodon"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: password
+            # Database connection pool (optimized for migration jobs)
+            - name: DB_POOL
+              value: "1"
+            - name: PREPARED_STATEMENTS
+              value: "false"
+            - name: DATABASE_TIMEOUT
+              value: "60"
+          envFrom:
+            # Application secrets (needed for some migrations)
+            - secretRef:
+                name: mastodon-app-secrets
+          volumeMounts:
+            - name: db-ca
+              mountPath: /etc/ssl/certs/postgresql
+              readOnly: true
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: database-cnpg-ca
+            defaultMode: 0444

@@ -1,0 +1,40 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+spec:
+  version: 8.18.1
+  http:
+    tls:
+      certificate:
+        secretName: mastodon-elastic-server
+      selfSignedCertificate:
+        disabled: true
+  nodeSets:
+    - name: default
+      count: 1
+      volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+      podTemplate:
+        spec:
+          priorityClassName: mastodon-critical
+          tolerations:
+            - key: "autoscaler-node"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"
+          containers:
+            - name: elasticsearch
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 4Gi
+                limits:
+                  memory: 4Gi
