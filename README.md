@@ -30,7 +30,7 @@ The infrastructure follows GitOps principles with ArgoCD managing application de
     - [`overlays/dev/`](kubernetes/apps/platform/mastodon/overlays/dev/) - Lightweight dev slice with trimmed resources and dev-only hostnames
   - [`cryptpad/`](kubernetes/apps/platform/cryptpad/) - Privacy-respecting collaborative editor (base plus `overlays/prod` for ArgoCD)
   - [`hypebot/`](kubernetes/apps/platform/hypebot/) - Community engagement automation (base plus `overlays/prod`)
-  - [`elastic/`](kubernetes/apps/platform/elastic/) - Elastic operator managed via Helm (`base/` + `overlays/prod`)
+  - [`elastic/`](kubernetes/apps/platform/elastic/) - Elastic operator managed via Helm (`base/` + `overlays/prod`) and deployed into the shared `elastic-system` namespace
 - [`kubernetes/apps/database/`](kubernetes/apps/database/) - Database operators and tooling
 
 ## Deploy Infrastructure

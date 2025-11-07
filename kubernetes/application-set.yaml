@@ -96,7 +96,7 @@ spec:
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{- if eq $env "prod" -}}{{ $app }}{{- else -}}{{ printf "%s-%s" $app $env }}{{- end -}}'
+        namespace: '{{- if eq $env "prod" -}}{{- if eq $app "elastic" -}}elastic-system{{- else -}}{{ $app }}{{- end -}}{{- else -}}{{ printf "%s-%s" $app $env }}{{- end -}}'
       syncPolicy:
         {{- if ne $env "prod" }}
         automated:
