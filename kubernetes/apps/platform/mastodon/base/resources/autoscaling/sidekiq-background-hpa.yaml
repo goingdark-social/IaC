@@ -8,7 +8,7 @@ spec:
     kind: Deployment
     name: mastodon-sidekiq-background
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 2
   metrics:
     - type: Resource
       resource:

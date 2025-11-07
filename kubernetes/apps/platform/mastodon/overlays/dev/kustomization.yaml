@@ -19,6 +19,6 @@ configMapGenerator:
       - EXTRA_MEDIA_HOSTS=https://cdn-dev.goingdark.social
 
 patches:
-  - path: dev-resources-patch.yaml
-  - path: dev-hosts-patch.yaml
-  - path: dev-secrets-patch.yaml
+  - path: patches/resources.yaml
+  - path: patches/http-route.yaml
+  - path: patches/secrets.yaml

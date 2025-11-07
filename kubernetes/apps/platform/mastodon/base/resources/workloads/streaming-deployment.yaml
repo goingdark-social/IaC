@@ -73,10 +73,10 @@ spec:
             periodSeconds: 15
           resources:
             requests:
-              cpu: "21m"
-              memory: "100Mi"
+              cpu: "50m"
+              memory: "128Mi"
             limits:
-              memory: "100Mi"
+              memory: "256Mi"
       volumes:
         - name: db-ca
           secret:

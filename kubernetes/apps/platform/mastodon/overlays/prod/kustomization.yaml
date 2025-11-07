@@ -6,3 +6,7 @@ namespace: mastodon
 resources:
   - ../../base
   - namespace.yaml
+
+patches:
+  - path: patches/hpa-replicas.yaml
+  - path: patches/resources.yaml

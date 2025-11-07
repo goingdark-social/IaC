@@ -100,10 +100,10 @@ spec:
             failureThreshold: 5
           resources:
             requests:
-              cpu: "683m"
-              memory: "2271Mi"
+              cpu: "100m"
+              memory: "512Mi"
             limits:
-              memory: "2750Mi"
+              memory: "1Gi"
       volumes:
         - name: db-ca
           secret:
