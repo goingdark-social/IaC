@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
   - project.yaml
-  - cryptpad
-  - hypebot
+  - cryptpad/overlays/prod
+  - hypebot/overlays/prod
   - mastodon/overlays/prod
-  - elastic
+  - elastic/overlays/prod

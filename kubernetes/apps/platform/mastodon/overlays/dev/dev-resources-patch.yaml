@@ -80,7 +80,7 @@ spec:
   template:
     spec:
       containers:
-        - name: sidekiq
+        - name: sidekiq-default
           resources:
             requests:
               cpu: "100m"
@@ -97,7 +97,7 @@ spec:
   template:
     spec:
       containers:
-        - name: sidekiq
+        - name: sidekiq-federation
           resources:
             requests:
               cpu: "100m"
@@ -114,7 +114,7 @@ spec:
   template:
     spec:
       containers:
-        - name: sidekiq
+        - name: sidekiq-background
           resources:
             requests:
               cpu: "75m"
@@ -131,7 +131,7 @@ spec:
   template:
     spec:
       containers:
-        - name: sidekiq
+        - name: sidekiq-scheduler
           resources:
             requests:
               cpu: "50m"
@@ -156,3 +156,34 @@ spec:
             limits:
               cpu: "250m"
               memory: "1Gi"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg
+spec:
+  instances: 1
+  storage:
+    size: 20Gi
+  walStorage:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-rw
+spec:
+  instances: 1
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-ro
+spec:
+  instances: 1

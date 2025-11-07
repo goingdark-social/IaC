@@ -74,11 +74,17 @@ spec:
         directories:
           - path: kubernetes/apps/platform/*/overlays/*
   template:
+    {{- $relative := replace path "kubernetes/apps/platform/" "" -}}
+    {{- $segments := splitList "/" $relative -}}
+    {{- $app := index $segments 0 -}}
+    {{- $envSegments := slice $segments 2 (len $segments) -}}
+    {{- $env := join "-" $envSegments -}}
     metadata:
-      name: '{{- $relative := replace path "kubernetes/apps/platform/" "" -}}{{- $name := replace (replace $relative "/overlays/" "-") "/" "-" -}}platform-{{$name}}'
+      name: 'platform-{{$app}}-{{$env}}'
       namespace: argocd
       labels:
-        app.kubernetes.io/component: 'platform-{{ path | replace "kubernetes/apps/platform/" "" | replace "/" "-" }}'
+        app.kubernetes.io/component: 'platform-{{$app}}'
+        app.kubernetes.io/environment: '{{$env}}'
         app.kubernetes.io/part-of: platform
       annotations:
         argocd.argoproj.io/sync-wave: '0'
@@ -90,11 +96,13 @@ spec:
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{- $relative := replace path "kubernetes/apps/platform/" "" -}}{{- $segments := splitList "/" $relative -}}{{- $app := index $segments 0 -}}{{- $env := index $segments (sub (len $segments) 1) -}}{{- if eq $env "prod" -}}{{ $app }}{{- else -}}{{ printf "%s-%s" $app $env }}{{- end -}}'
+        namespace: '{{- if eq $env "prod" -}}{{ $app }}{{- else -}}{{ printf "%s-%s" $app $env }}{{- end -}}'
       syncPolicy:
+        {{- if ne $env "prod" }}
         automated:
           prune: true
           selfHeal: true
+        {{- end }}
         retry:
           limit: 3
           backoff:

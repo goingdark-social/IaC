@@ -21,3 +21,4 @@ configMapGenerator:
 patches:
   - path: dev-resources-patch.yaml
   - path: dev-hosts-patch.yaml
+  - path: dev-secrets-patch.yaml
