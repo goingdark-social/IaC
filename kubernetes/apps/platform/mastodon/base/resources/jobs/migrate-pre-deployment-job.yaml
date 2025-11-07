@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mastodon-db-migrate-pre-deployment
+  annotations:
+    kustomize.config.k8s.io/description: |
+      Pre-deployment database migration job for Mastodon 4.5.0.
+      Runs migrations before new pods are deployed.
+      Sets SKIP_POST_DEPLOYMENT_MIGRATIONS=true to only run pre-deployment migrations.
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      tolerations:
+      - key: "autoscaler-node"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      containers:
+        - name: migrate-pre-deployment
+          image: ghcr.io/glitch-soc/mastodon
+          command: ["/bin/bash", "-c", "RAILS_ENV=production bundle exec rails db:migrate --trace"]
+          env:
+            # Essential Rails environment
+            - name: RAILS_ENV
+              value: "production"
+            # Skip post-deployment migrations
+            - name: SKIP_POST_DEPLOYMENT_MIGRATIONS
+              value: "true"
+            # Database connection - matching CNPG cluster settings
+            - name: DB_HOST
+              value: "database-cnpg-pooler-rw"
+            - name: DB_NAME
+              value: "mastodon"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: username
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-app
+                  key: password
+            # Database connection pool (optimized for migration jobs)
+            - name: DB_POOL
+              value: "1"
+            - name: PREPARED_STATEMENTS
+              value: "false"
+            - name: DATABASE_TIMEOUT
+              value: "60"
+          envFrom:
+            # Application secrets (encryption keys)
+            - secretRef:
+                name: mastodon-app-secrets
+          volumeMounts:
+            - name: db-ca
+              mountPath: /etc/ssl/certs/postgresql
+              readOnly: true
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: database-cnpg-ca
+            defaultMode: 0444

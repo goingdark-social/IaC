@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mastodon-sidekiq-background-pdb
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-background

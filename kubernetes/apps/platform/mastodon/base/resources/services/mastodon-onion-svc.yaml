@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mastodon-onion
+  labels:
+    app: mastodon-onion
+    component: tor-hidden-service
+spec:
+  type: ClusterIP
+  selector:
+    app: mastodon-onion
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: streaming
+      port: 4000
+      targetPort: 4000

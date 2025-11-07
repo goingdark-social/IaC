@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mastodon-dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+
+configMapGenerator:
+  - name: mastodon-web
+    behavior: merge
+    literals:
+      - STREAMING_API_BASE_URL=wss://mastodon-dev.goingdark.social
+  - name: mastodon-external-services
+    behavior: merge
+    literals:
+      - S3_ALIAS_HOST=cdn-dev.goingdark.social
+      - EXTRA_MEDIA_HOSTS=https://cdn-dev.goingdark.social
+
+patches:
+  - path: dev-resources-patch.yaml
+  - path: dev-hosts-patch.yaml

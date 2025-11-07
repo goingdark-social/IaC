@@ -1,0 +1,83 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-create-app-user
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: create-user
+          image: ghcr.io/cloudnative-pg/postgresql:17.6
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              
+              # Get credentials from secrets
+              export APP_PASSWORD=$(cat /secrets/app/password)
+              
+              # Wait for database to be ready
+              until psql -h database-cnpg-rw -U postgres -c "SELECT 1" > /dev/null 2>&1; do
+                echo "Waiting for database to be ready..."
+                sleep 5
+              done
+              
+              echo "Creating app user and granting permissions..."
+              
+              # Create the app user if it doesn't exist
+              psql -h database-cnpg-rw -U postgres -c "
+                DO \$\$
+                BEGIN
+                  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app') THEN
+                    CREATE USER app WITH PASSWORD '${APP_PASSWORD}';
+                  END IF;
+                END
+                \$\$;
+              "
+              
+              # Grant all privileges on mastodon database to app user
+              psql -h database-cnpg-rw -U postgres -c "
+                GRANT ALL PRIVILEGES ON DATABASE mastodon TO app;
+              "
+              
+              # Connect to mastodon database and grant schema privileges
+              psql -h database-cnpg-rw -U postgres -d mastodon -c "
+                GRANT ALL PRIVILEGES ON SCHEMA public TO app;
+                GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app;
+                GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app;
+                GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO app;
+                ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO app;
+                ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO app;
+                ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON FUNCTIONS TO app;
+              "
+              
+              echo "App user created and permissions granted successfully!"
+              
+              # Verify
+              psql -h database-cnpg-rw -U postgres -c "\du app"
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: database-cnpg-superuser
+                  key: password
+          volumeMounts:
+            - name: app-secret
+              mountPath: /secrets/app
+              readOnly: true
+      volumes:
+        - name: app-secret
+          secret:
+            secretName: database-cnpg-app
+            items:
+              - key: password
+                path: password

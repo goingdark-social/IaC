@@ -72,13 +72,13 @@ spec:
         repoURL: https://github.com/goingdark-social/IaC.git
         revision: main
         directories:
-          - path: kubernetes/apps/platform/*
+          - path: kubernetes/apps/platform/*/overlays/*
   template:
     metadata:
-      name: 'platform-{{path.basename}}'
+      name: '{{- $relative := replace path "kubernetes/apps/platform/" "" -}}{{- $name := replace (replace $relative "/overlays/" "-") "/" "-" -}}platform-{{$name}}'
       namespace: argocd
       labels:
-        app.kubernetes.io/component: 'platform-{{path.basename}}'
+        app.kubernetes.io/component: 'platform-{{ path | replace "kubernetes/apps/platform/" "" | replace "/" "-" }}'
         app.kubernetes.io/part-of: platform
       annotations:
         argocd.argoproj.io/sync-wave: '0'
@@ -90,6 +90,7 @@ spec:
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
+        namespace: '{{- $relative := replace path "kubernetes/apps/platform/" "" -}}{{- $segments := splitList "/" $relative -}}{{- $app := index $segments 0 -}}{{- $env := index $segments (sub (len $segments) 1) -}}{{- if eq $env "prod" -}}{{ $app }}{{- else -}}{{ printf "%s-%s" $app $env }}{{- end -}}'
       syncPolicy:
         automated:
           prune: true

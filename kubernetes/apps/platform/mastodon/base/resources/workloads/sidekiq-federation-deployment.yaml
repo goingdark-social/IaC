@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-federation
+  labels:
+    app: mastodon-sidekiq-federation
+    queue-type: federation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mastodon-sidekiq-federation
+  template:
+    metadata:
+      labels:
+        app: mastodon-sidekiq-federation
+        queue-type: federation
+        elasticsearch-client: "true"
+    spec:
+      securityContext:
+        fsGroup: 991
+        fsGroupChangePolicy: Always
+      tolerations:
+        - key: "autoscaler-node"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: sidekiq-federation
+          image: ghcr.io/glitch-soc/mastodon
+          args:
+            - bundle
+            - exec
+            - sidekiq
+            - -q
+            - push
+            - -q
+            - ingress
+            - -c
+            - "20"
+          envFrom:
+            - secretRef:
+                name: mastodon-app-secrets
+            - secretRef:
+                name: mastodon-db-url
+            - configMapRef:
+                name: mastodon-core
+            - configMapRef:
+                name: mastodon-database
+            - configMapRef:
+                name: mastodon-redis
+            - configMapRef:
+                name: mastodon-search
+            - configMapRef:
+                name: mastodon-features
+            - configMapRef:
+                name: mastodon-external-services
+            - configMapRef:
+                name: mastodon-sidekiq
+          env:
+            - name: DB_POOL
+              value: "20"
+          volumeMounts:
+            - name: db-ca
+              mountPath: /etc/ssl/certs/postgresql
+              readOnly: true
+            - name: es-ca
+              mountPath: /opt/mastodon/.elasticsearch/ca.crt
+              subPath: ca.crt
+              readOnly: true
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "ps aux | grep '[s]idekiq\\ 8'"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "400m"
+              memory: "1Gi"
+            limits:
+              memory: "1.5Gi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 991
+            runAsGroup: 991
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+      volumes:
+        - name: db-ca
+          secret:
+            secretName: database-cnpg-ca
+            defaultMode: 0444
+        - name: es-ca
+          secret:
+            secretName: mastodon-elastic-ca
+            defaultMode: 0444

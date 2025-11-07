@@ -25,6 +25,9 @@ The infrastructure follows GitOps principles with ArgoCD managing application de
 - [`kubernetes/apps/base-system/`](kubernetes/apps/base-system/) - Core cluster services (networking, monitoring, certificates)
 - [`kubernetes/apps/platform/`](kubernetes/apps/platform/) - Community applications
   - [`mastodon/`](kubernetes/apps/platform/mastodon/) - Our Mastodon instance (glitch-soc)
+    - [`base/`](kubernetes/apps/platform/mastodon/base/) - Shared manifests and generators used by every environment
+    - [`overlays/prod/`](kubernetes/apps/platform/mastodon/overlays/prod/) - Production overlay, identical to the previous single-environment layout
+    - [`overlays/dev/`](kubernetes/apps/platform/mastodon/overlays/dev/) - Lightweight dev slice with trimmed resources and dev-only hostnames
   - [`cryptpad/`](kubernetes/apps/platform/cryptpad/) - Privacy-respecting collaborative editor
   - [`hypebot/`](kubernetes/apps/platform/hypebot/) - Community engagement automation
 - [`kubernetes/apps/database/`](kubernetes/apps/database/) - Database operators and tooling
@@ -75,6 +78,10 @@ Once deployed, the cluster hosts:
 - **Redis** - Caching layer for improved performance
 
 All applications are managed through ArgoCD and deploy automatically when changes are pushed to the `kubernetes/` directory.
+
+## Mastodon environments
+
+The Mastodon app now follows a standard Kustomize structure: a reusable [`base/`](kubernetes/apps/platform/mastodon/base/) and dedicated overlays for each namespace. ArgoCD only syncs the overlays, so the production overlay stays unchanged while the new [`overlays/dev/`](kubernetes/apps/platform/mastodon/overlays/dev/) overlay runs a smaller copy with reduced autoscaling limits and separate hostnames inside the same cluster.
 
 ## Mastodon Web Metrics and Autoscaling
 
