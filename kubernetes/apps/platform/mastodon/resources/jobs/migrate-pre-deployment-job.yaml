@@ -5,7 +5,7 @@ metadata:
   namespace: mastodon
   annotations:
     kustomize.config.k8s.io/description: |
-      Pre-deployment database migration job for Mastodon 4.5.0-rc.2.
+      Pre-deployment database migration job for Mastodon 4.5.0.
       Runs migrations before new pods are deployed.
       Sets SKIP_POST_DEPLOYMENT_MIGRATIONS=true to only run pre-deployment migrations.
 spec:
