@@ -1,4 +1,6 @@
 # goingdark.social Infrastructure
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fgoingdark-social%2FIaC.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fgoingdark-social%2FIaC?ref=badge_shield)
+
 
 > [!NOTE]  
 > The code included in this repository is not meant to be run as-is. It's a collection of infrastructure code and Kubernetes manifests used to deploy the goingdark.social Kubernetes cluster. You will need to adapt the code to your own needs and environment.
@@ -116,3 +118,7 @@ All applications are managed through ArgoCD and deploy automatically when change
 **Orchestration**: Kubernetes, ArgoCD, Cilium
 **Monitoring**: VictoriaMetrics, VictoriaLogs, Grafana
 **Security**: External Secrets, cert-manager, Gateway API
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fgoingdark-social%2FIaC.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fgoingdark-social%2FIaC?ref=badge_large)
