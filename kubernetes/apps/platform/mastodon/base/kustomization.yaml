@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+images:
+  - name: ghcr.io/glitch-soc/mastodon
+    newTag: v4.5.0
+  - name: ghcr.io/glitch-soc/mastodon-streaming
+    newTag: v4.5.0
+
+resources:
+  - resources

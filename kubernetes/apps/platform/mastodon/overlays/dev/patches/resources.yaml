@@ -1,0 +1,189 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-web-hpa
+spec:
+  minReplicas: 1
+  maxReplicas: 1
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-streaming-hpa
+spec:
+  minReplicas: 1
+  maxReplicas: 1
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-sidekiq-default-hpa
+spec:
+  minReplicas: 1
+  maxReplicas: 1
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-sidekiq-federation-hpa
+spec:
+  minReplicas: 1
+  maxReplicas: 1
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mastodon-sidekiq-background-hpa
+spec:
+  minReplicas: 1
+  maxReplicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-web
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "768Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-streaming
+spec:
+  template:
+    spec:
+      containers:
+        - name: streaming
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-default
+spec:
+  template:
+    spec:
+      containers:
+        - name: sidekiq-default
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "250m"
+              memory: "768Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-federation
+spec:
+  template:
+    spec:
+      containers:
+        - name: sidekiq-federation
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "250m"
+              memory: "768Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-background
+spec:
+  template:
+    spec:
+      containers:
+        - name: sidekiq-background
+          resources:
+            requests:
+              cpu: "75m"
+              memory: "384Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-scheduler
+spec:
+  template:
+    spec:
+      containers:
+        - name: sidekiq-scheduler
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+            limits:
+              cpu: "150m"
+              memory: "384Mi"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mastodon-redis-master
+spec:
+  template:
+    spec:
+      containers:
+        - name: redis
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "250m"
+              memory: "1Gi"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg
+spec:
+  instances: 1
+  storage:
+    size: 20Gi
+  walStorage:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      memory: "1Gi"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-rw
+spec:
+  instances: 1
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: database-cnpg-pooler-ro
+spec:
+  instances: 1

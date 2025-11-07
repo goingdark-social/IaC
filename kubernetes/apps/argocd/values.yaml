@@ -12,6 +12,9 @@ configs:
       issuer: https://idp.goingdark.social
       clientID: argocd
       clientSecret: $argocd-oidc-client:clientSecret
+      # Separate public client for ArgoCD CLI SSO flow (localhost redirect). Must be registered in IdP.
+      # If your IdP reuses same client for CLI, set cliClientID equal to clientID.
+      cliClientID: argocd-cli
       requestedScopes:
         - openid
         - profile

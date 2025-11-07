@@ -1,0 +1,64 @@
+# Priority class patches for all Mastodon components
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mastodon-redis-master
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-critical
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-default
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-federation
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-background
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-sidekiq-scheduler
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-streaming
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-web
+spec:
+  template:
+    spec:
+      priorityClassName: mastodon-high

@@ -25,8 +25,12 @@ The infrastructure follows GitOps principles with ArgoCD managing application de
 - [`kubernetes/apps/base-system/`](kubernetes/apps/base-system/) - Core cluster services (networking, monitoring, certificates)
 - [`kubernetes/apps/platform/`](kubernetes/apps/platform/) - Community applications
   - [`mastodon/`](kubernetes/apps/platform/mastodon/) - Our Mastodon instance (glitch-soc)
-  - [`cryptpad/`](kubernetes/apps/platform/cryptpad/) - Privacy-respecting collaborative editor
-  - [`hypebot/`](kubernetes/apps/platform/hypebot/) - Community engagement automation
+    - [`base/`](kubernetes/apps/platform/mastodon/base/) - Shared manifests and generators used by every environment
+    - [`overlays/prod/`](kubernetes/apps/platform/mastodon/overlays/prod/) - Production overlay, identical to the previous single-environment layout
+    - [`overlays/dev/`](kubernetes/apps/platform/mastodon/overlays/dev/) - Lightweight dev slice with trimmed resources and dev-only hostnames
+  - [`cryptpad/`](kubernetes/apps/platform/cryptpad/) - Privacy-respecting collaborative editor (base plus `overlays/prod` for ArgoCD)
+  - [`hypebot/`](kubernetes/apps/platform/hypebot/) - Community engagement automation (base plus `overlays/prod`)
+  - [`elastic/`](kubernetes/apps/platform/elastic/) - Elastic operator managed via Helm (`base/` + `overlays/prod`) and deployed into the shared `elastic-system` namespace
 - [`kubernetes/apps/database/`](kubernetes/apps/database/) - Database operators and tooling
 
 ## Deploy Infrastructure
@@ -75,6 +79,11 @@ Once deployed, the cluster hosts:
 - **Redis** - Caching layer for improved performance
 
 All applications are managed through ArgoCD and deploy automatically when changes are pushed to the `kubernetes/` directory.
+
+## Mastodon environments
+
+The Mastodon app now follows a standard Kustomize structure: a reusable [`base/`](kubernetes/apps/platform/mastodon/base/) and dedicated overlays for each namespace. ArgoCD only syncs the overlays, so the production overlay stays unchanged while the new [`overlays/dev/`](kubernetes/apps/platform/mastodon/overlays/dev/) overlay runs a smaller copy with reduced autoscaling limits and separate hostnames inside the same cluster.
+Dev secrets are isolated from production: every ExternalSecret in the dev overlay reads `*-dev` keys from Bitwarden and the CNPG SecretStore points at the `mastodon-dev` namespace, so you need to provision those credentials before enabling sync. The platform ApplicationSet now only auto-syncs non-prod overlays—`platform-mastodon-prod` stays manual while other environments land in `<app>-<env>` namespaces.
 
 ## Mastodon Web Metrics and Autoscaling
 
