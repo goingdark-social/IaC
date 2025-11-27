@@ -167,7 +167,7 @@ variable "firewall_api_source" {
   description = "List of source IPs for the firewall"
 }
 
-variable "cloudflare_api_token" {
+variable "cloudflare-api-token" {
   type        = string
   sensitive   = true
   description = "Cloudflare API token"
