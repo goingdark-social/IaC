@@ -29,13 +29,13 @@ data:
             args:
               useDeviationThresholds: true
               thresholds:
-                cpu: 40
-                memory: 40
-                pods: 40
+                cpu: 20
+                memory: 20
+                pods: 20
               targetThresholds:
-                cpu: 75
-                memory: 75
-                pods: 75
+                cpu: 85
+                memory: 85
+                pods: 85
               evictableNamespaces:
                 exclude:
                   - kube-system

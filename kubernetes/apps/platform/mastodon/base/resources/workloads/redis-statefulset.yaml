@@ -46,11 +46,6 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       automountServiceAccountToken: false
-      tolerations:
-        - key: "autoscaler-node"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
       containers:
       - args:
         - -ec
