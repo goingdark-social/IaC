@@ -122,11 +122,12 @@ cluster_autoscaler_nodepools = [
 
 cluster_autoscaler_helm_values = {
   extraArgs = {
-    scale-down-delay-after-add    = "10m"   # Wait longer after scaling up
-    scale-down-delay-after-delete = "10m"   # Quick retry on failed scale-down
-    scale-down-unneeded-time      = "8m"    # Conservative for media/federation bursts
-    balance-similar-node-groups = "true"
-    expander = "least-waste"
+    scale-down-delay-after-add       = "10m"   # Wait longer after scaling up
+    scale-down-delay-after-delete    = "10m"   # Quick retry on failed scale-down
+    scale-down-unneeded-time         = "8m"    # Conservative for media/federation bursts
+    scale-down-utilization-threshold = "0.75"  # Allow scale-down at 75% utilization (default 50%)
+    balance-similar-node-groups      = "true"
+    expander                         = "least-waste"
   }
 }
 
