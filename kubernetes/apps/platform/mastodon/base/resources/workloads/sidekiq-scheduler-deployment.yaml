@@ -56,6 +56,13 @@ spec:
             - configMapRef:
                 name: mastodon-sidekiq
           env:
+            # Explicit SSL configuration for PostgreSQL
+            - name: DB_SSLMODE
+              value: "verify-ca"
+            - name: PGSSLROOTCERT
+              value: "/etc/ssl/certs/postgresql/ca.crt"
+            - name: DB_PORT
+              value: "5432"
             - name: DB_POOL
               value: "5"
           volumeMounts:

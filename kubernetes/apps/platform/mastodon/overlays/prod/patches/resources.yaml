@@ -137,7 +137,6 @@ metadata:
   name: database-cnpg-pooler-rw
 spec:
   instances: 2
----
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
 metadata:
