@@ -54,9 +54,12 @@ spec:
   # Enable WAL archiving for the recovered cluster with DIFFERENT serverName and path
   # CRITICAL: Different serverName prevents "WAL archive check failed" errors
   # CloudNativePG will write backups to mastodon-database-recovered path, NOT mastodon-database
-  barmanObjectStore:
-    barmanObjectName: database-backup-recovered
-    serverName: database-cnpg-recovered
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: database-backup-recovered
+        serverName: database-cnpg-recovered
 
   storage:
     size: 20Gi
@@ -88,7 +91,6 @@ spec:
       max_parallel_maintenance_workers: "2"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
-      shared_preload_libraries: "pg_stat_statements"
 
   resources:
     requests:
