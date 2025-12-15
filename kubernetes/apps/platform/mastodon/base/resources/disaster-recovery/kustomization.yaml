@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ============================================================================
+# DISASTER RECOVERY MANIFESTS
+# ============================================================================
+#
+# These resources are NOT included in the main kustomization by default.
+# Apply these manifests MANUALLY during disaster recovery scenarios.
+#
+# Usage:
+#
+#   1. Hot Standby (Replica Cluster):
+#      kubectl apply -f replica-cluster.yaml -n goingdark-social
+#
+#   2. Point-in-Time Recovery:
+#      # Edit recovery-cluster.yaml first to set recoveryTarget time
+#      kubectl apply -f recovery-cluster.yaml -n goingdark-social
+#
+#   3. Promote Replica to Primary:
+#      kubectl patch cluster database-cnpg-replica -n goingdark-social \
+#        --type merge --patch-file promotion-patch.yaml
+#
+# See disaster-recovery.md for complete documentation.
+#
+# ============================================================================
+
+# Empty resources list - manifests are applied manually
+resources: []

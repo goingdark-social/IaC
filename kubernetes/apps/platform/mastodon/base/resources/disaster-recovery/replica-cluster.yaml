@@ -1,0 +1,100 @@
+---
+# Replica Cluster for Disaster Recovery
+#
+# This creates a standby cluster that continuously replicates from the primary
+# cluster's WAL archive in object storage. Use this for:
+# - Hot standby with near real-time replication
+# - Cross-region disaster recovery
+# - Read-only workloads offloading
+#
+# IMPORTANT: This cluster runs in replica mode and cannot accept writes until
+# promoted. To promote, remove the replica section from the spec.
+#
+# For full documentation, see:
+# https://cloudnative-pg.io/documentation/current/replica_cluster/
+#
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg-replica
+  labels:
+    cnpg.io/cluster-role: replica
+spec:
+  # Run as replica cluster - receives WAL from object store
+  replica:
+    enabled: true
+    source: primary-cluster
+
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  enablePDB: true
+  priorityClassName: mastodon-critical
+
+  # Bootstrap from the primary's object store
+  bootstrap:
+    recovery:
+      source: primary-cluster
+
+  # Define the primary cluster's object store as external cluster
+  externalClusters:
+    - name: primary-cluster
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: database-backup
+          # The serverName must match the original cluster's name in the backup
+          serverName: database-cnpg
+
+  # This replica does NOT archive WAL itself - it only receives
+  # To enable archiving for this replica (for cascading replicas), uncomment:
+  # plugins:
+  #   - name: barman-cloud.cloudnative-pg.io
+  #     isWALArchiver: true
+  #     parameters:
+  #       barmanObjectName: database-backup-dr
+  plugins: []
+
+  storage:
+    size: 20Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+  walStorage:
+    size: 10Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+
+  monitoring:
+    enablePodMonitor: false
+
+  postgresql:
+    parameters:
+      ssl_min_protocol_version: "TLSv1.3"
+      ssl_max_protocol_version: "TLSv1.3"
+      max_connections: "300"
+      shared_buffers: "512MB"
+      effective_cache_size: "512MB"
+      maintenance_work_mem: "128MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "100"
+      work_mem: "1702kB"
+      huge_pages: "off"
+      min_wal_size: "2GB"
+      max_wal_size: "8GB"
+      max_worker_processes: "4"
+      max_parallel_workers_per_gather: "2"
+      max_parallel_workers: "4"
+      max_parallel_maintenance_workers: "2"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname

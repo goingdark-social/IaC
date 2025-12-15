@@ -1,0 +1,22 @@
+---
+# Promotion Patch for Replica Cluster
+#
+# Apply this patch to promote a replica cluster to primary.
+# This is used during disaster recovery failover.
+#
+# Usage:
+#   kubectl patch cluster database-cnpg-replica -n goingdark-social --type merge --patch-file promotion-patch.yaml
+#
+# After promotion:
+# 1. The replica becomes a standalone primary
+# 2. Update application connection strings to point to the new cluster
+# 3. Optionally, set up new replicas from this cluster
+#
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg-replica
+spec:
+  # Remove replica mode to promote to primary
+  replica:
+    enabled: false

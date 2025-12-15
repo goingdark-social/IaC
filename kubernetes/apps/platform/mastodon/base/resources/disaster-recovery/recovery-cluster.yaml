@@ -1,0 +1,157 @@
+---
+# Recovery Cluster for Point-in-Time Recovery (PITR)
+#
+# This creates a NEW cluster by restoring from a backup. Use this for:
+# - Disaster recovery when the primary is unrecoverable
+# - Point-in-time recovery to a specific timestamp
+# - Testing recovery procedures
+# - Creating a clone of production data
+#
+# IMPORTANT:
+# 1. This creates a NEW standalone cluster (not a replica)
+# 2. The original primary cluster should be deleted or renamed first
+# 3. After recovery, update application connection strings if needed
+#
+# For full documentation, see:
+# https://cloudnative-pg.io/documentation/current/recovery/
+#
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg-recovered
+  labels:
+    cnpg.io/recovery-type: pitr
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  enablePDB: true
+  priorityClassName: mastodon-critical
+
+  # Managed roles - will be recreated during recovery
+  managed:
+    roles:
+      - name: app
+        ensure: present
+        login: true
+        passwordSecret:
+          name: database-cnpg-app
+        inRoles:
+          - pg_read_all_data
+          - pg_write_all_data
+
+  # Bootstrap from backup with optional PITR target
+  bootstrap:
+    recovery:
+      source: backup-source
+      # Uncomment and modify for point-in-time recovery:
+      # recoveryTarget:
+      #   # Recover to a specific timestamp (use UTC)
+      #   targetTime: "2024-12-15T12:00:00Z"
+      #   # OR recover to a specific transaction ID
+      #   # targetXID: "1234567"
+      #   # OR recover to a named restore point
+      #   # targetName: "before-migration"
+      #   # exclusive: false  # Include the target transaction (default)
+      #   # Set to 'immediate' to stop as soon as consistent state is reached
+      #   # targetImmediate: true
+
+  # Reference to the backup source
+  externalClusters:
+    - name: backup-source
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: database-backup
+          # serverName must match the original cluster name in backups
+          serverName: database-cnpg
+
+  # Enable WAL archiving for the recovered cluster
+  # Uses a NEW server name to avoid conflicts with old backups
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: database-backup-recovered
+
+  storage:
+    size: 20Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+  walStorage:
+    size: 10Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+
+  monitoring:
+    enablePodMonitor: false
+
+  postgresql:
+    parameters:
+      ssl_min_protocol_version: "TLSv1.3"
+      ssl_max_protocol_version: "TLSv1.3"
+      max_connections: "300"
+      shared_buffers: "512MB"
+      effective_cache_size: "512MB"
+      maintenance_work_mem: "128MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "100"
+      work_mem: "1702kB"
+      huge_pages: "off"
+      min_wal_size: "2GB"
+      max_wal_size: "8GB"
+      max_worker_processes: "4"
+      max_parallel_workers_per_gather: "2"
+      max_parallel_workers: "4"
+      max_parallel_maintenance_workers: "2"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+---
+# ObjectStore for the recovered cluster's new backups
+# This prevents conflicts with the original cluster's backup path
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup-recovered
+spec:
+  configuration:
+    destinationPath: 's3://mastovault/cnpg/mastodon-database-recovered'
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 2
+  retentionPolicy: "14d"
+
+  instanceSidecarConfiguration:
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      - name: AWS_ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+      - name: AWS_REGION
+        value: "auto"
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"
