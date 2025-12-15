@@ -8,12 +8,8 @@ This document describes disaster recovery (DR) procedures for the Mastodon Postg
 - [Backup Infrastructure](#backup-infrastructure)
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
 - [Recovery Procedures](#recovery-procedures)
-  - [Scenario 1: Hot Standby (Replica Cluster)](#scenario-1-hot-standby-replica-cluster)
-  - [Scenario 2: Point-in-Time Recovery](#scenario-2-point-in-time-recovery)
-  - [Scenario 3: Latest Backup Recovery](#scenario-3-latest-backup-recovery)
+  - [Latest Backup Recovery](#latest-backup-recovery)
 - [Verification Procedures](#verification-procedures)
-- [Failback Procedures](#failback-procedures)
-- [Testing DR Procedures](#testing-dr-procedures)
 - [Troubleshooting](#troubleshooting)
 
 ## Architecture Overview
@@ -30,12 +26,6 @@ This document describes disaster recovery (DR) procedures for the Mastodon Postg
 │  │  - PostgreSQL 17  │   (Daily @ 06:00) │    ├── base/           │ │
 │  └───────────────────┘                   │    └── wals/           │ │
 │                                          └────────────────────────┘ │
-│                                                      │               │
-│  ┌───────────────────┐                              │               │
-│  │ database-cnpg-    │◀─────── WAL Streaming ───────┘               │
-│  │ replica (Optional)│                                              │
-│  │  (DR Standby)     │                                              │
-│  └───────────────────┘                                              │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,235 +44,141 @@ This document describes disaster recovery (DR) procedures for the Mastodon Postg
 | **Retention Policy** | 14 days |
 | **Backup Method** | barman-cloud plugin |
 
+### Server Identity
+
+`serverName` is the logical identity of the cluster in Barman. Recovery **must** reference the original `serverName`. Recovered clusters must use a different destination path unless the original cluster is permanently gone.
+
+> **WARNING**: Reusing a destinationPath with a different serverName will block recovery.
+
 ### Backup Verification
 
 ```bash
-# List available backups
-kubectl exec -it database-cnpg-1 -n goingdark-social -c postgres -- \
+# List available backups - must return at least one base backup
+kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- \
   barman-cloud-backup-list \
   --cloud-provider aws-s3 \
   --endpoint-url https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com \
   s3://mastovault/cnpg/mastodon-database \
   database-cnpg
 
-# Check WAL archive status
-kubectl exec -it database-cnpg-1 -n goingdark-social -c postgres -- \
-  barman-cloud-wal-archive --help
+# Verify WAL files exist in the archive path
+# (Check that the path contains .ready files and WAL segments)
 ```
 
-### Recovery Point Objective (RPO)
-
-- **Theoretical RPO**: ~5 minutes (PostgreSQL `archive_timeout` default)
-- **Practical RPO**: Near real-time with continuous WAL archiving
-- **Base Backup RPO**: 24 hours maximum (daily backups)
-
-### Recovery Time Objective (RTO)
-
-| Scenario | Estimated RTO |
-|----------|---------------|
-| Replica promotion | 1-5 minutes |
-| PITR (small DB) | 10-30 minutes |
-| Full restore (20GB) | 30-60 minutes |
+Backups are not considered valid until a test recovery has completed successfully.
 
 ## Disaster Recovery Scenarios
 
-### When to Use Each Recovery Method
+### When to Use Recovery
 
-| Scenario | Method | RTO | Data Loss |
-|----------|--------|-----|-----------|
-| Primary pod crash | Automatic failover | Seconds | None |
-| Node failure | Automatic pod rescheduling | Minutes | None |
-| Data corruption | PITR | 30+ min | Up to target time |
-| Accidental deletion | PITR | 30+ min | Up to target time |
-| Complete cluster loss | Full recovery | 30+ min | Since last WAL |
-| Region failure | Replica promotion | 1-5 min | Minimal |
+| Scenario | Method | Data Loss |
+|----------|--------|-----------|
+| Complete cluster loss | Full recovery | Since last WAL |
 
 ## Recovery Procedures
 
-### Scenario 1: Hot Standby (Replica Cluster)
+### Prerequisites: Create ObjectStore Resource
 
-Use this for **continuous disaster recovery** with minimal data loss.
-
-#### Step 1: Deploy Replica Cluster
-
-```bash
-# Apply the replica cluster manifest
-kubectl apply -f disaster-recovery/replica-cluster.yaml -n goingdark-social
-
-# Monitor replica status
-kubectl get cluster database-cnpg-replica -n goingdark-social -w
-
-# Check replication lag
-kubectl exec -it database-cnpg-replica-1 -n goingdark-social -c postgres -- \
-  psql -c "SELECT now() - pg_last_xact_replay_timestamp() AS replication_lag;"
-```
-
-#### Step 2: Monitor Replica Health
-
-```bash
-# Check cluster status
-kubectl describe cluster database-cnpg-replica -n goingdark-social
-
-# Verify WAL receiver is running
-kubectl exec -it database-cnpg-replica-1 -n goingdark-social -c postgres -- \
-  psql -c "SELECT status, receive_start_lsn, latest_end_lsn FROM pg_stat_wal_receiver;"
-```
-
-#### Step 3: Promote Replica (Failover)
-
-**⚠️ WARNING: This is irreversible. Only promote during actual disaster.**
-
-```bash
-# Option 1: Apply the promotion patch
-kubectl patch cluster database-cnpg-replica -n goingdark-social \
-  --type merge \
-  --patch '{"spec":{"replica":{"enabled":false}}}'
-
-# Option 2: Use the patch file
-kubectl patch cluster database-cnpg-replica -n goingdark-social \
-  --type merge \
-  --patch-file disaster-recovery/promotion-patch.yaml
-
-# Verify promotion
-kubectl get cluster database-cnpg-replica -n goingdark-social
-```
-
-#### Step 4: Update Application Connections
-
-After promotion, update connection strings to point to the new primary:
-
-```bash
-# Get the new service endpoint
-kubectl get svc -n goingdark-social | grep database-cnpg-replica
-
-# Update application ConfigMaps or secrets to use:
-# - database-cnpg-replica-rw (read-write)
-# - database-cnpg-replica-ro (read-only)
-```
-
-### Scenario 2: Point-in-Time Recovery
-
-Use this to **recover to a specific point in time** (e.g., before data corruption).
-
-#### Step 1: Identify Target Recovery Time
-
-```bash
-# Check available backups to determine recovery window
-kubectl exec -it database-cnpg-1 -n goingdark-social -c postgres -- \
-  barman-cloud-backup-list \
-  --cloud-provider aws-s3 \
-  --endpoint-url https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com \
-  s3://mastovault/cnpg/mastodon-database \
-  database-cnpg
-
-# Note the backup times - you can recover to any point AFTER the oldest backup
-# but BEFORE the current time
-```
-
-#### Step 2: Prepare Recovery Manifest
-
-Edit `disaster-recovery/recovery-cluster.yaml` and set the target time:
+Before recovery, ensure the `ObjectStore` resource exists to define the backup source:
 
 ```yaml
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup
+  namespace: mastodon
 spec:
-  bootstrap:
-    recovery:
-      source: backup-source
-      recoveryTarget:
-        # Set to the desired recovery point (UTC)
-        targetTime: "2024-12-15T12:00:00Z"
+  configuration:
+    destinationPath: s3://mastovault/cnpg/mastodon-database
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    endpointURL: https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com
+    wal:
+      maxParallel: 8
 ```
 
-#### Step 3: Scale Down Applications
+Apply this manifest:
 
 ```bash
-# Scale down all Mastodon components to prevent database connections
-kubectl scale deployment -n goingdark-social \
-  mastodon-web mastodon-streaming \
-  mastodon-sidekiq-default mastodon-sidekiq-federation \
-  mastodon-sidekiq-background mastodon-sidekiq-scheduler \
-  --replicas=0
-
-# Scale down connection pooler
-kubectl scale deployment -n goingdark-social database-cnpg-pooler-rw --replicas=0
+kubectl apply -f objectstore.yaml -n mastodon
 ```
 
-#### Step 4: Apply Recovery Cluster
-
-```bash
-# Apply the recovery cluster manifest
-kubectl apply -f disaster-recovery/recovery-cluster.yaml -n goingdark-social
-
-# Monitor recovery progress
-kubectl get cluster database-cnpg-recovered -n goingdark-social -w
-
-# Check pod logs for recovery progress
-kubectl logs -f database-cnpg-recovered-1 -n goingdark-social -c postgres
-```
-
-#### Step 5: Verify Recovery
-
-```bash
-# Connect to recovered database and verify data
-kubectl exec -it database-cnpg-recovered-1 -n goingdark-social -c postgres -- \
-  psql -d mastodon_production -c "SELECT COUNT(*) FROM accounts;"
-
-# Check the recovery target was reached
-kubectl exec -it database-cnpg-recovered-1 -n goingdark-social -c postgres -- \
-  psql -c "SELECT pg_last_xact_replay_timestamp();"
-```
-
-#### Step 6: Switch to Recovered Cluster
-
-```bash
-# Delete or rename the old cluster
-kubectl delete cluster database-cnpg -n goingdark-social
-
-# Rename the recovered cluster (optional - or update app configs)
-kubectl patch cluster database-cnpg-recovered -n goingdark-social \
-  --type json \
-  --patch '[{"op": "replace", "path": "/metadata/name", "value": "database-cnpg"}]'
-
-# Update application connection strings and scale back up
-kubectl scale deployment -n goingdark-social \
-  mastodon-web mastodon-streaming \
-  mastodon-sidekiq-default mastodon-sidekiq-federation \
-  mastodon-sidekiq-background mastodon-sidekiq-scheduler \
-  --replicas=1
-```
-
-### Scenario 3: Latest Backup Recovery
+### Latest Backup Recovery
 
 Use this when you need to **restore to the most recent state** after complete data loss.
 
 #### Step 1: Scale Down Applications
 
 ```bash
-kubectl scale deployment -n goingdark-social \
+kubectl scale deployment -n mastodon \
   mastodon-web mastodon-streaming \
   mastodon-sidekiq-default mastodon-sidekiq-federation \
   mastodon-sidekiq-background mastodon-sidekiq-scheduler \
   --replicas=0
 ```
 
-#### Step 2: Apply Recovery Without Target Time
+#### Step 2: Prepare Recovery Manifest
 
-Edit `disaster-recovery/recovery-cluster.yaml` and remove/comment the `recoveryTarget`:
+Create `recovery-cluster.yaml` with the following content:
 
 ```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg-recovered
+  namespace: mastodon
 spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+
+  superuserSecret:
+    name: database-cnpg-superuser
+
+  storage:
+    size: 50Gi
+    storageClass: hcloud-volumes
+
   bootstrap:
     recovery:
       source: backup-source
       # No recoveryTarget = recover to latest available WAL
+
+  externalClusters:
+    - name: backup-source
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: database-backup
+          serverName: database-cnpg  # Must match original cluster name
+
+  postgresql:
+    parameters:
+      shared_preload_libraries: "pg_stat_statements"
+    pg_hba:
+      - host all all 0.0.0.0/0 md5
 ```
 
-#### Step 3: Apply and Monitor
+#### Step 3: Apply Recovery Cluster
 
 ```bash
-kubectl apply -f disaster-recovery/recovery-cluster.yaml -n goingdark-social
-kubectl get cluster database-cnpg-recovered -n goingdark-social -w
+kubectl apply -f recovery-cluster.yaml -n mastodon
+kubectl get cluster database-cnpg-recovered -n mastodon -w
 ```
+
+#### Step 4: Monitor Recovery
+
+```bash
+kubectl logs -f database-cnpg-recovered-1 -n mastodon -c postgres
+```
+
+#### Step 5: Switch to Recovered Cluster
+
+Once recovery completes, update application configurations to use the new cluster and scale up applications.
 
 ## Verification Procedures
 
@@ -290,7 +186,7 @@ kubectl get cluster database-cnpg-recovered -n goingdark-social -w
 
 ```bash
 # 1. Verify backup accessibility
-kubectl exec -it database-cnpg-1 -n goingdark-social -c postgres -- \
+kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- \
   barman-cloud-backup-list \
   --cloud-provider aws-s3 \
   --endpoint-url https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com \
@@ -298,131 +194,51 @@ kubectl exec -it database-cnpg-1 -n goingdark-social -c postgres -- \
   database-cnpg
 
 # 2. Check current cluster status
-kubectl get cluster -n goingdark-social
+kubectl get cluster -n mastodon
 
 # 3. Verify secrets exist
-kubectl get secret mastodon-walg-s3 -n goingdark-social
-kubectl get secret database-cnpg-app -n goingdark-social
+kubectl get secret mastodon-walg-s3 -n mastodon
+kubectl get secret database-cnpg-app -n mastodon
+kubectl get secret database-cnpg-superuser -n mastodon
 ```
 
 ### Post-Recovery Validation
 
 ```bash
 # 1. Check cluster is healthy
-kubectl describe cluster <cluster-name> -n goingdark-social
+kubectl describe cluster database-cnpg-recovered -n mastodon
 
 # 2. Verify database connectivity
-kubectl exec -it <cluster-name>-1 -n goingdark-social -c postgres -- \
+kubectl exec -it database-cnpg-recovered-1 -n mastodon -c postgres -- \
   psql -c "SELECT version();"
 
 # 3. Check data integrity
-kubectl exec -it <cluster-name>-1 -n goingdark-social -c postgres -- \
+kubectl exec -it database-cnpg-recovered-1 -n mastodon -c postgres -- \
   psql -d mastodon_production -c "
-    SELECT 
+    SELECT
       (SELECT COUNT(*) FROM accounts) as accounts,
       (SELECT COUNT(*) FROM statuses) as statuses,
       (SELECT COUNT(*) FROM users) as users;
   "
 
-# 4. Verify application connectivity
+# 4. Verify recovery completion
+kubectl exec -it database-cnpg-recovered-1 -n mastodon -c postgres -- \
+  psql -c "SELECT pg_is_in_recovery();"  # Must return false
+
+# 5. Check operator logs show WAL replay completion
+kubectl logs -n cnpg-system -l app.kubernetes.io/name=cloudnative-pg --tail=50
+
+# 6. Verify superuser and app roles exist
+kubectl exec -it database-cnpg-recovered-1 -n mastodon -c postgres -- \
+  psql -c "SELECT rolname FROM pg_roles WHERE rolname IN ('postgres', 'app');"
+
+# 7. Verify application connectivity
 kubectl run psql-test --rm -it --image=postgres:17 -- \
-  psql "postgresql://app:password@<cluster-name>-rw.goingdark-social:5432/mastodon_production" \
+  psql "postgresql://app:password@database-cnpg-recovered-rw.mastodon:5432/mastodon_production" \
   -c "SELECT 1;"
 ```
 
-## Failback Procedures
-
-After disaster recovery, you may want to return to the original configuration.
-
-### Option 1: Keep Recovered Cluster
-
-1. Update the backup destination path in `database-backup-recovered` ObjectStore
-2. Set up new scheduled backups pointing to the recovered cluster
-3. Update monitoring and alerting
-
-### Option 2: Migrate Back to Original Cluster Name
-
-```bash
-# 1. Take a backup of the recovered cluster
-kubectl apply -f - <<EOF
-apiVersion: postgresql.cnpg.io/v1
-kind: Backup
-metadata:
-  name: pre-failback-backup
-  namespace: goingdark-social
-spec:
-  cluster:
-    name: database-cnpg-recovered
-  method: plugin
-  pluginConfiguration:
-    name: barman-cloud.cloudnative-pg.io
-    parameters:
-      barmanObjectName: database-backup-recovered
-EOF
-
-# 2. Wait for backup to complete
-kubectl get backup pre-failback-backup -n goingdark-social -w
-
-# 3. Create new primary cluster from backup
-# (Use original cluster name and backup source)
-```
-
-## Testing DR Procedures
-
-### Monthly DR Test Checklist
-
-1. **Verify Backups Exist**
-   ```bash
-   kubectl exec -it database-cnpg-1 -n goingdark-social -c postgres -- \
-     barman-cloud-backup-list ...
-   ```
-
-2. **Test Recovery to Dev Environment**
-   - Apply recovery-cluster.yaml to a dev namespace
-   - Verify data integrity
-   - Delete test cluster
-
-3. **Test Replica Cluster (Non-Prod)**
-   - Deploy replica cluster in test namespace
-   - Verify replication lag
-   - Test promotion procedure
-   - Clean up
-
-4. **Document Results**
-   - Record RTO achieved
-   - Note any issues
-   - Update procedures if needed
-
-### Automated DR Testing (Recommended)
-
-Consider setting up automated DR testing:
-
-```yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: dr-test-monthly
-  namespace: goingdark-social
-spec:
-  schedule: "0 2 1 * *"  # First day of each month at 2 AM
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          containers:
-            - name: dr-test
-              image: bitnami/kubectl:latest
-              command:
-                - /bin/bash
-                - -c
-                - |
-                  # Test backup list accessibility
-                  # Create test recovery cluster
-                  # Verify data
-                  # Clean up
-                  # Send notification
-          restartPolicy: OnFailure
-```
+If recovery does not exit recovery mode, do not reconnect applications.
 
 ## Troubleshooting
 
@@ -432,51 +248,45 @@ spec:
 
 ```bash
 # Check credentials
-kubectl get secret mastodon-walg-s3 -n goingdark-social -o yaml
+kubectl get secret mastodon-walg-s3 -n mastodon -o yaml
 
 # Verify endpoint URL
-kubectl describe objectstore database-backup -n goingdark-social
-```
-
-#### Replica Cluster Not Catching Up
-
-```bash
-# Check replica logs
-kubectl logs database-cnpg-replica-1 -n goingdark-social -c postgres | tail -100
-
-# Verify WAL archive is accessible
-kubectl exec -it database-cnpg-replica-1 -n goingdark-social -c postgres -- \
-  barman-cloud-wal-restore --help
+kubectl describe objectstore database-backup -n mastodon
 ```
 
 #### Recovery Stuck in "Setting up primary"
 
 ```bash
 # Check for WAL archive errors
-kubectl logs database-cnpg-recovered-1-join -n goingdark-social
+kubectl logs database-cnpg-recovered-1-join -n mastodon
 
 # Verify the serverName matches the original cluster
-kubectl describe cluster database-cnpg-recovered -n goingdark-social
+kubectl describe cluster database-cnpg-recovered -n mastodon
 ```
 
 #### "WAL archive check failed" Error
 
-This happens when the destination path already contains data from another cluster:
+This happens when the destination path already contains data from another cluster. CloudNativePG includes a safety check to prevent overwriting existing backups.
 
-```bash
-# Use a new serverName or destinationPath for recovered clusters
-# Edit recovery-cluster.yaml to use unique paths
+If you must recover to a path with existing data (not recommended), add this annotation to the cluster:
+
+```yaml
+metadata:
+  annotations:
+    cnpg.io/skipEmptyWalArchiveCheck: "enabled"
 ```
+
+**WARNING**: This bypasses safety checks and can lead to data loss. Only use in expert scenarios.
 
 ### Getting Help
 
 1. Check CloudNativePG documentation: https://cloudnative-pg.io/documentation/
 2. Review operator logs: `kubectl logs -n cnpg-system -l app.kubernetes.io/name=cloudnative-pg`
-3. Check PostgreSQL logs: `kubectl logs <cluster>-1 -n goingdark-social -c postgres`
+3. Check PostgreSQL logs: `kubectl logs <cluster>-1 -n mastodon -c postgres`
 
 ## References
 
 - [CloudNativePG Backup and Recovery](https://cloudnative-pg.io/documentation/current/backup_recovery/)
-- [CloudNativePG Replica Clusters](https://cloudnative-pg.io/documentation/current/replica_cluster/)
 - [Barman Cloud Plugin](https://cloudnative-pg.io/plugin-barman-cloud/docs/)
-- [PostgreSQL PITR Documentation](https://www.postgresql.org/docs/current/continuous-archiving.html)
+- [PostgreSQL Recovery Documentation](https://www.postgresql.org/docs/current/continuous-archiving.html)
+
