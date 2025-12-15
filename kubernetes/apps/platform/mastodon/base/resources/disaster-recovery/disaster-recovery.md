@@ -3,15 +3,21 @@
 This document describes disaster recovery (DR) procedures for the Mastodon PostgreSQL database managed by CloudNativePG.  
 **Validated on: December 15, 2025** – Successful full recovery executed using point-in-time recovery (PITR) after complete data loss.
 
+
 ## Table of Contents
 - [Architecture Overview](#architecture-overview)
 - [Backup Infrastructure](#backup-infrastructure)
 - [Disaster Recovery Scenarios](#disaster-recovery-scenarios)
+- [Procedure Selection](#procedure-selection)
 - [Recovery Procedures](#recovery-procedures)
 - [Validated Production Recovery Procedure (Recommended)](#validated-production-recovery-procedure-recommended)
 - [Legacy Procedure: Separate Recovery Cluster](#legacy-procedure-separate-recovery-cluster)
 - [Verification Procedures](#verification-procedures)
 - [Troubleshooting](#troubleshooting)
+
+## Procedure Selection
+- **Validated Production Recovery (Recommended)**: Use for actual disasters. Restores directly to the original cluster name → no application config changes required.
+- **Legacy Procedure**: Use only for non-production testing or dry runs. Requires a separate cluster name and eventual config updates.
 
 ## Architecture Overview
 ```
@@ -63,8 +69,10 @@ kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- \
 
 ## Recovery Procedures
 
+
 ### Validated Production Recovery Procedure (Recommended)
 **Goal**: Restore directly into the **original cluster name** (`database-cnpg`) with zero application config changes.
+
 
 #### Step 1: Scale Down Applications
 ```bash
@@ -74,6 +82,7 @@ kubectl scale deployment -n mastodon \
   mastodon-sidekiq-background mastodon-sidekiq-scheduler \
   mastodon-onion --replicas=0
 ```
+
 
 #### Step 2: Full Cleanup of Database Resources
 ```bash
@@ -87,8 +96,15 @@ kubectl delete pvc database-cnpg-1 database-cnpg-1-wal -n mastodon --force --gra
 
 Verify cleanup:
 ```bash
-kubectl get cluster,pooler,pvc -n mastodon | grep database-cnpg || echo "Clean"
+kubectl get cluster,pooler,pvc -n mastodon | grep database-cnpg || echo "All database resources deleted"
 ```
+
+#### Prerequisites: ObjectStore Resources
+Ensure these two ObjectStore resources exist in the namespace (typically already present in production setups):
+
+- `database-backup`: Points to `s3://mastovault/cnpg/mastodon-database` (read-only for recovery, uses original `serverName: database-cnpg`)
+- `database-backup-recovered`: Points to a new path (e.g. `s3://mastovault/cnpg/mastodon-database-recovered`) with a different `serverName` for post-recovery backups
+
 
 #### Step 3: Modify Production Cluster Manifest for Recovery
 Edit `database-cnpg.yaml` (production manifest):
@@ -105,8 +121,8 @@ spec:
     recovery:
       source: backup-source
       recoveryTarget:
-        targetTime: "2025-12-15 14:00:00+00"  # Adjust as needed
-        targetTLI: "4"                        # Critical for timeline mismatch
+        targetTime: "2025-12-15 14:00:00+00" # Choose latest possible time before disaster
+        targetTLI: "4" # Find via: barman-cloud-backup-show ... | grep "Timeline"
 
   externalClusters:
     - name: backup-source
@@ -128,6 +144,12 @@ spec:
 > - Separate `serverName` and path for post-recovery backups.
 > - Only `recovery` bootstrap (no `initdb`).
 
+To find the correct targetTLI for a given backup:
+```bash
+kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- \
+  barman-cloud-backup-show s3://mastovault/cnpg/mastodon-database database-cnpg <backup_id> | grep "Timeline"
+```
+
 #### Step 4: Apply and Monitor Recovery
 ```bash
 kubectl apply -f /path/to/database-cnpg.yaml
@@ -139,6 +161,7 @@ kubectl logs -f -n mastodon -l cnpg.io/cluster=database-cnpg -c full-recovery
 
 Temporary pod name `database-cnpg-X-full-recovery-XXXX` is **normal**.
 
+
 #### Step 5: Verify Recovery
 ```bash
 kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- psql -c "SELECT pg_is_in_recovery();"  # Should be f
@@ -146,8 +169,12 @@ kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- psql -c "SELECT pg_i
 # Test via pooler with app user
 kubectl get secret database-cnpg-app -n mastodon -o jsonpath='{.data.password}' | base64 -d > /tmp/pw
 kubectl run test --rm -i --image=postgres:17 -n mastodon -- bash -c \
-  "PGPASSWORD=\$(cat) psql -h database-cnpg-pooler-rw -U app -d mastodon -c 'SELECT COUNT(*) FROM accounts;'"
+  "PGPASSWORD=\$(cat) psql -h database-cnpg-pooler-rw -U app -d mastodon_production -c 'SELECT COUNT(*) FROM accounts;'"
 rm /tmp/pw
+
+# Final confirmation - cluster should show ready and not in recovery
+kubectl get cluster database-cnpg -n mastodon
+# Expected: STATUS=Cluster in healthy state, INSTANCES=2/2
 ```
 
 #### Step 6: Scale Up Applications
@@ -161,12 +188,14 @@ kubectl scale deployment -n mastodon mastodon-sidekiq-scheduler --replicas=1
 kubectl scale deployment -n mastodon mastodon-onion --replicas=1
 ```
 
-#### Step 7: Post-Recovery Cleanup
-Once stable:
-- Remove `bootstrap`, `externalClusters`, and PITR sections.
-- Revert plugins `serverName` to `database-cnpg` and path to original.
-- Increase `walStorage` to 20Gi.
-- Apply updated manifest.
+
+#### Step 7: Return to Normal Configuration (After 24h stability)
+1. Remove the entire `bootstrap` section.
+2. Remove the `externalClusters` section.
+3. Remove `recoveryTarget` if present.
+4. In `plugins`, change `serverName` back to `database-cnpg` and update `barmanObjectName` to `database-backup` (original path).
+5. Increase `walStorage.size` back to `20Gi`.
+6. Apply the updated manifest.
 
 ### Legacy Procedure: Separate Recovery Cluster
 **Use only for testing** – requires application config changes.
