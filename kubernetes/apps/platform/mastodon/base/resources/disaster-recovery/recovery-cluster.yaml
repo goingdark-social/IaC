@@ -1,33 +1,31 @@
 ---
-# Recovery Cluster for Point-in-Time Recovery (PITR)
+# Recovery Cluster for Disaster Recovery
 #
 # This creates a NEW cluster by restoring from a backup. Use this for:
-# - Disaster recovery when the primary is unrecoverable
-# - Point-in-time recovery to a specific timestamp
-# - Testing recovery procedures
-# - Creating a clone of production data
+# - Disaster recovery when the primary cluster is unrecoverable
+# - Full data loss recovery to the latest available state
 #
-# IMPORTANT:
-# 1. This creates a NEW standalone cluster (not a replica)
-# 2. The original primary cluster should be deleted or renamed first
-# 3. After recovery, update application connection strings if needed
+# CRITICAL DESIGN:
+# - Uses DIFFERENT cluster name (database-cnpg-recovered) to avoid conflicts
+# - Reads from original backup path (mastodon-database)
+# - Writes new backups to DIFFERENT path (mastodon-database-recovered) with DIFFERENT serverName
+# - This prevents safety check failures and backup overwrites
+# - Once validated, manually rename to database-cnpg if primary is permanently lost
 #
-# For full documentation, see:
-# https://cloudnative-pg.io/documentation/current/recovery/
+# Based on: https://cloudnative-pg.io/plugin-barman-cloud/docs/usage/#restoring-a-cluster
 #
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: database-cnpg-recovered
-  labels:
-    cnpg.io/recovery-type: pitr
+  namespace: mastodon
 spec:
   instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   enablePDB: true
   priorityClassName: mastodon-critical
 
-  # Managed roles - will be recreated during recovery
+  # Managed roles - will be recreated from the backup
   managed:
     roles:
       - name: app
@@ -39,39 +37,26 @@ spec:
           - pg_read_all_data
           - pg_write_all_data
 
-  # Bootstrap from backup with optional PITR target
+  # Bootstrap from backup
   bootstrap:
     recovery:
       source: backup-source
-      # Uncomment and modify for point-in-time recovery:
-      # recoveryTarget:
-      #   # Recover to a specific timestamp (use UTC)
-      #   targetTime: "2024-12-15T12:00:00Z"
-      #   # OR recover to a specific transaction ID
-      #   # targetXID: "1234567"
-      #   # OR recover to a named restore point
-      #   # targetName: "before-migration"
-      #   # exclusive: false  # Include the target transaction (default)
-      #   # Set to 'immediate' to stop as soon as consistent state is reached
-      #   # targetImmediate: true
 
-  # Reference to the backup source
+  # Reference to the backup source using Barman Cloud Plugin
   externalClusters:
     - name: backup-source
       plugin:
         name: barman-cloud.cloudnative-pg.io
         parameters:
           barmanObjectName: database-backup
-          # serverName must match the original cluster name in backups
-          serverName: database-cnpg
+          serverName: database-cnpg  # Must match original cluster name in S3 backups
 
-  # Enable WAL archiving for the recovered cluster
-  # Uses a NEW server name to avoid conflicts with old backups
-  plugins:
-    - name: barman-cloud.cloudnative-pg.io
-      isWALArchiver: true
-      parameters:
-        barmanObjectName: database-backup-recovered
+  # Enable WAL archiving for the recovered cluster with DIFFERENT serverName and path
+  # CRITICAL: Different serverName prevents "WAL archive check failed" errors
+  # CloudNativePG will write backups to mastodon-database-recovered path, NOT mastodon-database
+  barmanObjectStore:
+    barmanObjectName: database-backup-recovered
+    serverName: database-cnpg-recovered
 
   storage:
     size: 20Gi
@@ -79,9 +64,6 @@ spec:
   walStorage:
     size: 10Gi
     storageClass: hcloud-volumes-encrypted-xfs
-
-  monitoring:
-    enablePodMonitor: false
 
   postgresql:
     parameters:
@@ -106,6 +88,7 @@ spec:
       max_parallel_maintenance_workers: "2"
       pg_stat_statements.max: "10000"
       pg_stat_statements.track: "all"
+      shared_preload_libraries: "pg_stat_statements"
 
   resources:
     requests:
@@ -118,12 +101,53 @@ spec:
     enablePodAntiAffinity: true
     topologyKey: kubernetes.io/hostname
 ---
-# ObjectStore for the recovered cluster's new backups
-# This prevents conflicts with the original cluster's backup path
+# ObjectStore - ONLY for reading backups from the original cluster
+# This does NOT write new backups, just recovers from existing ones
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup
+  namespace: mastodon
+spec:
+  configuration:
+    destinationPath: 's3://mastovault/cnpg/mastodon-database'
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 2
+  retentionPolicy: "14d"
+
+  instanceSidecarConfiguration:
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      - name: AWS_ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+      - name: AWS_REGION
+        value: "auto"
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"
+---
+# ObjectStore for recovered cluster's FUTURE backups
+# CRITICAL: DIFFERENT path and serverName prevents "WAL archive check failed" errors
+# Do NOT reuse the same path as the original cluster
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
   name: database-backup-recovered
+  namespace: mastodon
 spec:
   configuration:
     destinationPath: 's3://mastovault/cnpg/mastodon-database-recovered'
@@ -155,3 +179,4 @@ spec:
         value: "auto"
       - name: NO_PROXY
         value: "localhost,127.0.0.1,*.svc,cluster.local"
+
