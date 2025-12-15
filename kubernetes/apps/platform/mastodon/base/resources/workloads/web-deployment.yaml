@@ -66,6 +66,14 @@ spec:
             # Web server specific settings
             - configMapRef:
                 name: mastodon-web
+          env:
+            # Explicit SSL configuration for PostgreSQL
+            - name: DB_SSLMODE
+              value: "verify-ca"
+            - name: PGSSLROOTCERT
+              value: "/etc/ssl/certs/postgresql/ca.crt"
+            - name: DB_PORT
+              value: "5432"
           volumeMounts:
             - name: db-ca
               mountPath: /etc/ssl/certs/postgresql

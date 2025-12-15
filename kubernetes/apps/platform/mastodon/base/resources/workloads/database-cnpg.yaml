@@ -8,16 +8,6 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   enablePDB: true
   priorityClassName: mastodon-critical
-  certificates:
-    serverAltDNSNames:
-      - database-cnpg-pooler-rw
-      - database-cnpg-pooler-rw.mastodon
-      - database-cnpg-pooler-rw.mastodon.svc
-      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
-      - database-cnpg-pooler-ro
-      - database-cnpg-pooler-ro.mastodon
-      - database-cnpg-pooler-ro.mastodon.svc
-      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
   managed:
     roles:
       - name: app
@@ -41,9 +31,11 @@ spec:
         barmanObjectName: database-backup
 
   monitoring:
-    enablePodMonitor: true
+    enablePodMonitor: false
   postgresql:
     parameters:
+      ssl_min_protocol_version: "TLSv1.3"
+      ssl_max_protocol_version: "TLSv1.3"
       max_connections: "300"
       shared_buffers: "512MB"
       effective_cache_size: "512MB"

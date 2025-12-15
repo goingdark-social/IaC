@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: database-cnpg-podmonitor
+  labels:
+    app: database-cnpg
+spec:
+  namespaceSelector:
+    matchNames:
+      - mastodon
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: database-cnpg
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      honorLabels: true
+      metricRelabelings: []
