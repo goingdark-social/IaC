@@ -1,0 +1,191 @@
+---
+# Recovery Cluster for Disaster Recovery
+#
+# This creates a NEW cluster by restoring from a backup. Use this for:
+# - Disaster recovery when the primary cluster is unrecoverable
+# - Full data loss recovery to the latest available state
+#
+# CRITICAL DESIGN:
+# - Uses DIFFERENT cluster name (database-cnpg-recovered) to avoid conflicts
+# - Reads from original backup path (mastodon-database)
+# - Writes new backups to DIFFERENT path (mastodon-database-recovered) with DIFFERENT serverName
+# - This prevents safety check failures and backup overwrites
+# - Once validated, manually rename to database-cnpg if primary is permanently lost
+#
+# Based on: https://cloudnative-pg.io/plugin-barman-cloud/docs/usage/#restoring-a-cluster
+#
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: database-cnpg-recovered
+  namespace: mastodon
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  enablePDB: true
+  priorityClassName: mastodon-critical
+
+  # Managed roles - will be recreated from the backup
+  managed:
+    roles:
+      - name: app
+        ensure: present
+        login: true
+        passwordSecret:
+          name: database-cnpg-app
+        inRoles:
+          - pg_read_all_data
+          - pg_write_all_data
+
+  # Bootstrap from backup
+  bootstrap:
+    recovery:
+      source: backup-source
+      # Point-in-time recovery settings
+      # Use ISO 8601 timestamp in UTC. Example: 2025-12-15T14:00:00Z
+      recoveryTarget:
+        targetTime: "2025-12-15 14:00:00+00"
+        # Optional: pin to a specific timeline to avoid mismatches (e.g., 4)
+        # If omitted, CNPG/PostgreSQL defaults to the latest timeline available
+        targetTLI: "4"
+
+  # Reference to the backup source using Barman Cloud Plugin
+  externalClusters:
+    - name: backup-source
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: database-backup
+          serverName: database-cnpg  # Must match original cluster name in S3 backups
+
+  # Enable WAL archiving for the recovered cluster with DIFFERENT serverName and path
+  # CRITICAL: Different serverName prevents "WAL archive check failed" errors
+  # CloudNativePG will write backups to mastodon-database-recovered path, NOT mastodon-database
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: database-backup-recovered
+        serverName: database-cnpg-recovered
+
+  storage:
+    size: 20Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+  walStorage:
+    size: 10Gi
+    storageClass: hcloud-volumes-encrypted-xfs
+
+  postgresql:
+    parameters:
+      ssl_min_protocol_version: "TLSv1.3"
+      ssl_max_protocol_version: "TLSv1.3"
+      max_connections: "300"
+      shared_buffers: "512MB"
+      effective_cache_size: "512MB"
+      maintenance_work_mem: "128MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "100"
+      work_mem: "1702kB"
+      huge_pages: "off"
+      min_wal_size: "2GB"
+      max_wal_size: "8GB"
+      max_worker_processes: "4"
+      max_parallel_workers_per_gather: "2"
+      max_parallel_workers: "4"
+      max_parallel_maintenance_workers: "2"
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "all"
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+---
+# ObjectStore - ONLY for reading backups from the original cluster
+# This does NOT write new backups, just recovers from existing ones
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup
+  namespace: mastodon
+spec:
+  configuration:
+    destinationPath: 's3://mastovault/cnpg/mastodon-database'
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 2
+  retentionPolicy: "14d"
+
+  instanceSidecarConfiguration:
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      - name: AWS_ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+      - name: AWS_REGION
+        value: "auto"
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"
+---
+# ObjectStore for recovered cluster's FUTURE backups
+# CRITICAL: DIFFERENT path and serverName prevents "WAL archive check failed" errors
+# Do NOT reuse the same path as the original cluster
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: database-backup-recovered
+  namespace: mastodon
+spec:
+  configuration:
+    destinationPath: 's3://mastovault/cnpg/mastodon-database-recovered'
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 2
+  retentionPolicy: "14d"
+
+  instanceSidecarConfiguration:
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      - name: AWS_ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+      - name: AWS_REGION
+        value: "auto"
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"
+

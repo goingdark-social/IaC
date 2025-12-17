@@ -8,16 +8,6 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   enablePDB: true
   priorityClassName: mastodon-critical
-  certificates:
-    serverAltDNSNames:
-      - database-cnpg-pooler-rw
-      - database-cnpg-pooler-rw.mastodon
-      - database-cnpg-pooler-rw.mastodon.svc
-      - database-cnpg-pooler-rw.mastodon.svc.cluster.local
-      - database-cnpg-pooler-ro
-      - database-cnpg-pooler-ro.mastodon
-      - database-cnpg-pooler-ro.mastodon.svc
-      - database-cnpg-pooler-ro.mastodon.svc.cluster.local
   managed:
     roles:
       - name: app
@@ -28,8 +18,32 @@ spec:
         inRoles:
           - pg_read_all_data
           - pg_write_all_data
+  #--------------------------------------------#
+  # RECOVERY ONLY
+  #--------------------------------------------#
+  # Bootstrap from backup with point-in-time recovery
+  # ONLY used during disaster recovery - remove after cluster is restored
+  # bootstrap:
+  #   recovery:
+  #     source: backup-source
+  #     recoveryTarget:
+  #       targetTime: "2025-12-15 14:00:00+00"
+  #       targetTLI: "4"
+  
+  # # Reference to backup source for recovery
+  # # ONLY used during disaster recovery - remove after cluster is restored
+  # externalClusters:
+  #   - name: backup-source
+  #     plugin:
+  #       name: barman-cloud.cloudnative-pg.io
+  #       parameters:
+  #         barmanObjectName: database-backup
+  #         serverName: database-cnpg
+  #--------------------------------------------#
+  # RECOVERY ONLY
+  #--------------------------------------------#
   storage:
-    size: 20Gi
+    size: 30Gi
     storageClass: hcloud-volumes-encrypted-xfs
   walStorage:
     size: 10Gi
@@ -39,11 +53,15 @@ spec:
       isWALArchiver: true
       parameters:
         barmanObjectName: database-backup
+    # REVOVERY ONLY
+    #    serverName: database-cnpg-2  # Write to separate path during recovery
 
   monitoring:
-    enablePodMonitor: true
+    enablePodMonitor: false
   postgresql:
     parameters:
+      ssl_min_protocol_version: "TLSv1.3"
+      ssl_max_protocol_version: "TLSv1.3"
       max_connections: "300"
       shared_buffers: "512MB"
       effective_cache_size: "512MB"
