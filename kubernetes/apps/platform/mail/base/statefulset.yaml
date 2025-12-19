@@ -29,6 +29,9 @@ spec:
         - name: stalwart
           image: stalwartlabs/stalwart
           imagePullPolicy: IfNotPresent
+          env:
+            - name: HOSTNAME
+              value: "mail.peekoff.com"
           ports:
             - containerPort: 25
               name: smtp
@@ -65,8 +68,8 @@ spec:
               cpu: "500m"
               memory: 1Gi
             limits:
-              cpu: "1000m"
-              memory: 2Gi
+              cpu: "2000m"
+              memory: 4Gi
           startupProbe:
             httpGet:
               path: /
