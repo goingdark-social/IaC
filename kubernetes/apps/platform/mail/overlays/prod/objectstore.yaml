@@ -1,0 +1,40 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: stalwart-backup-store
+spec:
+  configuration:
+    # Use the real R2 endpoint
+    destinationPath: 's3://mailvault/stalwart/stalwart-postgresql'
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
+    s3Credentials:
+      accessKeyId:
+        name: mastodon-walg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: mastodon-walg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 2
+  retentionPolicy: "14d"
+  # Add this to make Barman Cloud work reliably with R2
+  instanceSidecarConfiguration:
+    env:
+      # Required for Barman with R2 (prevents checksum mismatches)
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      # CNPG/Barman expect the endpoint in env
+      - name: AWS_ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+      # Region is arbitrary for R2 but must be set (use 'auto' or 'us-east-1')
+      - name: AWS_REGION
+        value: "auto"
+      # Prevent sidecar from proxying localhost or internal domains
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"

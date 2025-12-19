@@ -36,17 +36,6 @@ spec:
     - protocol: HTTPS
       port: 443
       name: https-mail-gateway
-      hostname: peekoff.com
-      tls:
-        certificateRefs:
-          - kind: Secret
-            name: cert-mail
-      allowedRoutes:
-        namespaces:
-          from: All
-    - protocol: HTTPS
-      port: 443
-      name: https-domain-mail-gateway
       hostname: "*.peekoff.com"
       tls:
         certificateRefs:

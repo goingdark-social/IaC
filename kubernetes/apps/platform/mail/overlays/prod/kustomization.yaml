@@ -3,15 +3,15 @@ kind: Kustomization
 
 namespace: stalwart
 
+images:
+  - name: stalwartlabs/stalwart
+    newTag: v0.15.1
+
 resources:
   - ../../base
-  - namespace.yaml
-  - configs/example.yaml
-
-configMapGenerator:
-  - name: stalwart-core
-    envs:
-      - configs/example.env
+  - configmap.yaml
+  - objectstore.yaml
 
 patches:
-  - path: patches/priority-patches.yaml
+  - path: patches/hostnames.yaml
+  - path: patches/storageclass.yaml

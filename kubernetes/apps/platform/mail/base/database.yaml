@@ -1,26 +1,7 @@
----
-apiVersion: barmancloud.cnpg.io/v1
-kind: ObjectStore
-metadata:
-  name: stalwart-minio-store
-  namespace: stalwart
-spec:
-  configuration:
-    destinationPath: s3://homelab-postgres-backups/stalwart/stalwart-postgresql
-    endpointURL: https://truenas.pc-tips.se:9000
-    s3Credentials:
-      accessKeyId:
-        name: longhorn-minio-credentials
-        key: AWS_ACCESS_KEY_ID
-      secretAccessKey:
-        name: longhorn-minio-credentials
-        key: AWS_SECRET_ACCESS_KEY
----
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: stalwart-postgresql
-  namespace: stalwart
   labels:
     recurring-job.longhorn.io/source: enabled
     recurring-job-group.longhorn.io/gfs: enabled
@@ -30,11 +11,9 @@ spec:
 
   storage:
     size: 10Gi
-    storageClass: proxmox-csi
 
   walStorage:
     size: 1Gi
-    storageClass: proxmox-csi
 
   resources:
     requests:

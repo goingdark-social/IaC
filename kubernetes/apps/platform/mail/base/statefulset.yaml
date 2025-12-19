@@ -2,12 +2,10 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: stalwart
-  namespace: stalwart
   labels:
     app.kubernetes.io/name: stalwart
     app.kubernetes.io/part-of: stalwart
     app.kubernetes.io/component: mail-server
-    app.kubernetes.io/version: "0.15.1"
 spec:
   serviceName: stalwart
   replicas: 1
@@ -18,7 +16,6 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: stalwart
-        app.kubernetes.io/version: "0.15.1"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -27,13 +24,11 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      priorityClassName: mail-critical
       containers:
         - name: stalwart
           image: stalwartlabs/stalwart
           imagePullPolicy: IfNotPresent
-          env:
-            - name: HOSTNAME
-              value: "mail.peekoff.com"
           ports:
             - containerPort: 25
               name: smtp

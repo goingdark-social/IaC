@@ -3,6 +3,13 @@ kind: Kustomization
 
 images:
   - name: stalwartlabs/stalwart
-    newTag: v0.15.1
 resources:
-  - resources
+  - database.yaml
+  - external-secret.yaml
+  - http-route.yaml
+  - http-route-admin.yaml
+  - priorityclasses.yaml
+  - pvc.yaml
+  - service.yaml
+  - service-mail.yaml
+  - statefulset.yaml
