@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: stalwart
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - configs/example.yaml
+
+configMapGenerator:
+  - name: stalwart-core
+    envs:
+      - configs/example.env
+
+patches:
+  - path: patches/priority-patches.yaml
