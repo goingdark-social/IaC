@@ -6,6 +6,8 @@ resources:
   - httproute-ui.yaml
   - httproute-admin.yaml
   - pvc.yaml
+  - priorityclasses.yaml
+  - resources/
   - service.yaml
   - service-mail.yaml
   - statefulset.yaml

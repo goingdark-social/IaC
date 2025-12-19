@@ -3,21 +3,18 @@ kind: Cluster
 metadata:
   name: stalwart-postgresql
 spec:
-  instances: 1
+  instances: 2
   imageName: ghcr.io/cloudnative-pg/postgresql:18
   storage:
     size: 50Gi
   walStorage:
     size: 10Gi
   postgresql:
-    parameters:
-      shared_preload_libraries: "passwordcheck"
+    parameters: {}
   bootstrap:
     initdb:
       database: stalwart
       owner: stalwart
-      secret:
-        name: stalwart-postgresql-app
   enableSuperuserAccess: false
   monitoring:
     enablePodMonitor: true

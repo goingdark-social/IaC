@@ -4,4 +4,3 @@ kind: Kustomization
 resources:
   - cluster.yaml
   - objectstore.yaml
-  - external-secret-s3.yaml
