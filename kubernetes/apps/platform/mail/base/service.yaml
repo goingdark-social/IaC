@@ -12,12 +12,4 @@ spec:
       protocol: TCP
       port: 8080
       targetPort: 8080
-    - name: https
-      protocol: TCP
-      port: 443
-      targetPort: 443
-    - name: managesieve
-      protocol: TCP
-      port: 4190
-      targetPort: 4190
   type: ClusterIP

@@ -1,0 +1,9 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: stalwart-postgresql
+spec:
+  storage:
+    storageClass: hcloud-volumes-encrypted-xfs
+  walStorage:
+    storageClass: hcloud-volumes-encrypted-xfs

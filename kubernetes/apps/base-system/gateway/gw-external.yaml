@@ -35,12 +35,12 @@ spec:
           from: All
     - protocol: HTTPS
       port: 443
-      name: https-mail-gateway
+      name: https-peekoff-wildcard
       hostname: "*.peekoff.com"
       tls:
         certificateRefs:
           - kind: Secret
-            name: cert-mail
+            name: cert-peekoff-wildcard
       allowedRoutes:
         namespaces:
           from: All

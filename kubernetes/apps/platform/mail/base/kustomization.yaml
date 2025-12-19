@@ -1,14 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-images:
-  - name: stalwartlabs/stalwart
 resources:
-  - database.yaml
   - external-secret.yaml
-  - http-route.yaml
-  - http-route-admin.yaml
-  - priorityclasses.yaml
+  - httproute-ui.yaml
+  - httproute-admin.yaml
   - pvc.yaml
   - service.yaml
   - service-mail.yaml

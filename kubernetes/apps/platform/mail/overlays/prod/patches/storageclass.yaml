@@ -3,23 +3,4 @@ kind: PersistentVolumeClaim
 metadata:
   name: stalwart-data
 spec:
-  storageClassName: proxmox-csi
----
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: stalwart-postgresql
-spec:
-  storage:
-    storageClass: proxmox-csi
-  walStorage:
-    storageClass: proxmox-csi
----
-apiVersion: barmancloud.cnpg.io/v1
-kind: ObjectStore
-metadata:
-  name: stalwart-minio-store
-spec:
-  configuration:
-    destinationPath: s3://homelab-postgres-backups/stalwart/stalwart-postgresql
-    endpointURL: https://truenas.pc-tips.se:9000
+  storageClassName: hcloud-volumes-encrypted-xfs

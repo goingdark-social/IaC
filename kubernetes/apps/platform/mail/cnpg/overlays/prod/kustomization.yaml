@@ -3,14 +3,8 @@ kind: Kustomization
 
 namespace: stalwart
 
-images:
-  - name: stalwartlabs/stalwart
-    newTag: v0.15.1
-
 resources:
   - ../../base
-  - configmap.yaml
 
 patches:
-  - path: patches/hostnames.yaml
   - path: patches/storageclass.yaml

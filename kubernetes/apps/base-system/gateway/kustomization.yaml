@@ -5,4 +5,4 @@ resources:
   - namespace.yaml
   - cert-goingdark.yaml
   - gw-external.yaml
-  - cert-mail.yaml
+  - cert-peekoff-wildcard.yaml
