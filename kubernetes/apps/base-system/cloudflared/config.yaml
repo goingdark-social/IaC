@@ -19,4 +19,7 @@ ingress:
   - hostname: goingdark.social
     service: https://cilium-gateway-external.gateway.svc.cluster.local:443
     originServerName: goingdark.social  
+  - hostname: "*.peekoff.com"
+    service: https://cilium-gateway-external.gateway.svc.cluster.local:443
+    originServerName: peekoff.com
   - service: http_status:404
