@@ -4,6 +4,9 @@ metadata:
   name: stalwart-mail
   labels:
     app.kubernetes.io/name: stalwart
+  annotations:
+    load-balancer.hetzner.cloud/name: "stalwart-mail-lb"
+    load-balancer.hetzner.cloud/location: "hel1"
 spec:
   selector:
     app.kubernetes.io/name: stalwart
