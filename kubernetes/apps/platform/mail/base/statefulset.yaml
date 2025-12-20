@@ -29,6 +29,8 @@ spec:
         - name: stalwart
           image: stalwartlabs/stalwart
           imagePullPolicy: IfNotPresent
+          command: ["/usr/local/bin/stalwart"]
+          args: ["--config", "/opt/stalwart/etc/config.toml"]
           env:
             - name: HOSTNAME
               value: "mail.peekoff.com"
@@ -72,7 +74,7 @@ spec:
               memory: 4Gi
           startupProbe:
             httpGet:
-              path: /
+              path: /healthz/ready
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 5
@@ -80,7 +82,7 @@ spec:
             failureThreshold: 60
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz/ready
               port: 8080
             initialDelaySeconds: 0
             periodSeconds: 10
@@ -88,7 +90,7 @@ spec:
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz/live
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 30
@@ -104,8 +106,8 @@ spec:
             - name: data
               mountPath: /opt/stalwart
             - name: config
-              mountPath: /opt/stalwart/etc/config-override.toml
-              subPath: config-override.toml
+              mountPath: /opt/stalwart/etc/config.toml
+              subPath: config.toml
             - name: secrets
               mountPath: /opt/stalwart/secrets
               readOnly: true

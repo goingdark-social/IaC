@@ -3,11 +3,15 @@ kind: ConfigMap
 metadata:
   name: stalwart-config
 data:
-  config-override.toml: |
+  config.toml: |
     # Stalwart Configuration Override
     # This file supplements the default configuration
 
     [server]
+
+    [tracer."stdout"]
+    type = "stdout"
+    level = "info"
 
     [server.listener."smtp"]
     bind = ["0.0.0.0:25"]
@@ -56,6 +60,17 @@ data:
     protocol = "http"
     tls.implicit = true
 
+    [storage]
+    data = "postgresql"
+    lookup = "postgresql"
+    fts = "postgresql"
+    blob = "postgresql"
+    directory = "internal"
+
+    [directory."internal"]
+    type = "internal"
+    store = "postgresql"
+
     # SMTP Relay Configuration (mailbox.org)
     [session.relay."mailbox-org"]
     host = "smtp.mailbox.org"
@@ -65,18 +80,11 @@ data:
     auth.secret = "%{file:/opt/stalwart/secrets/RELAY_PASSWORD}%"
     tls.enable = true
     tls.allow-invalid-certs = false
-    [session.ehlo.script]
-    # Route external emails through mailbox.org relay
-    if remote_ip.is_loopback() || remote_ip.is_private() {
-        # Local/internal emails, send directly
-    } else {
-        # External emails, use relay
-        set "envelope.rcpt.relay" "mailbox-org";
-    }
-    [store]
+
+    [store."postgresql"]
     type = "postgresql"
     host = "stalwart-postgresql-rw.stalwart.svc.cluster.local"
     port = 5432
     database = "stalwart"
-    username = "%{file:/opt/stalwart/db-secrets/username}%"
+    user = "%{file:/opt/stalwart/db-secrets/username}%"
     password = "%{file:/opt/stalwart/db-secrets/password}%"

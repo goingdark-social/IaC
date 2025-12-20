@@ -4,9 +4,6 @@ metadata:
   name: stalwart-mail
   labels:
     app.kubernetes.io/name: stalwart
-  annotations:
-    # Preserve client source IPs for proper SPF/DKIM
-    metallb.universe.tf/allow-shared-ip: "stalwart-mail"
 spec:
   selector:
     app.kubernetes.io/name: stalwart
