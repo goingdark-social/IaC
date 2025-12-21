@@ -9,6 +9,8 @@ metadata:
 spec:
   serviceName: stalwart
   replicas: 1
+  ordinals:
+    start: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: stalwart
@@ -29,6 +31,13 @@ spec:
         - name: copy-config
           image: busybox:latest
           command: ['sh', '-c', 'mkdir -p /opt/stalwart/etc && cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: config
               mountPath: /tmp/stalwart-config.toml
