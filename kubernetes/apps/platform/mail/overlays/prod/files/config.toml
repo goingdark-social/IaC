@@ -62,7 +62,7 @@ tls.implicit = true
 data = "postgresql"
 lookup = "postgresql"
 fts = "postgresql"
-blob = "postgresql"
+blob = "s3"
 directory = "internal"
 
 [directory."internal"]
@@ -76,3 +76,33 @@ port = 5432
 database = "stalwart"
 user = "%{file:/opt/stalwart/db-secrets/username}%"
 password = "%{file:/opt/stalwart/db-secrets/password}%"
+
+[store."s3"]
+type = "s3"
+bucket = "stalwart-blobs"
+region = "auto"
+endpoint = "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+access-key = "%{file:/opt/stalwart/s3-secrets/AWS_ACCESS_KEY_ID}%"
+secret-key = "%{file:/opt/stalwart/s3-secrets/AWS_SECRET_ACCESS_KEY}%"
+compression = "lz4"
+
+[store."nats"]
+type = "nats"
+address = ["nats://stalwart-nats.stalwart.svc.cluster.local:4222"]
+no-echo = true
+tls.enable = false
+ping-interval = "60s"
+max-reconnects = 0
+
+[store."nats".timeout]
+connection = "5s"
+request = "10s"
+
+[store."nats".capacity]
+client = 2048
+subscription = 65536
+read-buffer = 65535
+
+[cluster]
+coordinator = "nats"
+node-id = "%{env:STALWART_NODE_ID}%"
