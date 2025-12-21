@@ -1,0 +1,11 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-hcloud
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  package: ghcr.io/alexm4h/provider-hcloud:v0.1.0
+  packagePullPolicy: IfNotPresent
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 3

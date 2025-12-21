@@ -1,0 +1,515 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: maildns-cloudflare
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  labels:
+    provider: cloudflare
+spec:
+  compositeTypeRef:
+    apiVersion: dns.goingdark.social/v1alpha1
+    kind: XMailDNS
+
+  resources:
+    # Observe-only Hetzner LoadBalancer (read IPs, never modify)
+    - name: hcloud-loadbalancer
+      base:
+        apiVersion: loadbalancer.hcloud.upbound.io/v1alpha1
+        kind: LoadBalancer
+        metadata:
+          annotations:
+            crossplane.io/external-name: ""  # Will be patched
+        spec:
+          managementPolicies: ["Observe"]
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.hcloudLoadBalancerId
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.ipv4
+          toFieldPath: status.loadBalancerIPv4
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.ipv6
+          toFieldPath: status.loadBalancerIPv6
+
+    # A Records (3 records: mail, smtp, imap)
+    - name: mail-a
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: mail
+            type: A
+            proxied: false
+            ttl: 300
+            comment: "Stalwart mail server"
+            zoneId: ""  # Will be patched
+            content: ""  # Will be patched from status
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv4
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: smtp-a
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: smtp
+            type: A
+            proxied: false
+            ttl: 300
+            comment: "Stalwart SMTP"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv4
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: imap-a
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: imap
+            type: A
+            proxied: false
+            ttl: 300
+            comment: "Stalwart IMAP"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv4
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # AAAA Records (3 records: mail, smtp, imap)
+    - name: mail-aaaa
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: mail
+            type: AAAA
+            proxied: false
+            ttl: 300
+            comment: "Stalwart mail server IPv6"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv6
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: smtp-aaaa
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: smtp
+            type: AAAA
+            proxied: false
+            ttl: 300
+            comment: "Stalwart SMTP IPv6"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv6
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: imap-aaaa
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: imap
+            type: AAAA
+            proxied: false
+            ttl: 300
+            comment: "Stalwart IMAP IPv6"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv6
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # MX Record
+    - name: mx-apex
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: "@"
+            type: MX
+            priority: 10
+            proxied: false
+            ttl: 300
+            comment: "Mail exchange"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TXT Records - SPF
+    - name: spf-apex
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: "@"
+            type: TXT
+            content: "v=spf1 mx -all"
+            proxied: false
+            ttl: 300
+            comment: "SPF record"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TXT Records - DMARC
+    - name: dmarc
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _dmarc
+            type: TXT
+            content: "v=DMARC1; p=reject; rua=mailto:postmaster@peekoff.com"
+            proxied: false
+            ttl: 300
+            comment: "DMARC record"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TXT Records - DKIM Ed25519 (from secret)
+    - name: dkim-ed25519
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: ""  # Will be patched
+            type: TXT
+            content: "v=DKIM1; k=ed25519; h=sha256; p=N/BkJD6xbEiMb39v7JW6AwdPHO5gKB3fcCnod4zQ31U="
+            proxied: false
+            ttl: 300
+            comment: "DKIM Ed25519 key"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.dkimEd25519Selector
+          toFieldPath: spec.forProvider.name
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "%s._domainkey"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TXT Records - DKIM RSA (from secret)
+    - name: dkim-rsa
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: ""  # Will be patched
+            type: TXT
+            content: "v=DKIM1; k=rsa; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqlddLN3BjInvBqI1KpdouG7feBsEt5t233jWQJW7FaY7sR/MfWNxuzTObLoZ3l76DFq3xPjVhmy/YYiOAnMOtq9hUFqgBVTSwUNHYPz1YUEcrI5+Ban7P7LV8kggvTAaWhAI3iSXJIFaUq78K8YYr/zrGyBlg5HCPpd+DMRAB8j1ID8bcWFaVebwAOrartXOO/f8Bn9jrRrLhjP3c8UlmkJLXkSncXPp69R9VpevrKJtpBjaFxKtx7DXGie821MHuWJ7pWMdU1Uf3z8UBKF9bnrCZ5v0SdiaFkPXR1Iiq/gR6bMwdlWvST9V6ePnqZqX+Iv4FA28byOot73/CIINFwIDAQAB"
+            proxied: false
+            ttl: 300
+            comment: "DKIM RSA key"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.dkimRsaSelector
+          toFieldPath: spec.forProvider.name
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "%s._domainkey"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TXT Records - MTA-STS
+    - name: mta-sts-txt
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _mta-sts
+            type: TXT
+            content: "v=STSv1; id=16561011793845132961"
+            proxied: false
+            ttl: 300
+            comment: "MTA-STS policy"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TXT Records - TLS Reporting
+    - name: tls-rpt
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _smtp._tls
+            type: TXT
+            content: "v=TLSRPTv1; rua=mailto:postmaster@peekoff.com"
+            proxied: false
+            ttl: 300
+            comment: "TLS reporting"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # CNAME Records
+    - name: mta-sts-cname
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: mta-sts
+            type: CNAME
+            proxied: false
+            ttl: 300
+            comment: "MTA-STS CNAME"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: autoconfig-cname
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: autoconfig
+            type: CNAME
+            proxied: false
+            ttl: 300
+            comment: "Autoconfiguration CNAME"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: autodiscover-cname
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: autodiscover
+            type: CNAME
+            proxied: false
+            ttl: 300
+            comment: "Autodiscover CNAME"
+            zoneId: ""
+            content: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # SRV Records
+    - name: srv-imap
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _imap._tcp
+            type: SRV
+            content: "0 1 143 mail.peekoff.com"
+            proxied: false
+            ttl: 300
+            comment: "IMAP SRV record"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: srv-imaps
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _imaps._tcp
+            type: SRV
+            content: "0 1 993 mail.peekoff.com"
+            proxied: false
+            ttl: 300
+            comment: "IMAPS SRV record"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: srv-submission
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _submission._tcp
+            type: SRV
+            content: "0 1 587 mail.peekoff.com"
+            proxied: false
+            ttl: 300
+            comment: "SMTP submission SRV record"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    - name: srv-submissions
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _submissions._tcp
+            type: SRV
+            content: "0 1 465 mail.peekoff.com"
+            proxied: false
+            ttl: 300
+            comment: "SMTP submissions SRV record"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId
+
+    # TLSA Record
+    - name: tlsa-25-tcp
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            name: _25._tcp.mail
+            type: TLSA
+            content: "3 0 1 064dbc632f1ba7d0a2a3faeadeedfebd6f90f850dfb852c97ee9df9b6e5c5e7c"
+            proxied: false
+            ttl: 300
+            comment: "TLSA record for port 25"
+            zoneId: ""
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zoneId

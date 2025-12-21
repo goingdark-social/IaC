@@ -1,0 +1,30 @@
+apiVersion: dns.goingdark.social/v1alpha1
+kind: MailDNS
+metadata:
+  name: mail-peekoff
+  namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+    crossplane.io/external-name: peekoff-com-mail-dns
+spec:
+  compositionSelector:
+    matchLabels:
+      provider: cloudflare
+  compositionRef:
+    name: maildns-cloudflare
+
+  # Domain configuration
+  domain: peekoff.com
+  mailHostname: mail.peekoff.com
+
+  # Hetzner Cloud LoadBalancer ID (managed by CCM, observed by Crossplane)
+  # IPs will be automatically extracted to status fields and injected into DNS records
+  hcloudLoadBalancerId: "aac839b99af214a42a8398227b9db144"
+
+  # DKIM selectors
+  dkimEd25519Selector: "202404e"
+  dkimRsaSelector: "202404r"
+
+  writeConnectionSecretToRef:
+    name: mail-dns-connection
+    namespace: crossplane-system

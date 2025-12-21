@@ -1,0 +1,36 @@
+replicas: 1
+deploymentStrategy: Recreate
+
+args:
+  - --enable-environment-configs
+  - --enable-composition-functions
+  - --enable-usages
+
+resourcesCrossplane:
+  limits:
+    cpu: 200m
+    memory: 512Mi
+  requests:
+    cpu: 50m
+    memory: 256Mi
+
+rbacManager:
+  deploy: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    requests:
+      cpu: 20m
+      memory: 128Mi
+
+webhooks:
+  enabled: true
+
+metrics:
+  enabled: true
+
+provider:
+  packages:
+    - xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.14.1
