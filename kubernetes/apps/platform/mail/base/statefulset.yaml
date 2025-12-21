@@ -121,6 +121,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/stalwart
+            - name: logs
+              mountPath: /var/log/stalwart
             - name: config
               mountPath: /opt/stalwart/etc/config.toml
               subPath: config.toml
@@ -141,6 +143,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: stalwart-data
+        - name: logs
+          emptyDir: {}
         - name: config
           configMap:
             name: stalwart-config

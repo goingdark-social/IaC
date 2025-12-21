@@ -19,6 +19,18 @@ secret = "%{file:/opt/stalwart/secrets/ADMIN_PASSWORD}%"
 type = "stdout"
 level = "info"
 
+[tracer."file"]
+type = "log"
+path = "/var/log/stalwart/stalwart.log"
+level = "info"
+enable = true
+
+[metrics.history]
+enable = true
+store = "postgresql"
+retention = "90d"
+interval = "0 * *"
+
 [server.listener."smtp"]
 bind = ["0.0.0.0:25"]
 protocol = "smtp"
