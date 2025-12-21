@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/component: mail-server
 spec:
   serviceName: stalwart
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app.kubernetes.io/name: stalwart
@@ -28,7 +28,15 @@ spec:
       initContainers:
         - name: copy-config
           image: busybox:latest
-          command: ['sh', '-c', 'mkdir -p /opt/stalwart/etc && cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml']
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /opt/stalwart/etc
+              if [ ! -f /opt/stalwart/etc/config.toml ]; then
+                cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml
+              fi
           volumeMounts:
             - name: config
               mountPath: /tmp/stalwart-config.toml
@@ -44,6 +52,10 @@ spec:
           env:
             - name: HOSTNAME
               value: "mail.peekoff.com"
+            - name: STALWART_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
           ports:
             - containerPort: 25
               name: smtp
