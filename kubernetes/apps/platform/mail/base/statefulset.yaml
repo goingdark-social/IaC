@@ -136,6 +136,9 @@ spec:
             - name: db-secrets
               mountPath: /opt/stalwart/db-secrets
               readOnly: true
+            - name: s3-secrets
+              mountPath: /opt/stalwart/s3-secrets
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -149,3 +152,6 @@ spec:
         - name: db-secrets
           secret:
             secretName: stalwart-postgresql-app
+        - name: s3-secrets
+          secret:
+            secretName: stalwart-cnpg-s3
