@@ -353,3 +353,7 @@ Metrics exposed via port 9394 on web pods, scraped by VMServiceScrape.
   - `mail.peekoff.com` should point to the external IP of the `stalwart-mail` LoadBalancer Service
   - `mailadmin.peekoff.com` should be proxied through Cloudflare, ensuring Cloudflare can reach the Gateway's private IP (e.g., via Cloudflare tunnel)
   - Cloudflare: Set DNS records for mail domains to "DNS only" to avoid proxying SMTP/IMAP/POP3 ports; admin UI can be proxied if origin is reachable
+
+## JIT (Jump-In-Tree) Links
+
+- [opentofu/AGENTS.md](opentofu/AGENTS.md)

@@ -1,3 +1,20 @@
+terraform {
+  required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.15.0"
+    }
+  }
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare-api-token
+}
+
+provider "hcloud" {
+  token = var.hcloud_token
+}
+
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
   version = "3.2.0"
@@ -266,4 +283,27 @@ variable "s3_secret_key" {
   type        = string
   sensitive   = true
   description = "s3_access_key"
+}
+
+variable "cloudflare_zone_name" {
+  type        = string
+  description = "Cloudflare DNS zone name"
+  default     = "peekoff.com"
+}
+
+# Optional override for Stalwart mail LoadBalancer
+variable "stalwart_mail_loadbalancer_name" {
+  type        = string
+  description = "Hetzner LoadBalancer name for Stalwart mail."
+}
+
+# Expose module outputs so other root files can reference cluster-managed IPs/IDs
+output "worker_public_ipv4_list" {
+  description = "Public IPv4 addresses assigned to worker nodes (from module)."
+  value       = module.kubernetes.worker_public_ipv4_list
+}
+
+output "worker_public_ipv6_list" {
+  description = "Public IPv6 addresses assigned to worker nodes (from module)."
+  value       = module.kubernetes.worker_public_ipv6_list
 }
