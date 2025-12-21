@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - external-secret.yaml
   - httproute-ui.yaml
-  - httproute-admin.yaml
   - pvc.yaml
   - priorityclasses.yaml
   - resources/
