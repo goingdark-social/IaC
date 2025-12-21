@@ -29,6 +29,11 @@ spec:
         - name: copy-config
           image: busybox:latest
           command: ['sh', '-c', 'mkdir -p /opt/stalwart/etc && cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml']
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - name: config
               mountPath: /tmp/stalwart-config.toml
