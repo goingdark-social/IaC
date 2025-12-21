@@ -37,6 +37,11 @@ spec:
               if [ ! -f /opt/stalwart/etc/config.toml ]; then
                 cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml
               fi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - name: config
               mountPath: /tmp/stalwart-config.toml
