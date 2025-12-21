@@ -4,7 +4,7 @@ metadata:
   name: stalwart-cnpg-backup
 spec:
   configuration:
-    destinationPath: s3://mailvault/stalwart/stalwart-postgresql
+    destinationPath: s3://mastovault/stalwart/stalwart-postgresql
     endpointURL: https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com
     s3Credentials:
       accessKeyId:
