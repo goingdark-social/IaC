@@ -3,6 +3,10 @@
 
 [server]
 
+[server.tls]
+certificate = "/opt/stalwart/etc/certs/tls.crt"
+private-key = "/opt/stalwart/etc/certs/tls.key"
+
 [authentication.fallback-admin]
 user = "admin_fallback"
 secret = "%{file:/opt/stalwart/secrets/ADMIN_PASSWORD}%"
@@ -81,7 +85,7 @@ password = "%{file:/opt/stalwart/db-secrets/password}%"
 type = "s3"
 bucket = "stalwart-blobs"
 region = "auto"
-endpoint = "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+endpoint = "https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com"
 access-key = "%{file:/opt/stalwart/s3-secrets/AWS_ACCESS_KEY_ID}%"
 secret-key = "%{file:/opt/stalwart/s3-secrets/AWS_SECRET_ACCESS_KEY}%"
 compression = "lz4"

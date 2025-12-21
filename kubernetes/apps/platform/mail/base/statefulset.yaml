@@ -7,8 +7,9 @@ metadata:
     app.kubernetes.io/part-of: stalwart
     app.kubernetes.io/component: mail-server
 spec:
-  serviceName: stalwart
+  serviceName: stalwart-headless
   replicas: 3
+  podManagementPolicy: Parallel
   ordinals:
     start: 1
   selector:
@@ -27,31 +28,15 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       priorityClassName: mail-critical
-      initContainers:
-        - name: copy-config
-          image: busybox:latest
-          command:
-            - sh
-            - -c
-            - |
-              set -eu
-              mkdir -p /opt/stalwart/etc
-              if [ ! -f /opt/stalwart/etc/config.toml ]; then
-                cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml
-              fi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          volumeMounts:
-            - name: config
-              mountPath: /tmp/stalwart-config.toml
-              subPath: config.toml
-            - name: data
-              mountPath: /opt/stalwart
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: stalwart
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: stalwart
           image: stalwartlabs/stalwart
@@ -137,8 +122,9 @@ spec:
             - name: data
               mountPath: /opt/stalwart
             - name: config
-              mountPath: /tmp/stalwart-config.toml
+              mountPath: /opt/stalwart/etc/config.toml
               subPath: config.toml
+              readOnly: true
             - name: secrets
               mountPath: /opt/stalwart/secrets
               readOnly: true
@@ -147,6 +133,9 @@ spec:
               readOnly: true
             - name: s3-secrets
               mountPath: /opt/stalwart/s3-secrets
+              readOnly: true
+            - name: tls-certs
+              mountPath: /opt/stalwart/etc/certs
               readOnly: true
       volumes:
         - name: data
@@ -163,4 +152,8 @@ spec:
             secretName: stalwart-postgresql-app
         - name: s3-secrets
           secret:
-            secretName: stalwart-cnpg-s3
+            secretName: stalwart-blob-s3
+        - name: tls-certs
+          secret:
+            secretName: stalwart-tls
+            defaultMode: 0440
