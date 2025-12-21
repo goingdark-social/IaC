@@ -4,6 +4,8 @@ metadata:
   name: stalwart-mail
   labels:
     app.kubernetes.io/name: stalwart
+  annotations:
+    service.beta.kubernetes.io/hcloud-load-balancer-id: "a0aeaf4c7697a4f4a9ffefc50946623f"
 spec:
   selector:
     app.kubernetes.io/name: stalwart
