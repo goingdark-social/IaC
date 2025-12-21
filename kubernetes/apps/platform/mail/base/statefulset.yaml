@@ -9,6 +9,8 @@ metadata:
 spec:
   serviceName: stalwart
   replicas: 1
+  ordinals:
+    start: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: stalwart
@@ -34,6 +36,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: config
               mountPath: /tmp/stalwart-config.toml
