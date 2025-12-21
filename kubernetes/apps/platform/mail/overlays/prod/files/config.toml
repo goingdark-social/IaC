@@ -3,6 +3,10 @@
 
 [server]
 
+[authentication.fallback-admin]
+user = "admin_fallback"
+secret = "%{file:/opt/stalwart/secrets/ADMIN_PASSWORD}%"
+
 [tracer."stdout"]
 type = "stdout"
 level = "info"
@@ -64,16 +68,6 @@ directory = "internal"
 [directory."internal"]
 type = "internal"
 store = "postgresql"
-
-# SMTP Relay Configuration (mailbox.org)
-[session.relay."mailbox-org"]
-host = "smtp.mailbox.org"
-port = 587
-protocol = "smtp"
-auth.username = "%{file:/opt/stalwart/secrets/RELAY_USERNAME}%"
-auth.secret = "%{file:/opt/stalwart/secrets/RELAY_PASSWORD}%"
-tls.enable = true
-tls.allow-invalid-certs = false
 
 [store."postgresql"]
 type = "postgresql"

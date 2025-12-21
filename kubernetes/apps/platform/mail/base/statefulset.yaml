@@ -25,6 +25,16 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       priorityClassName: mail-critical
+      initContainers:
+        - name: copy-config
+          image: busybox:latest
+          command: ['sh', '-c', 'mkdir -p /opt/stalwart/etc && cp /tmp/stalwart-config.toml /opt/stalwart/etc/config.toml']
+          volumeMounts:
+            - name: config
+              mountPath: /tmp/stalwart-config.toml
+              subPath: config.toml
+            - name: data
+              mountPath: /opt/stalwart
       containers:
         - name: stalwart
           image: stalwartlabs/stalwart
@@ -106,7 +116,7 @@ spec:
             - name: data
               mountPath: /opt/stalwart
             - name: config
-              mountPath: /opt/stalwart/etc/config.toml
+              mountPath: /tmp/stalwart-config.toml
               subPath: config.toml
             - name: secrets
               mountPath: /opt/stalwart/secrets
