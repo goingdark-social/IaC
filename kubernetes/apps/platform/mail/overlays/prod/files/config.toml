@@ -2,10 +2,14 @@
 # This file supplements the default configuration
 
 [server]
+hostname = "mail.peekoff.com"
 
-[server.tls]
-certificate = "/opt/stalwart/etc/certs/tls.crt"
+[certificate.default]
+cert = "/opt/stalwart/etc/certs/tls.crt"
 private-key = "/opt/stalwart/etc/certs/tls.key"
+
+[acme]
+disable = true
 
 [authentication.fallback-admin]
 user = "admin_fallback"
