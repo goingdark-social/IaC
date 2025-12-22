@@ -3,14 +3,10 @@ kind: Kustomization
 
 namespace: crossplane-system
 
-resources:
-  - ../namespace.yaml
-  - ../resource-quota.yaml
-
 helmCharts:
   - name: crossplane
     repo: https://charts.crossplane.io/stable
     version: 1.18.4
     releaseName: crossplane
     namespace: crossplane-system
-    valuesFile: ../values.yaml
+    valuesFile: values.yaml
