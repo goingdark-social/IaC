@@ -1,20 +1,3 @@
-terraform {
-  required_providers {
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = "~> 5.15.0"
-    }
-  }
-}
-
-provider "cloudflare" {
-  api_token = var.cloudflare-api-token
-}
-
-provider "hcloud" {
-  token = var.hcloud_token
-}
-
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
   version = "3.2.0"
@@ -116,55 +99,6 @@ module "kubernetes" {
       source_ips  = ["0.0.0.0/0", "::/0"]
       protocol    = "udp"
       port        = "32768-65535"
-    },
-    {
-      description = "Allow SMTP (TCP 25)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "25"
-    },
-    {
-      description = "Allow SMTP Submission (TCP 587)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "587"
-    },
-    {
-      description = "Allow SMTPS (TCP 465)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "465"
-    },
-    {
-      description = "Allow IMAP (TCP 143)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "143"
-    },
-    {
-      description = "Allow IMAPS (TCP 993)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "993"
-    },
-    {
-      description = "Allow POP3 (TCP 110)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "110"
-    },
-    {
-      description = "Allow POP3S (TCP 995)"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "tcp"
-      port        = "995"
     }
   ]
 
@@ -234,12 +168,6 @@ variable "firewall_api_source" {
   description = "List of source IPs for the firewall"
 }
 
-variable "cloudflare-api-token" {
-  type        = string
-  sensitive   = true
-  description = "Cloudflare API token"
-}
-
 variable "bitwarden_token" {
   type        = string
   sensitive   = true
@@ -283,27 +211,4 @@ variable "s3_secret_key" {
   type        = string
   sensitive   = true
   description = "s3_access_key"
-}
-
-variable "cloudflare_zone_name" {
-  type        = string
-  description = "Cloudflare DNS zone name"
-  default     = "peekoff.com"
-}
-
-# Optional override for Stalwart mail LoadBalancer
-variable "stalwart_mail_loadbalancer_name" {
-  type        = string
-  description = "Hetzner LoadBalancer name for Stalwart mail."
-}
-
-# Expose module outputs so other root files can reference cluster-managed IPs/IDs
-output "worker_public_ipv4_list" {
-  description = "Public IPv4 addresses assigned to worker nodes (from module)."
-  value       = module.kubernetes.worker_public_ipv4_list
-}
-
-output "worker_public_ipv6_list" {
-  description = "Public IPv6 addresses assigned to worker nodes (from module)."
-  value       = module.kubernetes.worker_public_ipv6_list
 }

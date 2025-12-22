@@ -11,97 +11,196 @@ spec:
     apiVersion: dns.goingdark.social/v1alpha1
     kind: XMailDNS
   resources:
-    - name: dns-records-job
-      readinessChecks:
-        - type: MatchCondition
-          matchCondition:
-            type: Complete
-            status: "True"
+    # 1. Observe Hetzner LoadBalancer to get IPs
+    - name: hcloud-lb
+      base:
+        apiVersion: loadbalancer.hcloud.crossplane.io/v1alpha1
+        kind: LoadBalancer
+        spec:
+          managementPolicy: Observe
+          forProvider:
+            loadBalancerType: lb11
+            location: hel1
+            name: "observed-lb"
+          providerConfigRef:
+            name: default
       patches:
         - type: FromCompositeFieldPath
-          fromFieldPath: "metadata.name"
-          toFieldPath: "metadata.name"
-        - type: FromCompositeFieldPath
-          fromFieldPath: "spec.claimRef.namespace"
-          toFieldPath: "metadata.namespace"
-          policy:
-            fromFieldPath: Required
+          fromFieldPath: spec.hcloudLoadBalancerId
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.ipv4
+          toFieldPath: status.loadBalancerIPv4
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.ipv6
+          toFieldPath: status.loadBalancerIPv6
+
+    # 2. Cloudflare A Records (mail, smtp, imap)
+    - name: dns-a-mail
       base:
-        apiVersion: batch/v1
-        kind: Job
-        metadata:
-          name: dns-records
-          namespace: crossplane-system
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
         spec:
-          ttlSecondsAfterFinished: 86400
-          backoffLimit: 1
-          template:
-            spec:
-              restartPolicy: Never
-              serviceAccountName: cloudflare-dns
-              containers:
-                - name: curl
-                  image: curlimages/curl:8.7.1
-                  env:
-                    - name: CF_ZONE_ID
-                      valueFrom:
-                        secretKeyRef:
-                          name: mail-dns-secrets
-                          key: zone-id
-                    - name: CF_TOKEN
-                      valueFrom:
-                        secretKeyRef:
-                          name: mail-dns-secrets
-                          key: api-token
-                    - name: DKIM_ED25519
-                      valueFrom:
-                        secretKeyRef:
-                          name: mail-dns-secrets
-                          key: dkim-ed25519
-                    - name: DKIM_RSA
-                      valueFrom:
-                        secretKeyRef:
-                          name: mail-dns-secrets
-                          key: dkim-rsa
-                  command: ["/bin/sh"]
-                  args:
-                    - -c
-                    - |
-                      set -e
-                      echo "Creating DNS records for peekoff.com..."
-                      # Helper function for curl calls
-                      create_record() {
-                        curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
-                          -H "Authorization: Bearer $CF_TOKEN" \
-                          -H "Content-Type: application/json" \
-                          -d "$1" && echo "✓ Created: $2"
-                      }
-                      # A Record - mail
-                      create_record '{"type":"A","name":"mail","content":"mail.peekoff.com","ttl":300,"proxied":false,"comment":"Mail server"}' "A mail"
-                      # MX Record
-                      create_record '{"type":"MX","name":"@","content":"mail.peekoff.com","priority":10,"ttl":300,"proxied":false,"comment":"Mail server"}' "MX"
-                      # DKIM Ed25519
-                      create_record "{\"type\":\"TXT\",\"name\":\"202512e._domainkey\",\"content\":\"$DKIM_ED25519\",\"ttl\":300,\"proxied\":false,\"comment\":\"DKIM Ed25519 key\"}" "DKIM Ed25519"
-                      # DKIM RSA
-                      create_record "{\"type\":\"TXT\",\"name\":\"202512r._domainkey\",\"content\":\"$DKIM_RSA\",\"ttl\":300,\"proxied\":false,\"comment\":\"DKIM RSA key\"}" "DKIM RSA"
-                      # SPF Records
-                      create_record '{"type":"TXT","name":"mail","content":"v=spf1 a ra=postmaster -all","ttl":300,"proxied":false,"comment":"SPF for mail"}' "SPF mail"
-                      create_record '{"type":"TXT","name":"@","content":"v=spf1 mx ra=postmaster -all","ttl":300,"proxied":false,"comment":"SPF for apex"}' "SPF apex"
-                      # SRV Records
-                      create_record "{\"type\":\"SRV\",\"name\":\"_jmap._tcp\",\"data\":{\"service\":\"_jmap\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":443,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"JMAP SRV\"}" "SRV JMAP"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_caldavs._tcp\",\"data\":{\"service\":\"_caldavs\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":443,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"CalDAV SRV\"}" "SRV CalDAV"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_carddavs._tcp\",\"data\":{\"service\":\"_carddavs\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":443,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"CardDAV SRV\"}" "SRV CardDAV"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_imaps._tcp\",\"data\":{\"service\":\"_imaps\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":993,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"IMAPS SRV\"}" "SRV IMAPS"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_imap._tcp\",\"data\":{\"service\":\"_imap\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":143,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"IMAP SRV\"}" "SRV IMAP"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_pop3s._tcp\",\"data\":{\"service\":\"_pop3s\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":995,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"POP3S SRV\"}" "SRV POP3S"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_pop3._tcp\",\"data\":{\"service\":\"_pop3\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":110,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"POP3 SRV\"}" "SRV POP3"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_submissions._tcp\",\"data\":{\"service\":\"_submissions\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":465,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"Submissions SRV\"}" "SRV Submissions"
-                      create_record "{\"type\":\"SRV\",\"name\":\"_submission._tcp\",\"data\":{\"service\":\"_submission\",\"proto\":\"_tcp\",\"priority\":0,\"weight\":1,\"port\":587,\"target\":\"mail.peekoff.com\"},\"ttl\":300,\"proxied\":false,\"comment\":\"Submission SRV\"}" "SRV Submission"
-                      # CNAME Records
-                      create_record '{"type":"CNAME","name":"autoconfig","content":"mail.peekoff.com","ttl":300,"proxied":false,"comment":"Autoconfiguration CNAME"}' "CNAME autoconfig"
-                      create_record '{"type":"CNAME","name":"autodiscover","content":"mail.peekoff.com","ttl":300,"proxied":false,"comment":"Autodiscover CNAME"}' "CNAME autodiscover"
-                      # DMARC TXT Record
-                      create_record '{"type":"TXT","name":"_dmarc","content":"v=DMARC1; p=reject; rua=mailto:postmaster@peekoff.com; ruf=mailto:postmaster@peekoff.com","ttl":300,"proxied":false,"comment":"DMARC policy"}' "DMARC"
-                      # TLS Reporting TXT Record
-                      create_record '{"type":"TXT","name":"_smtp._tls","content":"v=TLSRPTv1; rua=mailto:postmaster@peekoff.com","ttl":300,"proxied":false,"comment":"TLS reporting"}' "TLS RPT"
-                      echo "All DNS records created successfully!"
+          forProvider:
+            type: A
+            name: mail
+            proxied: false
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv4
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+
+    - name: dns-a-smtp
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: A
+            name: smtp
+            proxied: false
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv4
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+
+    - name: dns-a-imap
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: A
+            name: imap
+            proxied: false
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.loadBalancerIPv4
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+
+    # 3. MX, SPF, DKIM, DMARC, CNAME
+    - name: dns-mx
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: MX
+            name: "@"
+            priority: 10
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.content
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+
+    - name: dns-spf
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: TXT
+            name: "@"
+            content: "v=spf1 mx ra=postmaster -all"
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+
+    - name: dns-dkim-ed25519
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: TXT
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.dkimEd25519Selector
+          toFieldPath: spec.forProvider.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s._domainkey"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.content
+          transforms:
+            - type: string
+              string:
+                fmt: "v=DKIM1; k=ed25519; p=REPLACE_WITH_REAL_KEY_IN_VAULT"
+
+    - name: dns-dmarc
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: TXT
+            name: "_dmarc"
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.content
+          transforms:
+            - type: string
+              string:
+                fmt: "v=DMARC1; p=reject; rua=mailto:postmaster@%s"
+
+    - name: dns-cname-autoconfig
+      base:
+        apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: CNAME
+            name: autoconfig
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.zone
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.content

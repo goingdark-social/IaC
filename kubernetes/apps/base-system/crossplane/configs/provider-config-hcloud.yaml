@@ -1,0 +1,11 @@
+apiVersion: hcloud.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: hcloud-credentials
+      key: api-token

@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: stalwart
   annotations:
-    service.beta.kubernetes.io/hcloud-load-balancer-id: "a0aeaf4c7697a4f4a9ffefc50946623f"
+    service.beta.kubernetes.io/hcloud-load-balancer-id: "aac839b99af214a42a8398227b9db144"
 spec:
   selector:
     app.kubernetes.io/name: stalwart
