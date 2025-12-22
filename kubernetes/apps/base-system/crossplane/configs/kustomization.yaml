@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - external-secret-mail-dns.yaml
   - cloudflare-serviceaccount.yaml
+  - crossplane-job-rbac.yaml

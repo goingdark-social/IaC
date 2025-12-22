@@ -12,11 +12,25 @@ spec:
     kind: XMailDNS
   resources:
     - name: dns-records-job
+      readinessChecks:
+        - type: MatchCondition
+          matchCondition:
+            type: Complete
+            status: "True"
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: "metadata.name"
+          toFieldPath: "metadata.name"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.claimRef.namespace"
+          toFieldPath: "metadata.namespace"
+          policy:
+            fromFieldPath: Required
       base:
         apiVersion: batch/v1
         kind: Job
         metadata:
-          name: dns-records-peekoff
+          name: dns-records
           namespace: crossplane-system
         spec:
           ttlSecondsAfterFinished: 86400
