@@ -1,3 +1,37 @@
+terraform {
+  required_version = ">= 1.9.0"
+  required_providers {
+    hcloud = {
+      source  = "hetznercloud/hcloud"
+      version = "1.52.0"
+    }
+    talos = {
+      source  = "siderolabs/talos"
+      version = "0.9.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 3.0.2"
+    }
+    http = {
+      source  = "hashicorp/http"
+      version = "~> 3.5.0"
+    }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.1.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.7.2"
+    }
+  }
+}
+
+provider "hcloud" {
+  token = var.hcloud_token
+}
+
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
   version = "3.2.0"
@@ -99,6 +133,55 @@ firewall_extra_rules = [
     source_ips  = ["0.0.0.0/0", "::/0"]
     protocol    = "udp"
     port        = "32768-65535"
+  },
+  {
+    description = "Allow SMTP (port 25)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "25"
+  },
+  {
+    description = "Allow SMTP Submission (port 587)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "587"
+  },
+  {
+    description = "Allow SMTPS (port 465)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "465"
+  },
+  {
+    description = "Allow IMAP (port 143)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "143"
+  },
+  {
+    description = "Allow IMAPS (port 993)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "993"
+  },
+  {
+    description = "Allow POP3 (port 110)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "110"
+  },
+  {
+    description = "Allow POP3S (port 995)"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "tcp"
+    port        = "995"
   }
 ]
 
