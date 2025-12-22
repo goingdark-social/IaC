@@ -4,7 +4,4 @@ kind: Kustomization
 namespace: crossplane-system
 
 resources:
-  - namespace.yaml
-  - resource-quota.yaml
-  - providers/
-  - functions/
+  - ../instances/
