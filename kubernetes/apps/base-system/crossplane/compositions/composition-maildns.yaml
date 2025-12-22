@@ -1,4 +1,4 @@
-apiVersion: apiextensions.crossplane.io/v2alpha1
+apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
   name: maildns-custom
@@ -15,14 +15,14 @@ spec:
     - step: observe-lb-ips
       functionRef:
         name: function-pt
-      input: |
+      input:
         apiVersion: fn.crossplane.io/v1beta1
         kind: RunFunctionRequest
         input:
           desired:
             status:
-              loadBalancerIPv4: {{ index .spec.services "mail-lb" "status.loadBalancer.ingress" 0 "ip" }}
-              loadBalancerIPv6: {{ index .spec.services "mail-lb" "status.loadBalancer.ingress" 1 "ip" }}
+              loadBalancerIPv4: "{{ index .spec.services \"mail-lb\" \"status.loadBalancer.ingress\" 0 \"ip\" }}"
+              loadBalancerIPv6: "{{ index .spec.services \"mail-lb\" \"status.loadBalancer.ingress\" 1 \"ip\" }}"
           resources:
             - name: mail-lb
               apiVersion: v1
@@ -33,7 +33,7 @@ spec:
     - step: create-dns-records
       functionRef:
         name: function-pt
-      input: |
+      input:
         apiVersion: fn.crossplane.io/v1beta1
         kind: RunFunctionRequest
         input:
