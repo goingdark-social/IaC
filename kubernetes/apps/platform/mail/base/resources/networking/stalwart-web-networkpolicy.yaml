@@ -11,5 +11,19 @@ spec:
   - Ingress
   ingress:
   - ports:
+    - port: 25
+      protocol: TCP
+    - port: 587
+      protocol: TCP
+    - port: 465
+      protocol: TCP
+    - port: 143
+      protocol: TCP
+    - port: 993
+      protocol: TCP
+    - port: 110
+      protocol: TCP
+    - port: 995
+      protocol: TCP
     - port: 8080
       protocol: TCP

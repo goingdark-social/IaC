@@ -31,14 +31,14 @@ module "kubernetes" {
     }
   ]
   # Core Components (enabled by default)
-  cilium_enabled                   = true
-  talos_backup_s3_enabled          = true
-  talos_ccm_enabled                = true
-  talos_coredns_enabled            = true
-  hcloud_ccm_enabled               = true
-  hcloud_csi_enabled               = true
-  metrics_server_enabled           = true
-  prometheus_operator_crds_enabled = true
+  cilium_enabled                     = true
+  talos_backup_s3_enabled            = true
+  talos_ccm_enabled                  = true
+  talos_coredns_enabled              = true
+  hcloud_ccm_enabled                 = true
+  hcloud_csi_enabled                 = true
+  metrics_server_enabled             = true
+  prometheus_operator_crds_enabled   = true
 
   # Additional Components (disabled by default)
   cert_manager_enabled           = false
@@ -52,7 +52,7 @@ module "kubernetes" {
   talos_backup_s3_region   = var.s3_region
   talos_backup_s3_endpoint = var.s3_endpoint
   talos_backup_s3_bucket   = var.s3_bucket
-  #  talos_backup_s3_prefix   = var.s3_prefix
+#  talos_backup_s3_prefix   = var.s3_prefix
 
   # Use path-style URLs (set true if required by your provider)
   talos_backup_s3_path_style = true
@@ -71,7 +71,7 @@ module "kubernetes" {
       encrypted           = true
       defaultStorageClass = true
       reclaimPolicy       = "Retain"
-      extraParameters = {
+      extraParameters     = {
         "csi.storage.k8s.io/fstype" = "xfs"
         "fsFormatOption"            = "-i nrext64=1"
       }
@@ -85,51 +85,51 @@ module "kubernetes" {
   firewall_api_source            = var.firewall_api_source
   kube_api_load_balancer_enabled = false
   #kube_api_hostname              = "kube-api.goingdark.social"
-  firewall_extra_rules = [
-    {
-      description = "Allow UDP to Cloudflare on port 8443"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "udp"
-      port        = "8443"
-    },
-    {
-      description = "Allow inbound established UDP responses"
-      direction   = "in"
-      source_ips  = ["0.0.0.0/0", "::/0"]
-      protocol    = "udp"
-      port        = "32768-65535"
-    }
-  ]
+firewall_extra_rules = [
+  {
+    description = "Allow UDP to Cloudflare on port 8443"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "udp"
+    port        = "8443"
+  },
+  {
+    description = "Allow inbound established UDP responses"
+    direction   = "in"
+    source_ips  = ["0.0.0.0/0", "::/0"]
+    protocol    = "udp"
+    port        = "32768-65535"
+  }
+]
 
   # Enable public IPv4 for both internet access and cluster bootstrap
   talos_public_ipv4_enabled = true
   talos_public_ipv6_enabled = false
 
+  
 
-
-  cluster_autoscaler_nodepools = [
-    {
-      name     = "autoscaler"
-      type     = "cx43"
-      location = "hel1"
-      min      = 0
-      max      = 2
-      labels   = { "autoscaler-node" = "true" }
-      taints   = ["autoscaler-node=true:NoSchedule"]
-    }
-  ]
-
-  cluster_autoscaler_helm_values = {
-    extraArgs = {
-      scale-down-delay-after-add       = "10m"  # Wait longer after scaling up
-      scale-down-delay-after-delete    = "10m"  # Quick retry on failed scale-down
-      scale-down-unneeded-time         = "8m"   # Conservative for media/federation bursts
-      scale-down-utilization-threshold = "0.75" # Allow scale-down at 75% utilization (default 50%)
-      balance-similar-node-groups      = "true"
-      expander                         = "least-waste"
-    }
+cluster_autoscaler_nodepools = [
+  {
+    name     = "autoscaler"
+    type     = "cx43"
+    location = "hel1"
+    min      = 0
+    max      = 2
+    labels   = { "autoscaler-node" = "true" }
+    taints   = ["autoscaler-node=true:NoSchedule"]
   }
+]
+
+cluster_autoscaler_helm_values = {
+  extraArgs = {
+    scale-down-delay-after-add       = "10m"   # Wait longer after scaling up
+    scale-down-delay-after-delete    = "10m"   # Quick retry on failed scale-down
+    scale-down-unneeded-time         = "8m"    # Conservative for media/federation bursts
+    scale-down-utilization-threshold = "0.75"  # Allow scale-down at 75% utilization (default 50%)
+    balance-similar-node-groups      = "true"
+    expander                         = "least-waste"
+  }
+}
 
 
 
@@ -143,7 +143,7 @@ module "kubernetes" {
 
   talos_extra_inline_manifests = [
     {
-      name = "cilium-settings"
+      name     = "cilium-settings"
       contents = join("\n---\n", [
         file("${path.root}/../kubernetes/apps/base-system/cilium/announce.yaml"),
         file("${path.root}/../kubernetes/apps/base-system/cilium/ip-pool.yaml"),
@@ -166,6 +166,12 @@ variable "hcloud_token" {
 variable "firewall_api_source" {
   type        = list(string)
   description = "List of source IPs for the firewall"
+}
+
+variable "cloudflare-api-token" {
+  type        = string
+  sensitive   = true
+  description = "Cloudflare API token"
 }
 
 variable "bitwarden_token" {

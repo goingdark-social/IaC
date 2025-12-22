@@ -1,7 +1,6 @@
 # This file is maintained automatically by "tofu init".
 # Manual edits may be lost in future updates.
 
-
 provider "registry.opentofu.org/hashicorp/helm" {
   version     = "3.0.2"
   constraints = "~> 3.0.2"
