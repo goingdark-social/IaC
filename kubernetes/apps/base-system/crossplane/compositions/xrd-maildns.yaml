@@ -2,8 +2,6 @@ apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
   name: xmaildns.dns.goingdark.social
-  annotations:
-    argocd.argoproj.io/sync-wave: "30"
 spec:
   group: dns.goingdark.social
   names:
@@ -12,8 +10,6 @@ spec:
   claimNames:
     kind: MailDNS
     plural: maildns
-  connectionSecretKeys:
-    - zone-id
   versions:
     - name: v1alpha1
       served: true
@@ -31,9 +27,12 @@ spec:
                 mailHostname:
                   type: string
                   description: "Mail server hostname (e.g., mail.peekoff.com)"
-                hcloudLoadBalancerId:
+                ipv4:
                   type: string
-                  description: "Hetzner Cloud LoadBalancer ID to observe"
+                  description: "IPv4 address for A records"
+                ipv6:
+                  type: string
+                  description: "Optional IPv6 address for AAAA records"
                 dkimEd25519Selector:
                   type: string
                   default: "202404e"
@@ -45,16 +44,10 @@ spec:
               required:
                 - domain
                 - mailHostname
-                - hcloudLoadBalancerId
+                - ipv4
             status:
               type: object
               properties:
-                loadBalancerIPv4:
-                  type: string
-                  description: "LoadBalancer IPv4 address (populated by ToCompositeFieldPath)"
-                loadBalancerIPv6:
-                  type: string
-                  description: "LoadBalancer IPv6 address (populated by ToCompositeFieldPath)"
                 dnsRecordsCreated:
                   type: integer
                   description: "Number of DNS records created"

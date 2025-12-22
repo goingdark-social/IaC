@@ -1,9 +1,9 @@
 apiVersion: pkg.crossplane.io/v1
-kind: Provider
+kind: Function
 metadata:
-  name: provider-hcloud
+  name: function-go-templating
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/provider-hcloud:v0.40.0
+  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.8.0
   packagePullPolicy: IfNotPresent
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 3

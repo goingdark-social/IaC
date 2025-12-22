@@ -6,8 +6,10 @@ namespace: crossplane-system
 resources:
   - namespace.yaml
   - resource-quota.yaml
+  - providers/
   - configs/
   - compositions/
+  - functions/
   - instances/
 
 helmCharts:
