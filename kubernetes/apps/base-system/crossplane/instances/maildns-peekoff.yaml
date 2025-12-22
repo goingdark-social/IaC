@@ -24,7 +24,3 @@ spec:
   # DKIM selectors
   dkimEd25519Selector: "202404e"
   dkimRsaSelector: "202404r"
-
-  writeConnectionSecretToRef:
-    name: mail-dns-connection
-    namespace: crossplane-system

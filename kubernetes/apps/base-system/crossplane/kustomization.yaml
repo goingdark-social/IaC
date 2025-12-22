@@ -6,7 +6,6 @@ namespace: crossplane-system
 resources:
   - namespace.yaml
   - resource-quota.yaml
-  - functions/
   - configs/
   - compositions/
   - instances/

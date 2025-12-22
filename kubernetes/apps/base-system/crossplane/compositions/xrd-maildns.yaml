@@ -25,13 +25,6 @@ spec:
             spec:
               type: object
               properties:
-                writeConnectionSecretToRef:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
                 domain:
                   type: string
                   description: "Domain name (e.g., peekoff.com)"
