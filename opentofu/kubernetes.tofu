@@ -230,6 +230,7 @@ module "kubernetes" {
       contents = join("\n---\n", [
         file("${path.root}/../kubernetes/apps/base-system/cilium/announce.yaml"),
         file("${path.root}/../kubernetes/apps/base-system/cilium/ip-pool.yaml"),
+        file("${path.root}/../kubernetes/apps/base-system/cilium/resources/mail-ip-pool.yaml"),
         format(
           "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cilium-helm-values\n  namespace: kube-system\n  labels:\n    app.kubernetes.io/name: cilium-helm-values\n    app.kubernetes.io/managed-by: talos-inline\n  data:\n    values.yaml: |-\n%s\n",
           indent(6, trimspace(file("${path.root}/../kubernetes/apps/base-system/cilium/values.yaml")))
