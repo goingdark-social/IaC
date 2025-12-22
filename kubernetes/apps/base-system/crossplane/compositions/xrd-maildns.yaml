@@ -2,6 +2,8 @@ apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
   name: xmaildns.dns.goingdark.social
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
 spec:
   group: dns.goingdark.social
   names:

@@ -2,6 +2,8 @@ apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
   name: maildns-custom
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
   labels:
     provider: custom
 spec:

@@ -4,6 +4,7 @@ resources:
 - namespace.yaml
 - cert-manager
 - cloudflared
+- crossplane/install
 - crossplane
 - external-secrets
 - gateway

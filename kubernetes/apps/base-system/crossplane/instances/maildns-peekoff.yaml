@@ -3,6 +3,8 @@ kind: MailDNS
 metadata:
   name: mail-peekoff
   namespace: crossplane-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
 spec:
   compositionSelector:
     matchLabels:
@@ -15,7 +17,7 @@ spec:
   mailHostname: mail.peekoff.com
 
   # Cloudflare zone ID
-  zoneId: "REPLACE_WITH_ZONE_ID"
+  zoneId: "e8146b7b5485151dc758a57e6830da35"
 
   # IPv4 address (required) - from Stalwart mail LoadBalancer
   ipv4: "116.203.137.71"
