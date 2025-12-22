@@ -1,4 +1,4 @@
-apiVersion: apiextensions.crossplane.io/v1
+apiVersion: apiextensions.crossplane.io/v2alpha1
 kind: Composition
 metadata:
   name: maildns-custom
@@ -11,10 +11,8 @@ spec:
     apiVersion: dns.goingdark.social/v1alpha1
     kind: XMailDNS
   mode: Pipeline
-  writeConnectionSecretToRef:
-    namespace: crossplane-system
   pipeline:
-    - name: observe-lb-ips
+    - step: observe-lb-ips
       functionRef:
         name: function-pt
       input: |
@@ -32,7 +30,7 @@ spec:
               namespace: stalwart
               selector:
                 app: stalwart-mail
-    - name: create-dns-records
+    - step: create-dns-records
       functionRef:
         name: function-pt
       input: |
@@ -62,7 +60,7 @@ spec:
                           - name: CF_TOKEN
                             valueFrom:
                               secretKeyRef:
-                                name: cloudflare-credentials
+                                name: mail-dns-secrets
                                 key: api-token
                           - name: LOADBALANCER_IPV4
                             value: "{{ .status.loadBalancerIPv4 }}"
@@ -96,7 +94,7 @@ spec:
                           - name: CF_TOKEN
                             valueFrom:
                               secretKeyRef:
-                                name: cloudflare-credentials
+                                name: mail-dns-secrets
                                 key: api-token
                         command: ["/bin/sh"]
                         args:
@@ -128,7 +126,7 @@ spec:
                           - name: CF_TOKEN
                             valueFrom:
                               secretKeyRef:
-                                name: cloudflare-credentials
+                                name: mail-dns-secrets
                                 key: api-token
                           - name: DKIM_RSA
                             valueFrom:

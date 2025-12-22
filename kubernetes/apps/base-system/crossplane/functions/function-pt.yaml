@@ -1,4 +1,4 @@
-apiVersion: pkg.crossplane.io/v1
+apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
 metadata:
   name: function-pt
@@ -9,10 +9,8 @@ spec:
   runtimeConfigRef:
     name: pt-config
 ---
-apiVersion: fn.crossplane.io/v1beta1
-kind: RunConfiguration
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
 metadata:
   name: pt-config
-spec:
-  runnerConfig:
-    defaultImage: ghcr.io/upbound/upbound-function-runner:latest
+spec: {}
