@@ -1,9 +1,1 @@
-apiVersion: pkg.crossplane.io/v1
-kind: Provider
-metadata:
-  name: provider-hcloud
-spec:
-  package: xpkg.upbound.io/crossplane-contrib/provider-hcloud:v0.40.0
-  packagePullPolicy: IfNotPresent
-  revisionActivationPolicy: Automatic
-  revisionHistoryLimit: 3
+# removed

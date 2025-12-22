@@ -3,5 +3,4 @@ kind: Kustomization
 
 resources:
   - provider-cloudflare.yaml
-  - provider-hcloud.yaml
   - provider-kubernetes.yaml

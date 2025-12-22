@@ -13,15 +13,6 @@ spec:
     - step: render-dns
       functionRef:
         name: function-go-templating
-      credentials:
-        - source: Secret
-          secretRef:
-            name: mail-dns-secrets
-            namespace: crossplane-system
-      requirements:
-        requiredResources:
-          - selector:
-              name: mail-dns-secrets
       input:
         apiVersion: gotemplating.fn.crossplane.io/v1beta1
         kind: GoTemplate
@@ -32,15 +23,12 @@ spec:
             {{- $claimName := .observed.composite.resource.metadata.name -}}
             {{- $domain := .observed.composite.resource.spec.domain -}}
             {{- $mailHostname := .observed.composite.resource.spec.mailHostname -}}
+            {{- $zoneId := .observed.composite.resource.spec.zoneId -}}
             {{- $ipv4 := .observed.composite.resource.spec.ipv4 -}}
             {{- $ipv6 := .observed.composite.resource.spec.ipv6 -}}
-            {{- $dkimEd25519Selector := .observed.composite.resource.spec.dkimEd25519Selector | default "202404e" -}}
-            {{- $dkimRsaSelector := .observed.composite.resource.spec.dkimRsaSelector | default "202404r" -}}
-            {{- $dkimEd25519Key := index .context "dkim-ed25519" -}}
-            {{- $dkimRsaKey := index .context "dkim-rsa" -}}
             
             # A record for mail
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-mail
@@ -48,10 +36,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-a-mail
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: A
                 name: mail
-                content: {{ $ipv4 }}
-                zone: {{ $domain }}
+                value: "{{ $ipv4 }}"
                 proxied: false
                 ttl: 300
               providerConfigRef:
@@ -59,7 +47,7 @@ spec:
             
             ---
             # A record for smtp
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-smtp
@@ -67,10 +55,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-a-smtp
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: A
                 name: smtp
-                content: {{ $ipv4 }}
-                zone: {{ $domain }}
+                value: "{{ $ipv4 }}"
                 proxied: false
                 ttl: 300
               providerConfigRef:
@@ -78,7 +66,7 @@ spec:
             
             ---
             # A record for imap
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-imap
@@ -86,10 +74,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-a-imap
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: A
                 name: imap
-                content: {{ $ipv4 }}
-                zone: {{ $domain }}
+                value: "{{ $ipv4 }}"
                 proxied: false
                 ttl: 300
               providerConfigRef:
@@ -98,7 +86,7 @@ spec:
             {{- if $ipv6 }}
             ---
             # AAAA record for mail (optional)
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-mail-aaaa
@@ -106,10 +94,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-aaaa-mail
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: AAAA
                 name: mail
-                content: {{ $ipv6 }}
-                zone: {{ $domain }}
+                value: "{{ $ipv6 }}"
                 proxied: false
                 ttl: 300
               providerConfigRef:
@@ -117,7 +105,7 @@ spec:
             
             ---
             # AAAA record for smtp (optional)
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-smtp-aaaa
@@ -125,10 +113,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-aaaa-smtp
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: AAAA
                 name: smtp
-                content: {{ $ipv6 }}
-                zone: {{ $domain }}
+                value: "{{ $ipv6 }}"
                 proxied: false
                 ttl: 300
               providerConfigRef:
@@ -136,7 +124,7 @@ spec:
             
             ---
             # AAAA record for imap (optional)
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-imap-aaaa
@@ -144,10 +132,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-aaaa-imap
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: AAAA
                 name: imap
-                content: {{ $ipv6 }}
-                zone: {{ $domain }}
+                value: "{{ $ipv6 }}"
                 proxied: false
                 ttl: 300
               providerConfigRef:
@@ -156,7 +144,7 @@ spec:
             
             ---
             # MX record
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-mx
@@ -164,18 +152,18 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-mx
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: MX
                 name: "@"
-                content: {{ $mailHostname }}
+                value: "{{ $mailHostname }}"
                 priority: 10
-                zone: {{ $domain }}
                 ttl: 300
               providerConfigRef:
                 name: default
             
             ---
             # SPF TXT record
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-spf
@@ -183,53 +171,17 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-spf
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: TXT
                 name: "@"
-                content: "v=spf1 mx ra=postmaster -all"
-                zone: {{ $domain }}
-                ttl: 300
-              providerConfigRef:
-                name: default
-            
-            ---
-            # DKIM Ed25519 TXT record
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
-            kind: Record
-            metadata:
-              name: {{ $claimName }}-dkim-ed25519
-              annotations:
-                gotemplating.fn.crossplane.io/composition-resource-name: dns-dkim-ed25519
-            spec:
-              forProvider:
-                type: TXT
-                name: {{ $dkimEd25519Selector }}._domainkey
-                content: v=DKIM1; k=ed25519; p={{ $dkimEd25519Key }}
-                zone: {{ $domain }}
-                ttl: 300
-              providerConfigRef:
-                name: default
-            
-            ---
-            # DKIM RSA TXT record
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
-            kind: Record
-            metadata:
-              name: {{ $claimName }}-dkim-rsa
-              annotations:
-                gotemplating.fn.crossplane.io/composition-resource-name: dns-dkim-rsa
-            spec:
-              forProvider:
-                type: TXT
-                name: {{ $dkimRsaSelector }}._domainkey
-                content: v=DKIM1; k=rsa; p={{ $dkimRsaKey }}
-                zone: {{ $domain }}
+                value: "v=spf1 mx ra=postmaster -all"
                 ttl: 300
               providerConfigRef:
                 name: default
             
             ---
             # DMARC TXT record
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-dmarc
@@ -237,17 +189,17 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-dmarc
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: TXT
                 name: _dmarc
-                content: v=DMARC1; p=reject; rua=mailto:postmaster@{{ $domain }}
-                zone: {{ $domain }}
+                value: "v=DMARC1; p=reject; rua=mailto:postmaster@{{ $domain }}"
                 ttl: 300
               providerConfigRef:
                 name: default
             
             ---
             # CNAME for autoconfig
-            apiVersion: dns.cloudflare.crossplane.io/v1alpha1
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
             kind: Record
             metadata:
               name: {{ $claimName }}-autoconfig
@@ -255,10 +207,10 @@ spec:
                 gotemplating.fn.crossplane.io/composition-resource-name: dns-cname-autoconfig
             spec:
               forProvider:
+                zoneId: "{{ $zoneId }}"
                 type: CNAME
                 name: autoconfig
-                content: {{ $mailHostname }}
-                zone: {{ $domain }}
+                value: "{{ $mailHostname }}"
                 ttl: 300
               providerConfigRef:
                 name: default

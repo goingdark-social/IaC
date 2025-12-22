@@ -27,23 +27,19 @@ spec:
                 mailHostname:
                   type: string
                   description: "Mail server hostname (e.g., mail.peekoff.com)"
+                zoneId:
+                  type: string
+                  description: "Cloudflare zone ID"
                 ipv4:
                   type: string
                   description: "IPv4 address for A records"
                 ipv6:
                   type: string
                   description: "Optional IPv6 address for AAAA records"
-                dkimEd25519Selector:
-                  type: string
-                  default: "202404e"
-                  description: "DKIM Ed25519 selector"
-                dkimRsaSelector:
-                  type: string
-                  default: "202404r"
-                  description: "DKIM RSA selector"
               required:
                 - domain
                 - mailHostname
+                - zoneId
                 - ipv4
             status:
               type: object
