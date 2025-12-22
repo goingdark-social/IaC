@@ -1,0 +1,18 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: function-pt
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  package: xpkg.upbound.io/upbound/function-k8s-pt:v0.2.0
+  runtimeConfigRef:
+    name: pt-config
+---
+apiVersion: fn.crossplane.io/v1beta1
+kind: RunConfiguration
+metadata:
+  name: pt-config
+spec:
+  runnerConfig:
+    defaultImage: ghcr.io/upbound/upbound-function-runner:latest

@@ -9,9 +9,9 @@ metadata:
 spec:
   compositionSelector:
     matchLabels:
-      provider: cloudflare
+      provider: custom
   compositionRef:
-    name: maildns-cloudflare
+    name: maildns-custom
 
   # Domain configuration
   domain: peekoff.com
