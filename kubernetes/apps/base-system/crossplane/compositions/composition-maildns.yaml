@@ -38,6 +38,7 @@ spec:
         kind: RunFunctionRequest
         input:
           manifests:
+            # A Record for mail subdomain
             - apiVersion: batch/v1
               kind: Job
               metadata:
@@ -72,10 +73,11 @@ spec:
                               -H "Authorization: Bearer $CF_TOKEN" \
                               -H "Content-Type: application/json" \
                               -d '{"type":"A","name":"mail","content":"'"${LOADBALANCER_IPV4}"'","ttl":300,"proxied":false,"comment":"Stalwart mail server"}' && echo "mail A OK"
+            # MX Record
             - apiVersion: batch/v1
               kind: Job
               metadata:
-                name: dns-cname-mta-sts-{{ .spec.domain }}
+                name: dns-mx-{{ .spec.domain }}
                 namespace: crossplane-system
               spec:
                 template:
@@ -96,6 +98,8 @@ spec:
                               secretKeyRef:
                                 name: mail-dns-secrets
                                 key: api-token
+                          - name: LOADBALANCER_IPV4
+                            value: "{{ .status.loadBalancerIPv4 }}"
                         command: ["/bin/sh"]
                         args:
                           - -c
@@ -103,7 +107,46 @@ spec:
                             curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
                               -H "Authorization: Bearer $CF_TOKEN" \
                               -H "Content-Type: application/json" \
-                              -d '{"type":"CNAME","name":"mta-sts","content":"{{ .spec.mailHostname }}","ttl":300,"proxied":false,"comment":"MTA-STS CNAME"}' && echo "mta-sts CNAME OK"
+                              -d '{"type":"MX","name":"@","content":"{{ .spec.mailHostname }}","priority":10,"ttl":300,"proxied":false,"comment":"Mail server"}' && echo "MX OK"
+            # DKIM Ed25519 TXT Record
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-txt-dkim-ed25519-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                          - name: DKIM_ED25519
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: dkim-ed25519
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"TXT","name":"{{ .spec.dkimEd25519Selector }}._domainkey","content":"'"$DKIM_ED25519"'","ttl":300,"proxied":false,"comment":"DKIM Ed25519 key"}' && echo "DKIM Ed25519 OK"
+            # DKIM RSA TXT Record
             - apiVersion: batch/v1
               kind: Job
               metadata:
@@ -140,4 +183,489 @@ spec:
                             curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
                               -H "Authorization: Bearer $CF_TOKEN" \
                               -H "Content-Type: application/json" \
-                              -d '{"type":"TXT","name":"{{ .spec.dkimRsaSelector }}._domainkey","content":"'"$DKIM_RSA"'","ttl":300,"proxied":false,"comment":"DKIM RSA key"}' && echo "DKIM RSA TXT OK"
+                              -d '{"type":"TXT","name":"{{ .spec.dkimRsaSelector }}._domainkey","content":"'"$DKIM_RSA"'","ttl":300,"proxied":false,"comment":"DKIM RSA key"}' && echo "DKIM RSA OK"
+            # SPF TXT Records
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-txt-spf-mail-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"TXT","name":"mail","content":"v=spf1 a ra=postmaster -all","ttl":300,"proxied":false,"comment":"SPF for mail"}' && echo "SPF mail OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-txt-spf-apex-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"TXT","name":"@","content":"v=spf1 mx ra=postmaster -all","ttl":300,"proxied":false,"comment":"SPF for apex"}' && echo "SPF apex OK"
+            # SRV Records
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-jmap-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_jmap._tcp","data":{"service":"_jmap","proto":"_tcp","priority":0,"weight":1,"port":443,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"JMAP SRV"}' && echo "JMAP SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-caldavs-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_caldavs._tcp","data":{"service":"_caldavs","proto":"_tcp","priority":0,"weight":1,"port":443,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"CalDAV SRV"}' && echo "CalDAV SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-carddavs-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_carddavs._tcp","data":{"service":"_carddavs","proto":"_tcp","priority":0,"weight":1,"port":443,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"CardDAV SRV"}' && echo "CardDAV SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-imaps-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_imaps._tcp","data":{"service":"_imaps","proto":"_tcp","priority":0,"weight":1,"port":993,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"IMAPS SRV"}' && echo "IMAPS SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-imap-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_imap._tcp","data":{"service":"_imap","proto":"_tcp","priority":0,"weight":1,"port":143,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"IMAP SRV"}' && echo "IMAP SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-pop3s-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_pop3s._tcp","data":{"service":"_pop3s","proto":"_tcp","priority":0,"weight":1,"port":995,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"POP3S SRV"}' && echo "POP3S SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-pop3-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_pop3._tcp","data":{"service":"_pop3","proto":"_tcp","priority":0,"weight":1,"port":110,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"POP3 SRV"}' && echo "POP3 SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-submissions-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_submissions._tcp","data":{"service":"_submissions","proto":"_tcp","priority":0,"weight":1,"port":465,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"Submissions SRV"}' && echo "Submissions SRV OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-srv-submission-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"SRV","name":"_submission._tcp","data":{"service":"_submission","proto":"_tcp","priority":0,"weight":1,"port":587,"target":"{{ .spec.mailHostname }}"},"ttl":300,"proxied":false,"comment":"Submission SRV"}' && echo "Submission SRV OK"
+            # CNAME Records
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-cname-autoconfig-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"CNAME","name":"autoconfig","content":"{{ .spec.mailHostname }}","ttl":300,"proxied":false,"comment":"Autoconfiguration CNAME"}' && echo "Autoconfig CNAME OK"
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-cname-autodiscover-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"CNAME","name":"autodiscover","content":"{{ .spec.mailHostname }}","ttl":300,"proxied":false,"comment":"Autodiscover CNAME"}' && echo "Autodiscover CNAME OK"
+            # DMARC TXT Record
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-txt-dmarc-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"TXT","name":"_dmarc","content":"v=DMARC1; p=reject; rua=mailto:postmaster@peekoff.com; ruf=mailto:postmaster@peekoff.com","ttl":300,"proxied":false,"comment":"DMARC policy"}' && echo "DMARC OK"
+            # TLS Reporting TXT Record
+            - apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: dns-txt-tls-rpt-{{ .spec.domain }}
+                namespace: crossplane-system
+              spec:
+                template:
+                  spec:
+                    restartPolicy: Never
+                    serviceAccountName: cloudflare-dns
+                    containers:
+                      - name: curl
+                        image: curlimages/curl:8.7.1
+                        env:
+                          - name: CF_ZONE_ID
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: zone-id
+                          - name: CF_TOKEN
+                            valueFrom:
+                              secretKeyRef:
+                                name: mail-dns-secrets
+                                key: api-token
+                        command: ["/bin/sh"]
+                        args:
+                          - -c
+                          - |
+                            curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records" \
+                              -H "Authorization: Bearer $CF_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d '{"type":"TXT","name":"_smtp._tls","content":"v=TLSRPTv1; rua=mailto:postmaster@peekoff.com","ttl":300,"proxied":false,"comment":"TLS reporting"}' && echo "TLS RPT OK"

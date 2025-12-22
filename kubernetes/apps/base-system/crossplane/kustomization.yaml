@@ -9,7 +9,7 @@ resources:
   - functions/
   - configs/
   - compositions/
-  # - instances/
+  - instances/
 
 helmCharts:
   - name: crossplane
