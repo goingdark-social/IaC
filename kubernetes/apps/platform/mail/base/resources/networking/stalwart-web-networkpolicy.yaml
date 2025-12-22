@@ -9,8 +9,13 @@ spec:
       app.kubernetes.io/name: stalwart
   policyTypes:
   - Ingress
+  - Egress
   ingress:
-  - ports:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - port: 443
+      protocol: TCP
     - port: 25
       protocol: TCP
     - port: 587
@@ -25,5 +30,28 @@ spec:
       protocol: TCP
     - port: 995
       protocol: TCP
+    - port: 4190
+      protocol: TCP
     - port: 8080
+      protocol: TCP
+  egress:
+  # DNS
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - port: 53
+      protocol: UDP
+  # Outbound SMTP
+  - to:
+    - podSelector: {}
+    ports:
+    - port: 25
+      protocol: TCP
+  # HTTPS (for ACME/Let's Encrypt)
+  - to:
+    - podSelector: {}
+    ports:
+    - port: 443
       protocol: TCP
