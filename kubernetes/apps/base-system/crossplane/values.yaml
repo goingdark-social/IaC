@@ -2,7 +2,6 @@ replicas: 1
 deploymentStrategy: Recreate
 
 args:
-  - --enable-environment-configs
   - --enable-composition-functions
   - --enable-usages
 

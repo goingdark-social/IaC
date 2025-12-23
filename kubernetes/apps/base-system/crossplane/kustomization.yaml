@@ -9,3 +9,5 @@ resources:
   - install/
   - providers/
   - functions/
+  - compositions/
+  - instances/
