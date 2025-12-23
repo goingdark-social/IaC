@@ -53,7 +53,7 @@ module "kubernetes" {
     # Primary general-purpose worker nodepool (larger instance type)
     { name = "worker", type = "cx43", location = "hel1", count = 1 },
     # Secondary worker nodepool (smaller instance type) for mixed workloads / cost optimization
-    { name = "worker-secondary", type = "cx33", location = "hel1", count = 1 }
+    { name = "worker-secondary", type = "cx43", location = "hel1", count = 1 }
   ]
   worker_config_patches = [
     {
