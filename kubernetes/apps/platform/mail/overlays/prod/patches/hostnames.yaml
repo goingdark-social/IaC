@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stalwart
+spec:
+  template:
+    spec:
+      containers:
+        - name: stalwart
+          env:
+            - name: HOSTNAME
+              value: "mail.peekoff.com"

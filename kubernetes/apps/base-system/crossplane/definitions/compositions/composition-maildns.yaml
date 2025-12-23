@@ -1,0 +1,216 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: maildns-custom
+  labels:
+    provider: custom
+spec:
+  mode: Pipeline
+  compositeTypeRef:
+    apiVersion: dns.goingdark.social/v1alpha1
+    kind: XMailDNS
+  pipeline:
+    - step: render-dns
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            ---
+            {{- $claimName := .observed.composite.resource.metadata.name -}}
+            {{- $domain := .observed.composite.resource.spec.domain -}}
+            {{- $mailHostname := .observed.composite.resource.spec.mailHostname -}}
+            {{- $zoneId := .observed.composite.resource.spec.zoneId -}}
+            {{- $ipv4 := .observed.composite.resource.spec.ipv4 -}}
+            {{- $ipv6 := .observed.composite.resource.spec.ipv6 -}}
+            
+            # A record for mail
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-mail
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-a-mail
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: A
+                name: mail
+                value: "{{ $ipv4 }}"
+                proxied: false
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # A record for smtp
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-smtp
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-a-smtp
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: A
+                name: smtp
+                value: "{{ $ipv4 }}"
+                proxied: false
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # A record for imap
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-imap
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-a-imap
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: A
+                name: imap
+                value: "{{ $ipv4 }}"
+                proxied: false
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            {{- if $ipv6 }}
+            ---
+            # AAAA record for mail (optional)
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-mail-aaaa
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-aaaa-mail
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: AAAA
+                name: mail
+                value: "{{ $ipv6 }}"
+                proxied: false
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # AAAA record for smtp (optional)
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-smtp-aaaa
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-aaaa-smtp
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: AAAA
+                name: smtp
+                value: "{{ $ipv6 }}"
+                proxied: false
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # AAAA record for imap (optional)
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-imap-aaaa
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-aaaa-imap
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: AAAA
+                name: imap
+                value: "{{ $ipv6 }}"
+                proxied: false
+                ttl: 300
+              providerConfigRef:
+                name: default
+            {{- end }}
+            
+            ---
+            # MX record
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-mx
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-mx
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: MX
+                name: "@"
+                value: "{{ $mailHostname }}"
+                priority: 10
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # SPF TXT record
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-spf
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-spf
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: TXT
+                name: "@"
+                value: "v=spf1 mx ra=postmaster -all"
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # DMARC TXT record
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-dmarc
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-dmarc
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: TXT
+                name: _dmarc
+                value: "v=DMARC1; p=reject; rua=mailto:postmaster@{{ $domain }}"
+                ttl: 300
+              providerConfigRef:
+                name: default
+            
+            ---
+            # CNAME for autoconfig
+            apiVersion: dns.cloudflare.upbound.io/v1alpha1
+            kind: Record
+            metadata:
+              name: {{ $claimName }}-autoconfig
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: dns-cname-autoconfig
+            spec:
+              forProvider:
+                zoneId: "{{ $zoneId }}"
+                type: CNAME
+                name: autoconfig
+                value: "{{ $mailHostname }}"
+                ttl: 300
+              providerConfigRef:
+                name: default

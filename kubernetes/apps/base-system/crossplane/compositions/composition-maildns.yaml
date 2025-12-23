@@ -1,0 +1,185 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: maildns-custom
+  labels:
+    provider: custom
+spec:
+  compositeTypeRef:
+    apiVersion: dns.goingdark.social/v1alpha1
+    kind: XMailDNS
+  resources:
+    # A record for mail
+    - name: dns-a-mail
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: A
+            name: mail
+            proxied: false
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: spec.ipv4
+          toFieldPath: spec.forProvider.value
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-mail"
+    
+    # A record for smtp
+    - name: dns-a-smtp
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: A
+            name: smtp
+            proxied: false
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: spec.ipv4
+          toFieldPath: spec.forProvider.value
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-smtp"
+    
+    # A record for imap
+    - name: dns-a-imap
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: A
+            name: imap
+            proxied: false
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: spec.ipv4
+          toFieldPath: spec.forProvider.value
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-imap"
+    
+    # MX record
+    - name: dns-mx
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: MX
+            name: "@"
+            priority: 10
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.value
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-mx"
+    
+    # SPF TXT record
+    - name: dns-spf
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: TXT
+            name: "@"
+            value: "v=spf1 mx ra=postmaster -all"
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-spf"
+    
+    # DMARC TXT record
+    - name: dns-dmarc
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: TXT
+            name: _dmarc
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: spec.domain
+          toFieldPath: spec.forProvider.value
+          transforms:
+            - type: string
+              string:
+                fmt: "v=DMARC1; p=reject; rua=mailto:postmaster@%s"
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-dmarc"
+    
+    # CNAME for autoconfig
+    - name: dns-cname-autoconfig
+      base:
+        apiVersion: dns.cloudflare.upbound.io/v1alpha1
+        kind: Record
+        spec:
+          forProvider:
+            type: CNAME
+            name: autoconfig
+            ttl: 300
+          providerConfigRef:
+            name: default
+      patches:
+        - fromFieldPath: spec.zoneId
+          toFieldPath: spec.forProvider.zoneId
+        - fromFieldPath: spec.mailHostname
+          toFieldPath: spec.forProvider.value
+        - fromFieldPath: metadata.name
+          toFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-autoconfig"

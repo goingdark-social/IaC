@@ -1,0 +1,25 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: stalwart-postgresql
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  storage:
+    size: 50Gi
+  walStorage:
+    size: 10Gi
+  postgresql:
+    parameters: {}
+  bootstrap:
+    initdb:
+      database: stalwart
+      owner: stalwart
+  enableSuperuserAccess: false
+  monitoring:
+    enablePodMonitor: false
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: stalwart-cnpg-backup

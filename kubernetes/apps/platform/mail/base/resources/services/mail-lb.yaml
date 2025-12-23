@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stalwart-mail
+  namespace: stalwart
+  labels:
+    app.kubernetes.io/name: stalwart
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 95.216.181.4
+  externalTrafficPolicy: Local
+  ipFamilyPolicy: SingleStack
+  selector:
+    app.kubernetes.io/name: stalwart
+    app.kubernetes.io/instance: stalwart
+  ports:
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+    - name: smtp
+      port: 25
+      targetPort: 25
+      protocol: TCP
+    - name: submission
+      port: 587
+      targetPort: 587
+      protocol: TCP
+    - name: smtps
+      port: 465
+      targetPort: 465
+      protocol: TCP
+    - name: imap
+      port: 143
+      targetPort: 143
+      protocol: TCP
+    - name: imaps
+      port: 993
+      targetPort: 993
+      protocol: TCP
+    - name: sieve
+      port: 4190
+      targetPort: 4190
+      protocol: TCP

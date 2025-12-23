@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: stalwart
+
+images:
+  - name: stalwartlabs/stalwart
+    newTag: v0.15.1
+
+resources:
+  - ../../base
+  # config is generated from files so kustomize can update the name/checksum on change
+
+configMapGenerator:
+  - name: stalwart-config
+    files:
+      - files/config.toml
+
+generatorOptions:
+  disableNameSuffixHash: false
+
+patches:
+  - path: patches/hostnames.yaml
+  - path: patches/storageclass.yaml
+

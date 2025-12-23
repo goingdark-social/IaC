@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## Repository Overview
 
@@ -16,7 +16,7 @@ This is the complete infrastructure-as-code repository for goingdark.social, a K
 - **Cluster Autoscaler**: Conservative scaling (10m delay after add/delete, 8m unneeded time, least-waste expander)
 - **Storage**: Hetzner CSI with encrypted XFS volumes (nrext64 flag), Retain reclaim policy
 - **Networking**: Cilium with WireGuard encryption, public IPv4 enabled
-- **Firewall**: API access restricted to configured IPs, allows Cloudflare tunnel (UDP 8443) and established UDP responses (32768-65535)
+- **Firewall**: API access restricted to configured IPs, allows Cloudflare tunnel (UDP 8443), established UDP responses (32768-65535), and mail ports (TCP 25, 587, 465, 143, 993, 110, 995)
 - **Backups**: Hourly etcd backups to S3, CSI encryption with LUKS passphrase
 - **Gateway API**: v1.3.0 manifests loaded via talos_extra_remote_manifests
 - Generates `talosconfig` and `kubeconfig` for cluster access
@@ -39,9 +39,9 @@ The repository follows a GitOps pattern with two main ApplicationSets:
 
 #### Platform Apps (`apps/platform/`)
 - **Mastodon** - Main social platform with custom 1000-character posts
-  - Web servers (ghcr.io/glitch-soc/mastodon:v4.5.0-beta.2, tag set via the root Kustomize images block, 2-4 replicas with HPA)
+  - Web servers (ghcr.io/glitch-soc/mastodon:v4.5.0, tag set via the root Kustomize images block, 2-4 replicas with HPA)
   - Sidekiq workers: default (1-3 replicas), federation (1-3 replicas), background (1 replica), scheduler (1 replica)
-  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming:v4.5.0-beta.2, tag managed in the same images block, 1-3 replicas with HPA)
+  - Streaming API (ghcr.io/glitch-soc/mastodon-streaming:v4.5.0, tag managed in the same images block, 1-3 replicas with HPA)
   - PostgreSQL cluster (CloudNative-PG) with S3 backups
   - Redis StatefulSet (master)
   - Elasticsearch StatefulSet for full-text search
@@ -78,8 +78,8 @@ The repository follows a GitOps pattern with two main ApplicationSets:
 ### HTTP Routing (Gateway API)
 - **Gateway** resources define listeners and TLS termination (`gateway/gw-external.yaml`)
   - Cilium gateway class with load balancer IP annotation (io.cilium/lb-ipam-ips)
-  - Listeners for apex domain and wildcard (*.goingdark.social)
-  - TLS certificates from cert-manager (wildcard certificate)
+  - Listeners for apex domain and wildcard (*.goingdark.social, *.peekoff.com)
+  - TLS certificates from cert-manager (wildcard certificates)
   - AllowedRoutes: namespaces.from=All
 - **HTTPRoute** resources define routing rules per application
   - Pattern: One HTTPRoute per service, attached to shared Gateway
@@ -349,3 +349,11 @@ Metrics exposed via port 9394 on web pods, scraped by VMServiceScrape.
 - API access restricted by Hetzner Cloud Firewall to configured source IPs
 - Cloudflare tunnel for secure inbound connectivity (UDP 8443)
 - Renovate bot automatically creates PRs for dependency updates (kubernetes, helm-values, kustomize)
+- DNS Configuration for Mail:
+  - `mail.peekoff.com` should point to the external IP of the `stalwart-mail` LoadBalancer Service
+  - `mailadmin.peekoff.com` should be proxied through Cloudflare, ensuring Cloudflare can reach the Gateway's private IP (e.g., via Cloudflare tunnel)
+  - Cloudflare: Set DNS records for mail domains to "DNS only" to avoid proxying SMTP/IMAP/POP3 ports; admin UI can be proxied if origin is reachable
+
+## JIT (Jump-In-Tree) Links
+
+- [opentofu/AGENTS.md](opentofu/AGENTS.md)

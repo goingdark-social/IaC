@@ -1,0 +1,50 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xmaildns.dns.goingdark.social
+spec:
+  group: dns.goingdark.social
+  names:
+    kind: XMailDNS
+    plural: xmaildns
+  claimNames:
+    kind: MailDNS
+    plural: maildns
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                domain:
+                  type: string
+                  description: "Domain name (e.g., peekoff.com)"
+                mailHostname:
+                  type: string
+                  description: "Mail server hostname (e.g., mail.peekoff.com)"
+                zoneId:
+                  type: string
+                  description: "Cloudflare zone ID"
+                ipv4:
+                  type: string
+                  description: "IPv4 address for A records"
+                ipv6:
+                  type: string
+                  description: "Optional IPv6 address for AAAA records"
+              required:
+                - domain
+                - mailHostname
+                - zoneId
+                - ipv4
+            status:
+              type: object
+              properties:
+                dnsRecordsCreated:
+                  type: integer
+                  description: "Number of DNS records created"
+

@@ -1,0 +1,163 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stalwart
+  labels:
+    app.kubernetes.io/name: stalwart
+    app.kubernetes.io/part-of: stalwart
+    app.kubernetes.io/component: mail-server
+spec:
+  serviceName: stalwart-headless
+  replicas: 3
+  podManagementPolicy: Parallel
+  ordinals:
+    start: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: stalwart
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: stalwart
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      priorityClassName: mail-critical
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: stalwart
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: stalwart
+          image: stalwartlabs/stalwart
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/local/bin/stalwart"]
+          args: ["--config", "/opt/stalwart/etc/config.toml"]
+          env:
+            - name: HOSTNAME
+              value: "mail.peekoff.com"
+            - name: STALWART_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
+          ports:
+            - containerPort: 25
+              name: smtp
+              protocol: TCP
+            - containerPort: 587
+              name: submission
+              protocol: TCP
+            - containerPort: 465
+              name: smtps
+              protocol: TCP
+            - containerPort: 143
+              name: imap
+              protocol: TCP
+            - containerPort: 993
+              name: imaps
+              protocol: TCP
+            - containerPort: 110
+              name: pop3
+              protocol: TCP
+            - containerPort: 995
+              name: pop3s
+              protocol: TCP
+            - containerPort: 4190
+              name: managesieve
+              protocol: TCP
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+            - containerPort: 443
+              name: https
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "100m"
+              memory: 100Mi
+            limits:
+              cpu: "200m"
+              memory: 200Mi
+          startupProbe:
+            httpGet:
+              path: /healthz/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+          volumeMounts:
+            - name: data
+              mountPath: /opt/stalwart
+            - name: logs
+              mountPath: /var/log/stalwart
+            - name: config
+              mountPath: /opt/stalwart/etc/config.toml
+              subPath: config.toml
+              readOnly: true
+            - name: secrets
+              mountPath: /opt/stalwart/secrets
+              readOnly: true
+            - name: db-secrets
+              mountPath: /opt/stalwart/db-secrets
+              readOnly: true
+            - name: s3-secrets
+              mountPath: /opt/stalwart/s3-secrets
+              readOnly: true
+            - name: tls-certs
+              mountPath: /opt/stalwart/etc/certs
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: stalwart-data
+        - name: logs
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: stalwart-config
+        - name: secrets
+          secret:
+            secretName: stalwart-secret
+        - name: db-secrets
+          secret:
+            secretName: stalwart-postgresql-app
+        - name: s3-secrets
+          secret:
+            secretName: stalwart-blob-s3
+        - name: tls-certs
+          secret:
+            secretName: stalwart-tls
+            defaultMode: 0440

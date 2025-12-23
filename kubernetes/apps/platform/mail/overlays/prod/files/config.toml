@@ -1,0 +1,128 @@
+# Stalwart Configuration Override
+# This file supplements the default configuration
+
+[server]
+hostname = "mail.peekoff.com"
+
+[certificate.default]
+cert = "/opt/stalwart/etc/certs/tls.crt"
+private-key = "/opt/stalwart/etc/certs/tls.key"
+
+[acme]
+disable = true
+
+[authentication.fallback-admin]
+user = "admin_fallback"
+secret = "%{file:/opt/stalwart/secrets/ADMIN_PASSWORD}%"
+
+[tracer."stdout"]
+type = "stdout"
+level = "info"
+
+[tracer."file"]
+type = "log"
+path = "/var/log/stalwart/stalwart.log"
+level = "info"
+enable = true
+
+[metrics.history]
+enable = true
+store = "postgresql"
+retention = "90d"
+interval = "0 * *"
+
+[server.listener."smtp"]
+bind = ["0.0.0.0:25"]
+protocol = "smtp"
+
+[server.listener."submission"]
+bind = ["0.0.0.0:587"]
+protocol = "smtp"
+tls.implicit = false
+
+[server.listener."smtps"]
+bind = ["0.0.0.0:465"]
+protocol = "smtp"
+tls.implicit = true
+
+[server.listener."imap"]
+bind = ["0.0.0.0:143"]
+protocol = "imap"
+tls.implicit = false
+
+[server.listener."imaps"]
+bind = ["0.0.0.0:993"]
+protocol = "imap"
+tls.implicit = true
+
+[server.listener."pop3"]
+bind = ["0.0.0.0:110"]
+protocol = "pop3"
+tls.implicit = false
+
+[server.listener."pop3s"]
+bind = ["0.0.0.0:995"]
+protocol = "pop3"
+tls.implicit = true
+
+[server.listener."sieve"]
+bind = ["0.0.0.0:4190"]
+protocol = "managesieve"
+
+[server.listener."http"]
+bind = ["0.0.0.0:8080"]
+protocol = "http"
+
+[server.listener."https"]
+bind = ["0.0.0.0:443"]
+protocol = "http"
+tls.implicit = true
+
+[storage]
+data = "postgresql"
+lookup = "postgresql"
+fts = "postgresql"
+blob = "s3"
+directory = "internal"
+
+[directory."internal"]
+type = "internal"
+store = "postgresql"
+
+[store."postgresql"]
+type = "postgresql"
+host = "stalwart-postgresql-rw.stalwart.svc.cluster.local"
+port = 5432
+database = "stalwart"
+user = "%{file:/opt/stalwart/db-secrets/username}%"
+password = "%{file:/opt/stalwart/db-secrets/password}%"
+
+[store."s3"]
+type = "s3"
+bucket = "stalwart-blobs"
+region = "auto"
+endpoint = "https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com"
+access-key = "%{file:/opt/stalwart/s3-secrets/AWS_ACCESS_KEY_ID}%"
+secret-key = "%{file:/opt/stalwart/s3-secrets/AWS_SECRET_ACCESS_KEY}%"
+compression = "lz4"
+
+[store."nats"]
+type = "nats"
+address = ["nats://stalwart-nats.stalwart.svc.cluster.local:4222"]
+no-echo = true
+tls.enable = false
+ping-interval = "60s"
+max-reconnects = 0
+
+[store."nats".timeout]
+connection = "5s"
+request = "10s"
+
+[store."nats".capacity]
+client = 2048
+subscription = 65536
+read-buffer = 65535
+
+[cluster]
+coordinator = "nats"
+node-id = "%{env:STALWART_NODE_ID}%"

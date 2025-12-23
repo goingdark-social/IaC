@@ -1,0 +1,34 @@
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: stalwart-cnpg-backup
+spec:
+  configuration:
+    destinationPath: s3://mastovault/stalwart/stalwart-postgresql
+    endpointURL: https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId:
+        name: stalwart-cnpg-s3
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: stalwart-cnpg-s3
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: gzip
+      maxParallel: 8
+    data:
+      compression: gzip
+      jobs: 2
+  retentionPolicy: "14d"
+  instanceSidecarConfiguration:
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: "when_required"
+      - name: AWS_ENDPOINT_URL
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+      - name: AWS_REGION
+        value: "auto"
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,*.svc,cluster.local"

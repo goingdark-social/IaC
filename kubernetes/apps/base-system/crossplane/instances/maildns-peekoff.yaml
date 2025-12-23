@@ -1,0 +1,25 @@
+apiVersion: dns.goingdark.social/v1alpha1
+kind: MailDNS
+metadata:
+  name: mail-peekoff
+  namespace: crossplane-system
+spec:
+  compositionSelector:
+    matchLabels:
+      provider: custom
+  compositionRef:
+    name: maildns-custom
+
+  # Domain configuration
+  domain: peekoff.com
+  mailHostname: mail.peekoff.com
+
+  # Cloudflare zone ID
+  zoneId: "e8146b7b5485151dc758a57e6830da35"
+
+  # IPv4 address (required) - from Stalwart mail LoadBalancer
+  ipv4: "116.203.137.71"
+
+  # IPv6 address (optional) - uncomment if LoadBalancer has IPv6
+  # ipv6: "2a01:4f8:1234:5678::1"
+

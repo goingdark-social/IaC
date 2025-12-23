@@ -1,0 +1,62 @@
+replicas: 1
+deploymentStrategy: Recreate
+
+args:
+  - --enable-environment-configs
+  - --enable-composition-functions
+  - --enable-usages
+
+resourcesCrossplane:
+  limits:
+    cpu: 300m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+rbacManager:
+  deploy: true
+  replicas: 1
+  resources:
+    limits:
+      cpu: 100m
+      memory: 256Mi
+    requests:
+      cpu: 20m
+      memory: 128Mi
+
+webhooks:
+  enabled: false
+
+metrics:
+  enabled: true
+
+provider:
+  packages: []
+
+# PodSecurity restricted:latest compliance
+podSecurityContextCrossplane:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContextCrossplane:
+  runAsUser: 65532
+  runAsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+podSecurityContextRBACManager:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContextRBACManager:
+  runAsUser: 65532
+  runAsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

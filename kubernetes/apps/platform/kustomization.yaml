@@ -7,3 +7,5 @@ resources:
   - hypebot/overlays/prod
   - mastodon/overlays/prod
   - elastic/overlays/prod
+  - mail/overlays/prod
+  - mail/cnpg/overlays/prod

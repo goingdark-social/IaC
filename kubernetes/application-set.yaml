@@ -15,9 +15,9 @@ spec:
         revision: main
         directories:
           - path: kubernetes/apps/argocd
+          - path: kubernetes/apps/crds
           - path: kubernetes/apps/base-system
           - path: kubernetes/apps/database
-          - path: kubernetes/apps/crds
           - path: kubernetes/apps/default
           - path: kubernetes/apps/deployment
           - path: kubernetes/apps/kube-system
