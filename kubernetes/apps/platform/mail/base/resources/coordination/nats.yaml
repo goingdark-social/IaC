@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: nats
-          image: nats:2.10
+          image: nats:2.12
           args: ["-m", "8222"]
           ports:
             - name: client
