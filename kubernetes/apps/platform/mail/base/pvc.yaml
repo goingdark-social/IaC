@@ -1,2 +1,0 @@
-# Deprecated placeholder: stalwart now provisions per-pod PVCs via StatefulSet volumeClaimTemplates.
-# This file is intentionally empty and not referenced by kustomization.

@@ -1,0 +1,90 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: stalwart-ingress
+  namespace: stalwart
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: stalwart
+  ingress:
+  # Allow ingress from Cilium Gateway API (special ingress identity)
+  - fromEntities:
+    - ingress
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+  # Allow external ingress for all mail protocols via LoadBalancer (world identity)
+  - fromEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      - port: "25"
+        protocol: TCP
+      - port: "587"
+        protocol: TCP
+      - port: "465"
+        protocol: TCP
+      - port: "143"
+        protocol: TCP
+      - port: "993"
+        protocol: TCP
+      - port: "110"
+        protocol: TCP
+      - port: "995"
+        protocol: TCP
+      - port: "4190"
+        protocol: TCP
+  egress:
+  # DNS - required for MX lookups, SPF/DKIM/DMARC validation
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+  # PostgreSQL (CloudNativePG) - same namespace
+  - toEndpoints:
+    - matchLabels:
+        k8s:cnpg.io/cluster: stalwart-postgresql
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+  # NATS coordinator - same namespace
+  - toEndpoints:
+    - matchLabels:
+        k8s:app.kubernetes.io/name: stalwart-nats
+    toPorts:
+    - ports:
+      - port: "4222"
+        protocol: TCP
+  # External internet egress - HTTPS for S3/Cloudflare R2, OCSP, certificate validation
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      - port: "80"
+        protocol: TCP
+  # External internet egress - Outbound SMTP for sending email
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "25"
+        protocol: TCP
+      - port: "587"
+        protocol: TCP
+      - port: "465"
+        protocol: TCP
