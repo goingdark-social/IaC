@@ -140,9 +140,6 @@ spec:
               mountPath: /opt/stalwart/etc/certs
               readOnly: true
       volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: stalwart-data
         - name: logs
           emptyDir: {}
         - name: config
@@ -161,3 +158,12 @@ spec:
           secret:
             secretName: stalwart-tls
             defaultMode: 0440
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

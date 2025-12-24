@@ -5,7 +5,7 @@ metadata:
 spec:
   configuration:
     destinationPath: s3://mastovault/stalwart/stalwart-postgresql
-    endpointURL: https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com
+    endpointURL: https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com
     s3Credentials:
       accessKeyId:
         name: stalwart-cnpg-s3
@@ -27,7 +27,7 @@ spec:
       - name: AWS_RESPONSE_CHECKSUM_VALIDATION
         value: "when_required"
       - name: AWS_ENDPOINT_URL
-        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com"
       - name: AWS_REGION
         value: "auto"
       - name: NO_PROXY

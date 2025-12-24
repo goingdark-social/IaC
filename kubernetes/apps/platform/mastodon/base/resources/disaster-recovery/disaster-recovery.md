@@ -58,7 +58,7 @@ This document describes disaster recovery (DR) procedures for the Mastodon Postg
 kubectl exec -it database-cnpg-1 -n mastodon -c postgres -- \
   barman-cloud-backup-list \
   --cloud-provider aws-s3 \
-  --endpoint-url https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com \
+  --endpoint-url https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com \
   s3://mastovault/cnpg/mastodon-database database-cnpg
 ```
 
