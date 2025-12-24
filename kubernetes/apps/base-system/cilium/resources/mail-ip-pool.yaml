@@ -10,5 +10,3 @@ spec:
   serviceSelector:
     matchLabels:
       app.kubernetes.io/name: stalwart
-  autoAssign: false
-  disableL2Announcements: true

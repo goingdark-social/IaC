@@ -38,6 +38,14 @@ spec:
       port: 993
       targetPort: 993
       protocol: TCP
+    - name: pop3
+      port: 110
+      targetPort: 110
+      protocol: TCP
+    - name: pop3s
+      port: 995
+      targetPort: 995
+      protocol: TCP
     - name: sieve
       port: 4190
       targetPort: 4190
