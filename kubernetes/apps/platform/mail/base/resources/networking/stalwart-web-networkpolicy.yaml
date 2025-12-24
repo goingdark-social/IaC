@@ -55,3 +55,14 @@ spec:
     ports:
     - port: 443
       protocol: TCP
+  # PostgreSQL (CloudNativePG) - allow egress to DB
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: stalwart
+      podSelector:
+        matchLabels:
+          cnpg.io/cluster: stalwart-postgresql
+    ports:
+    - port: 5432
+      protocol: TCP
