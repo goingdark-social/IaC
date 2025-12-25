@@ -5,8 +5,12 @@
 hostname = "mail.peekoff.com"
 
 [server.tls]
-certificate = "/opt/stalwart/etc/certs/tls.crt"
-private-key = "/opt/stalwart/etc/certs/tls.key"
+certificate = "default"
+
+[certificate.default]
+cert = "%{file:/opt/stalwart/etc/certs/tls.crt}%"
+private-key = "%{file:/opt/stalwart/etc/certs/tls.key}%"
+default = true
 
 [acme]
 disable = true
