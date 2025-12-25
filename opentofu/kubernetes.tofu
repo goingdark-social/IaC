@@ -303,22 +303,6 @@ variable "s3_secret_key" {
   description = "s3_access_key"
 }
 
-# Floating IP for Stalwart mail server
-resource "hcloud_floating_ip" "mail" {
-  type          = "ipv4"
-  home_location = "hel1"
-  description   = "Stalwart mail server VIP"
-}
-
-# Reverse DNS for mail server
-resource "hcloud_rdns" "mail" {
-  floating_ip_id = hcloud_floating_ip.mail.id
-  ip_address     = hcloud_floating_ip.mail.ip_address
-  dns_ptr        = "mail.peekoff.com"
-}
-
-# Output the Floating IP for use in Kubernetes manifests
-output "mail_floating_ip" {
-  value       = hcloud_floating_ip.mail.ip_address
-  description = "Floating IP for Stalwart mail service"
-}
+# Mail server will use Hetzner Cloud Load Balancer via HCCM
+# Load balancer will be automatically created by the HCCM when the
+# LoadBalancer service is deployed to Kubernetes
