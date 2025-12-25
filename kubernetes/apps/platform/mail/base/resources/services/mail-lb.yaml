@@ -13,12 +13,21 @@ metadata:
     load-balancer.hetzner.cloud/use-private-ip: "true"
     load-balancer.hetzner.cloud/disable-private-ingress: "true"
     load-balancer.hetzner.cloud/name: "stalwart-mail-lb"
+
+    # Reverse DNS configuration
+    load-balancer.hetzner.cloud/ipv4-rdns: "mail.peekoff.com"
+
+    # Health check configuration
+    load-balancer.hetzner.cloud/health-check-protocol: "tcp"
+    load-balancer.hetzner.cloud/health-check-port: "25"
+    load-balancer.hetzner.cloud/health-check-interval: "15s"
+    load-balancer.hetzner.cloud/health-check-timeout: "10s"
+    load-balancer.hetzner.cloud/health-check-retries: "3"
 spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
   selector:
     app.kubernetes.io/name: stalwart
-    app.kubernetes.io/instance: stalwart
   ports:
     # Port 25 - SMTP (Required for receiving email from other mail servers)
     - name: smtp
