@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - certificate.yaml
+  - certificate-goingdark.yaml
   - external-secret.yaml
   - httproute-ui.yaml
   - httproute-autodiscover.yaml

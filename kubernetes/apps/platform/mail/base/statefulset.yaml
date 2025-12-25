@@ -139,6 +139,9 @@ spec:
             - name: tls-certs
               mountPath: /opt/stalwart/etc/certs
               readOnly: true
+            - name: tls-certs-goingdark
+              mountPath: /opt/stalwart/etc/certs-goingdark
+              readOnly: true
       volumes:
         - name: logs
           emptyDir: {}
@@ -157,6 +160,10 @@ spec:
         - name: tls-certs
           secret:
             secretName: stalwart-tls
+            defaultMode: 0440
+        - name: tls-certs-goingdark
+          secret:
+            secretName: stalwart-goingdark-tls
             defaultMode: 0440
   volumeClaimTemplates:
     - metadata:

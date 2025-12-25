@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: stalwart-goingdark-tls
+spec:
+  secretName: stalwart-goingdark-tls
+  issuerRef:
+    kind: ClusterIssuer
+    name: cloudflare-issuer
+  dnsNames:
+    - mail.goingdark.social
+    - smtp.goingdark.social
+    - imap.goingdark.social
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  duration: 2160h
+  renewBefore: 720h
