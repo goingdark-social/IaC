@@ -43,7 +43,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: staliaswarden
-          image: ghcr.io/goingdark-social/staliaswarden:main-e7962a1
+          image: ghcr.io/goingdark-social/staliaswarden:main-1866ada
           imagePullPolicy: IfNotPresent
           env:
             - name: PORT
