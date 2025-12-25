@@ -1,12 +1,14 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: stalwart-admin-interface
-  namespace: gateway
+  name: stalwart-autodiscover
 spec:
   parentRefs:
     - name: external
       namespace: gateway
+  hostnames:
+    - "autoconfig.peekoff.com"
+    - "autodiscover.peekoff.com"
   rules:
     - matches:
         - path:
@@ -14,4 +16,5 @@ spec:
             value: /
       backendRefs:
         - name: stalwart
+          namespace: stalwart
           port: 8080

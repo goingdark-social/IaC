@@ -5,6 +5,7 @@ resources:
   - certificate.yaml
   - external-secret.yaml
   - httproute-ui.yaml
+  - httproute-autodiscover.yaml
   - priorityclasses.yaml
   - resources/
   - service.yaml
