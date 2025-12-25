@@ -18,8 +18,9 @@ metadata:
     load-balancer.hetzner.cloud/ipv4-rdns: "mail.peekoff.com"
 
     # Health check configuration
+    # Note: With externalTrafficPolicy: Local, Kubernetes automatically creates a health check
+    # endpoint on the healthCheckNodePort (31698). HCCM will use this automatically.
     load-balancer.hetzner.cloud/health-check-protocol: "tcp"
-    load-balancer.hetzner.cloud/health-check-port: "25"
     load-balancer.hetzner.cloud/health-check-interval: "15s"
     load-balancer.hetzner.cloud/health-check-timeout: "10s"
     load-balancer.hetzner.cloud/health-check-retries: "3"
