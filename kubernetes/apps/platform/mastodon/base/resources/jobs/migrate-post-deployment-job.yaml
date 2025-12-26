@@ -55,6 +55,9 @@ spec:
             # Application secrets (needed for some migrations)
             - secretRef:
                 name: mastodon-app-secrets
+            # Redis configuration (caching and sessions)
+            - configMapRef:
+                name: mastodon-redis
           volumeMounts:
             - name: db-ca
               mountPath: /etc/ssl/certs/postgresql
