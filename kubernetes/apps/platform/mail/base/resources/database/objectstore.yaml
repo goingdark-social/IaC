@@ -19,7 +19,7 @@ spec:
     data:
       compression: gzip
       jobs: 2
-  retentionPolicy: "14d"
+  retentionPolicy: "7d"
   instanceSidecarConfiguration:
     env:
       - name: AWS_REQUEST_CHECKSUM_CALCULATION

@@ -35,6 +35,11 @@ path = "/var/log/stalwart/stalwart.log"
 level = "info"
 enable = true
 
+[tracing.history]
+enable = true
+store = "postgresql"
+retention = "30d"
+
 [metrics.history]
 enable = true
 store = "postgresql"
