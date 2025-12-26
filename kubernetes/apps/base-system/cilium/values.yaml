@@ -24,6 +24,7 @@ cgroup:
 # https://docs.cilium.io/en/stable/operations/performance/tuning/#ebpf-host-routing
 bpf:
   hostLegacyRouting: true
+  lbExternalClusterIP: true
 
 # https://docs.cilium.io/en/stable/network/concepts/ipam/
 ipam:

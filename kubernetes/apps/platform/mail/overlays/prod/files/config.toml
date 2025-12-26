@@ -4,9 +4,19 @@
 [server]
 hostname = "mail.peekoff.com"
 
+[server.tls]
+certificate = "default"
+
 [certificate.default]
-cert = "/opt/stalwart/etc/certs/tls.crt"
-private-key = "/opt/stalwart/etc/certs/tls.key"
+cert = "%{file:/opt/stalwart/etc/certs/tls.crt}%"
+private-key = "%{file:/opt/stalwart/etc/certs/tls.key}%"
+default = true
+subjects = ["mail.peekoff.com", "smtp.peekoff.com", "imap.peekoff.com"]
+
+[certificate.goingdark]
+cert = "%{file:/opt/stalwart/etc/certs-goingdark/tls.crt}%"
+private-key = "%{file:/opt/stalwart/etc/certs-goingdark/tls.key}%"
+subjects = ["mail.goingdark.social", "smtp.goingdark.social", "imap.goingdark.social"]
 
 [acme]
 disable = true

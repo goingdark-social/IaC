@@ -6,7 +6,7 @@ spec:
   configuration:
     # Use the real R2 endpoint
     destinationPath: 's3://mastovault/cnpg/mastodon-database'
-    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com'
+    endpointURL: 'https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com'
     s3Credentials:
       accessKeyId:
         name: mastodon-walg-s3
@@ -33,7 +33,7 @@ spec:
 
       # CNPG/Barman expect the endpoint in env
       - name: AWS_ENDPOINT_URL
-        value: "https://a694d529ab7d7176bcac8585f8bafdf4.r2.cloudflarestorage.com"
+        value: "https://a694d529ab7d7176bcac8585f8bafdf4.eu.r2.cloudflarestorage.com"
 
       # Region is arbitrary for R2 but must be set (use 'auto' or 'us-east-1')
       - name: AWS_REGION

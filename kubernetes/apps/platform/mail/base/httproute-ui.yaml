@@ -2,7 +2,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: stalwart-admin
-  namespace: gateway
 spec:
   parentRefs:
     - name: external
@@ -16,4 +15,5 @@ spec:
             value: /
       backendRefs:
         - name: stalwart
+          namespace: stalwart
           port: 8080

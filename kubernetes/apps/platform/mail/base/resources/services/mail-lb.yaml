@@ -5,39 +5,52 @@ metadata:
   namespace: stalwart
   labels:
     app.kubernetes.io/name: stalwart
+  annotations:
+    # Hetzner Cloud Load Balancer configuration
+    load-balancer.hetzner.cloud/location: "hel1"
+    load-balancer.hetzner.cloud/type: "lb11"
+    load-balancer.hetzner.cloud/algorithm-type: "least_connections"
+    load-balancer.hetzner.cloud/use-private-ip: "true"
+    load-balancer.hetzner.cloud/disable-private-ingress: "true"
+    load-balancer.hetzner.cloud/name: "stalwart-mail-lb"
+
+    # Reverse DNS configuration
+    load-balancer.hetzner.cloud/ipv4-rdns: "mail.peekoff.com"
+
+    # Health check configuration
+    # Note: With externalTrafficPolicy: Local, Kubernetes automatically creates a health check
+    # endpoint on the healthCheckNodePort (31698). HCCM will use this automatically.
+    load-balancer.hetzner.cloud/health-check-protocol: "tcp"
+    load-balancer.hetzner.cloud/health-check-interval: "15s"
+    load-balancer.hetzner.cloud/health-check-timeout: "10s"
+    load-balancer.hetzner.cloud/health-check-retries: "3"
 spec:
   type: LoadBalancer
-  loadBalancerIP: 95.216.181.4
   externalTrafficPolicy: Local
-  ipFamilyPolicy: SingleStack
   selector:
     app.kubernetes.io/name: stalwart
-    app.kubernetes.io/instance: stalwart
   ports:
-    - name: https
-      port: 443
-      targetPort: 443
-      protocol: TCP
+    # Port 25 - SMTP (Required for receiving email from other mail servers)
     - name: smtp
       port: 25
       targetPort: 25
       protocol: TCP
-    - name: submission
-      port: 587
-      targetPort: 587
-      protocol: TCP
+    # Port 465 - SMTPS (Secure email submission with implicit TLS)
     - name: smtps
       port: 465
       targetPort: 465
       protocol: TCP
-    - name: imap
-      port: 143
-      targetPort: 143
+    # Port 587 - Submission (Email submission using STARTTLS)
+    - name: submission
+      port: 587
+      targetPort: 587
       protocol: TCP
+    # Port 993 - IMAPS (Secure IMAP access)
     - name: imaps
       port: 993
       targetPort: 993
       protocol: TCP
+    # Port 4190 - ManageSieve (For managing Sieve scripts remotely)
     - name: sieve
       port: 4190
       targetPort: 4190
