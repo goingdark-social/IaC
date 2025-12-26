@@ -20,7 +20,7 @@ spec:
     data:
       compression: gzip
       jobs: 2
-  retentionPolicy: "14d"
+  retentionPolicy: "7d"
 
   # Add this to make Barman Cloud work reliably with R2
   instanceSidecarConfiguration:

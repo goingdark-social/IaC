@@ -161,6 +161,25 @@ kustomize build --enable-helm apps/argocd
 kubectl diff -k apps/platform/mastodon
 ```
 
+### Manual Apply (Development Only)
+**CRITICAL**: Never apply directly from `base/` directories or individual resource files.
+
+Always use Kustomize and apply from the application root:
+```bash
+# CORRECT: Apply from application root
+kubectl apply -k apps/platform/mastodon
+
+# WRONG: Do not apply from base or resource directories
+kubectl apply -f apps/platform/mastodon/resources/  # ❌
+kubectl apply -f apps/platform/mastodon/base/       # ❌
+```
+
+This ensures:
+- All patches are applied correctly
+- ConfigMaps are generated with proper naming
+- Strategic merges execute in the correct order
+- Kustomize transformers run properly
+
 ### Deployment
 All deployments handled by ArgoCD GitOps - push to `main` branch and ArgoCD syncs automatically.
 
