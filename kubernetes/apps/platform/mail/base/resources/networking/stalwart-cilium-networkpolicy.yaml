@@ -40,6 +40,15 @@ spec:
         protocol: TCP
       - port: "4190"
         protocol: TCP
+  # Allow ingress from staliaswarden helper within same namespace to HTTP API
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: stalwart
+        k8s:app.kubernetes.io/name: staliaswarden
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
   egress:
   # DNS - required for MX lookups, SPF/DKIM/DMARC validation
   - toEndpoints:

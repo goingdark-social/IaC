@@ -113,3 +113,17 @@ The Hetzner Cloud Controller Manager (HCCM) relies on specific annotations on th
 ### Scenario: Targets are Empty in Hetzner Console
 1.  Check Pod Labels. The Service Selector must match the Pods perfectly.
 2.  HCCM only adds nodes that are "Ready". Check `kubectl get nodes`.
+
+---
+
+## 7. Database Operations: CloudNativePG (CNPG)
+
+### Restart Operations
+When restarting CloudNativePG (CNPG) PostgreSQL clusters, **ONLY use native `kubectl cnpg` commands**. Do not use `kubectl rollout restart` or delete pods directly, as this can disrupt the cluster state and break replication.
+
+**Correct Command:**
+```bash
+kubectl cnpg restart -n stalwart stalwart-postgresql
+```
+
+**Rationale:** The CNPG plugin handles graceful failover, ensures primary election, and maintains cluster health during restarts. Using standard kubectl commands bypasses these safety mechanisms.

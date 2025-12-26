@@ -12,3 +12,4 @@ resources:
   - service.yaml
   - service-headless.yaml
   - statefulset.yaml
+  - staliaswarden.yaml
