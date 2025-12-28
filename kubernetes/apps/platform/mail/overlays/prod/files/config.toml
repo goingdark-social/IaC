@@ -93,6 +93,30 @@ bind = ["0.0.0.0:443"]
 protocol = "http"
 tls.implicit = true
 
+# PROXY Protocol Configuration
+# Enable PROXY protocol v2 for listeners receiving traffic from Hetzner Load Balancer
+# This preserves real client IP addresses for security features (IP banning, RBL checks, spam filtering)
+
+[server.listener."smtp".proxy]
+trusted-networks = ["10.0.95.0/24"]  # Hetzner LB private subnet
+
+[server.listener."smtps".proxy]
+trusted-networks = ["10.0.95.0/24"]
+
+[server.listener."submission".proxy]
+trusted-networks = ["10.0.95.0/24"]
+
+[server.listener."imaps".proxy]
+trusted-networks = ["10.0.95.0/24"]
+
+[server.listener."sieve".proxy]
+trusted-networks = ["10.0.95.0/24"]
+
+# Security Configuration
+# Whitelist the load balancer's private IP to prevent health checks from being banned
+[server.security]
+allowed-ip = ["10.0.95.0/24"]
+
 [storage]
 data = "postgresql"
 lookup = "postgresql"
