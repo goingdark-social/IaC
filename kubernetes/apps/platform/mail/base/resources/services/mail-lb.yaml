@@ -17,6 +17,10 @@ metadata:
     # Reverse DNS configuration
     load-balancer.hetzner.cloud/ipv4-rdns: "mail.peekoff.com"
 
+    # PROXY Protocol v2 - Preserves real client IP addresses
+    # This allows Stalwart to see actual client IPs for security features (IP banning, RBL checks)
+    load-balancer.hetzner.cloud/uses-proxyprotocol: "true"
+
     # Health check configuration
     # Note: With externalTrafficPolicy: Local, Kubernetes automatically creates a health check
     # endpoint on the healthCheckNodePort (31698). HCCM will use this automatically.
