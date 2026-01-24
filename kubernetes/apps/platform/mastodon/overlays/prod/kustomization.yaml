@@ -66,6 +66,7 @@ patches:
   - path: patches/spread-patches.yaml
   - path: patches/autoscaler-affinity-patches.yaml
   - path: patches/elasticsearch-password-patch.yaml
+  - path: patches/streaming-db-sslmode.yaml
   # Capacity and resource tuning
   - path: patches/hpa-replicas.yaml
   - path: patches/resources.yaml

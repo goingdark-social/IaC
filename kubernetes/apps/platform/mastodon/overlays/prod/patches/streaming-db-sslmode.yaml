@@ -1,0 +1,13 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mastodon-streaming
+spec:
+  template:
+    spec:
+      containers:
+        - name: streaming
+          env:
+            - name: DB_SSLMODE
+              value: "no-verify"
