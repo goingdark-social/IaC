@@ -128,7 +128,7 @@
         }
       },
       "targets": [
-        { "expr": "sum(hcloud_server_memory_bytes) / 1e9", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
+        { "expr": "sum(hcloud_server_memory_bytes) / 1024 / 1024", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
       ]
     },
     {
@@ -189,14 +189,14 @@
           "datasource": { "type": "prometheus" }
         },
         {
-          "expr": "hcloud_server_memory_bytes / 1e9",
+          "expr": "hcloud_server_memory_bytes / 1024 / 1024",
           "refId": "D",
           "instant": true,
           "format": "table",
           "datasource": { "type": "prometheus" }
         },
         {
-          "expr": "hcloud_server_disk_bytes / 1e9",
+          "expr": "hcloud_server_disk_bytes / 1024 / 1024 / 1024",
           "refId": "E",
           "instant": true,
           "format": "table",
