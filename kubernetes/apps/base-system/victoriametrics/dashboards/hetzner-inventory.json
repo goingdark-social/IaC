@@ -11,80 +11,188 @@
   "title": "Hetzner — Inventory",
   "schemaVersion": 38,
   "version": 1,
-  "time": { "from": "now-7d", "to": "now" },
-  "templating": { "list": [] },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
   "panels": [
     {
       "type": "stat",
       "title": "Servers (total)",
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
-        { "expr": "count(hcloud_server_created_timestamp)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "count(hcloud_server_created_timestamp)",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus"
+          }
+        }
       ]
     },
     {
       "type": "stat",
       "title": "Servers running",
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
       "targets": [
-        { "expr": "sum(hcloud_server_running)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "sum(hcloud_server_running)",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus"
+          }
+        }
       ]
     },
     {
       "type": "stat",
       "title": "Volumes (count)",
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
       "targets": [
-        { "expr": "count(hcloud_volume_created)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "count(hcloud_volume_created)",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus"
+          }
+        }
       ]
     },
     {
       "type": "stat",
       "title": "Volume size (GB)",
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
       "targets": [
-        { "expr": "sum(hcloud_volume_size)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "sum(hcloud_volume_size)",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus"
+          }
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Traffic — Used vs Included (TB)",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 5 },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "targets": [
         {
           "expr": "(sum(hcloud_server_incoming_traffic_bytes + hcloud_server_outgoing_traffic_bytes) / 1e12)",
           "legendFormat": "Used",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" }
+          "datasource": {
+            "type": "prometheus"
+          }
         },
         {
           "expr": "(sum(hcloud_server_included_traffic_bytes) / 1e12)",
           "legendFormat": "Included",
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" }
+          "datasource": {
+            "type": "prometheus"
+          }
         }
       ]
     },
     {
       "type": "bargauge",
       "title": "Servers by datacenter",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
-      "options": { "displayMode": "gradient" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "options": {
+        "displayMode": "gradient"
+      },
       "targets": [
-        { "expr": "sum(hcloud_server_running) by (datacenter)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "sum(hcloud_server_running) by (datacenter)",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus"
+          }
+        }
       ]
     },
     {
       "type": "table",
       "title": "Volumes",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
-      "options": { "showHeader": true },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "options": {
+        "showHeader": true
+      },
       "targets": [
-        { "expr": "hcloud_volume_size", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "hcloud_volume_size",
+          "refId": "A",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus"
+          }
+        }
       ],
       "transformations": [
-        { "id": "labelsToFields", "options": { "mode": "columns" } },
-        { "id": "organize", "options": { "renameByName": { "Value": "size_gb" }, "indexByName": { "name": 0, "server": 1, "location": 2, "size_gb": 3 } } }
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Value": "size_gb"
+            },
+            "indexByName": {
+              "name": 0,
+              "server": 1,
+              "location": 2,
+              "size_gb": 3
+            }
+          }
+        }
       ]
     }
   ]
