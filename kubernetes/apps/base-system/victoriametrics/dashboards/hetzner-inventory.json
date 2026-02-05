@@ -8,83 +8,398 @@
       "pluginName": "Prometheus"
     }
   ],
-  "title": "Hetzner — Inventory",
+  "title": "Hetzner — Inventory & Costs",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "time": { "from": "now-7d", "to": "now" },
+  "refresh": "1m",
   "templating": { "list": [] },
   "panels": [
     {
       "type": "stat",
-      "title": "Servers (total)",
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "title": "Total Monthly Cost (€)",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 50, "color": "yellow" },
+              { "value": 100, "color": "red" }
+            ]
+          }
+        }
+      },
       "targets": [
-        { "expr": "count(hcloud_server_created_timestamp)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "sum(hcloud_server_price_monthly) + (sum(hcloud_volume_size) * 0.055)",
+          "refId": "A",
+          "instant": true,
+          "datasource": { "type": "prometheus" }
+        }
       ]
     },
     {
       "type": "stat",
-      "title": "Servers running",
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "title": "Servers Cost (€/mo)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 2
+        }
+      },
       "targets": [
-        { "expr": "sum(hcloud_server_running)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "sum(hcloud_server_price_monthly)",
+          "refId": "A",
+          "instant": true,
+          "datasource": { "type": "prometheus" }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Volumes Cost (€/mo)",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 2
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(hcloud_volume_size) * 0.055",
+          "refId": "A",
+          "instant": true,
+          "datasource": { "type": "prometheus" }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Servers (total)",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 6 },
+      "targets": [
+        { "expr": "count(hcloud_server_created_timestamp)", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Servers Running",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 1, "color": "green" }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "sum(hcloud_server_running)", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total CPU Cores",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 6 },
+      "targets": [
+        { "expr": "sum(hcloud_server_cores)", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Total Memory (GB)",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "decimals": 0
+        }
+      },
+      "targets": [
+        { "expr": "sum(hcloud_server_memory_bytes) / 1024 / 1024", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
       ]
     },
     {
       "type": "stat",
       "title": "Volumes (count)",
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 6 },
       "targets": [
-        { "expr": "count(hcloud_volume_created)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        { "expr": "count(hcloud_volume_created)", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
       ]
     },
     {
       "type": "stat",
-      "title": "Volume size (GB)",
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "title": "Volume Size (GB)",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 6 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes"
+        }
+      },
       "targets": [
-        { "expr": "sum(hcloud_volume_size)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        { "expr": "sum(hcloud_volume_size)", "refId": "A", "instant": true, "datasource": { "type": "prometheus" } }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Server Details & Costs",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Monthly Cost (€)", "desc": true }] },
+      "fieldConfig": {
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Monthly Cost (€)" }, "properties": [{ "id": "unit", "value": "currencyEUR" }, { "id": "decimals", "value": 2 }] },
+          { "matcher": { "id": "byName", "options": "Hourly Cost (€)" }, "properties": [{ "id": "unit", "value": "currencyEUR" }, { "id": "decimals", "value": 4 }] },
+          { "matcher": { "id": "byName", "options": "Memory (GB)" }, "properties": [{ "id": "unit", "value": "decgbytes" }, { "id": "decimals", "value": 0 }] },
+          { "matcher": { "id": "byName", "options": "Disk (GB)" }, "properties": [{ "id": "unit", "value": "decgbytes" }, { "id": "decimals", "value": 0 }] },
+          { "matcher": { "id": "byName", "options": "Running" }, "properties": [{ "id": "mappings", "value": [{ "type": "value", "options": { "1": { "text": "✓", "color": "green" }, "0": { "text": "✗", "color": "red" } } }] }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "hcloud_server_price_monthly",
+          "refId": "A",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_server_price_hourly",
+          "refId": "B",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_server_cores",
+          "refId": "C",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_server_memory_bytes / 1024 / 1024",
+          "refId": "D",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_server_disk_bytes / 1024 / 1024 / 1024",
+          "refId": "E",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_server_running",
+          "refId": "F",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "transformations": [
+        { "id": "merge" },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "id": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "prometheus": true,
+              "service": true,
+              "type": true
+            },
+            "renameByName": {
+              "name": "Server Name",
+              "datacenter": "Datacenter",
+              "Value #A": "Monthly Cost (€)",
+              "Value #B": "Hourly Cost (€)",
+              "Value #C": "CPU Cores",
+              "Value #D": "Memory (GB)",
+              "Value #E": "Disk (GB)",
+              "Value #F": "Running"
+            },
+            "indexByName": {
+              "name": 0,
+              "datacenter": 1,
+              "Value #F": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #E": 5,
+              "Value #A": 6,
+              "Value #B": 7
+            }
+          }
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Traffic — Used vs Included (TB)",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 5 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "custom": { "fillOpacity": 10 }
+        }
+      },
       "targets": [
         {
-          "expr": "(sum(hcloud_server_incoming_traffic_bytes + hcloud_server_outgoing_traffic_bytes) / 1e12)",
-          "legendFormat": "Used",
+          "expr": "sum(hcloud_server_incoming_traffic_bytes + hcloud_server_outgoing_traffic_bytes)",
+          "legendFormat": "Used Traffic",
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" }
+          "datasource": { "type": "prometheus" }
         },
         {
-          "expr": "(sum(hcloud_server_included_traffic_bytes) / 1e12)",
-          "legendFormat": "Included",
+          "expr": "sum(hcloud_server_included_traffic_bytes)",
+          "legendFormat": "Included Traffic",
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" }
+          "datasource": { "type": "prometheus" }
         }
       ]
     },
     {
       "type": "bargauge",
-      "title": "Servers by datacenter",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
-      "options": { "displayMode": "gradient" },
+      "title": "Servers by Datacenter",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+      "options": { "displayMode": "gradient", "orientation": "horizontal" },
       "targets": [
-        { "expr": "sum(hcloud_server_running) by (datacenter)", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "sum(hcloud_server_running) by (datacenter)",
+          "refId": "A",
+          "instant": true,
+          "datasource": { "type": "prometheus" }
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Cost Breakdown",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(hcloud_server_price_monthly)",
+          "refId": "A",
+          "legendFormat": "Servers",
+          "instant": true,
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "sum(hcloud_volume_size) * 0.055",
+          "refId": "B",
+          "legendFormat": "Volumes",
+          "instant": true,
+          "datasource": { "type": "prometheus" }
+        }
       ]
     },
     {
       "type": "table",
-      "title": "Volumes",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
-      "options": { "showHeader": true },
+      "title": "Volume Details",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 38 },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Size (GB)", "desc": true }] },
+      "fieldConfig": {
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Size (GB)" }, "properties": [{ "id": "unit", "value": "decgbytes" }] },
+          { "matcher": { "id": "byName", "options": "Cost (€/mo)" }, "properties": [{ "id": "unit", "value": "currencyEUR" }, { "id": "decimals", "value": 2 }] },
+          { "matcher": { "id": "byName", "options": "Available" }, "properties": [{ "id": "mappings", "value": [{ "type": "value", "options": { "1": { "text": "✓", "color": "green" }, "0": { "text": "✗", "color": "red" } } }] }] },
+          { "matcher": { "id": "byName", "options": "Protected" }, "properties": [{ "id": "mappings", "value": [{ "type": "value", "options": { "1": { "text": "✓", "color": "blue" }, "0": { "text": "✗", "color": "dark-gray" } } }] }] }
+        ]
+      },
       "targets": [
-        { "expr": "hcloud_volume_size", "refId": "A", "instant": true, "datasource": { "type": "prometheus", "uid": "DS_PROMETHEUS" } }
+        {
+          "expr": "hcloud_volume_size",
+          "refId": "A",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_volume_size * 0.055",
+          "refId": "B",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_volume_status",
+          "refId": "C",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "hcloud_volume_protection",
+          "refId": "D",
+          "instant": true,
+          "format": "table",
+          "datasource": { "type": "prometheus" }
+        }
       ],
       "transformations": [
-        { "id": "labelsToFields", "options": { "mode": "columns" } },
-        { "id": "organize", "options": { "renameByName": { "Value": "size_gb" }, "indexByName": { "name": 0, "server": 1, "location": 2, "size_gb": 3 } } }
+        { "id": "merge" },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "container": true,
+              "endpoint": true,
+              "id": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "prometheus": true,
+              "service": true
+            },
+            "renameByName": {
+              "name": "Volume Name",
+              "location": "Location",
+              "server": "Attached Server",
+              "Value #A": "Size (GB)",
+              "Value #B": "Cost (€/mo)",
+              "Value #C": "Available",
+              "Value #D": "Protected"
+            },
+            "indexByName": {
+              "name": 0,
+              "server": 1,
+              "location": 2,
+              "Value #A": 3,
+              "Value #B": 4,
+              "Value #C": 5,
+              "Value #D": 6
+            }
+          }
+        }
       ]
     }
   ]

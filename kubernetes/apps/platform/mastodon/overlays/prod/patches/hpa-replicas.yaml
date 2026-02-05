@@ -6,7 +6,7 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: mastodon-web-hpa
 spec:
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 4
 ---
 apiVersion: autoscaling/v2

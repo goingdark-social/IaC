@@ -110,9 +110,9 @@ vmsingle:
     resources:
       requests:
         cpu: 250m
-        memory: 768Mi  # Reduced from 1Gi, adequate for 14d retention
+        memory: 1536Mi  # Increased from 768Mi to fix OOM crashes
       limits:
-        memory: 768Mi
+        memory: 1536Mi
 
 vmcluster:
   enabled: false
