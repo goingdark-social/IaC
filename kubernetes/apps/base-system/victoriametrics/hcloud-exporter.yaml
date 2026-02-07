@@ -41,7 +41,7 @@ spec:
     spec:
       containers:
         - name: hcloud-exporter
-          image: quay.io/promhippie/hcloud-exporter:3.8.0
+          image: quay.io/promhippie/hcloud-exporter:3.9.1
           imagePullPolicy: IfNotPresent
           env:
             - name: HCLOUD_EXPORTER_TOKEN
