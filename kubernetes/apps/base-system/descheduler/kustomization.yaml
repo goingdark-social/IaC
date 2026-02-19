@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: kube-system
 
 resources:
-  - github.com/kubernetes-sigs/descheduler/kubernetes/deployment?ref=v0.34.0
+  - github.com/kubernetes-sigs/descheduler/kubernetes/deployment?ref=v0.35.0
 
 patches:
   - path: patches/policy-configmap.yaml
