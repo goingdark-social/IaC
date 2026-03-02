@@ -15,7 +15,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: create-user
-          image: ghcr.io/cloudnative-pg/postgresql:17.7
+          image: ghcr.io/cloudnative-pg/postgresql:17.9
           command:
             - /bin/bash
             - -c
