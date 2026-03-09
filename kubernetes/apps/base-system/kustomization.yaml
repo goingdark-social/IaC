@@ -13,3 +13,4 @@ resources:
 - victorialogs
 - descheduler
 - dex
+- kubechecks
