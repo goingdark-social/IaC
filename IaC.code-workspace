@@ -21,6 +21,8 @@
 		"terminal.integrated.env.linux": {
 		"KUBECONFIG": "${workspaceFolder}/opentofu/kubeconfig",
 		"TALOSCONFIG": "${workspaceFolder}/opentofu/talosconfig"
-		}
+		},
+		"chat.useClaudeMdFile": false,
+		"chat.experimental.useSkillAdherencePrompt": true
 	}
 }
