@@ -6,8 +6,23 @@
   "enabledManagers": [
     "kubernetes",
     "kustomize",
-    "helm-values"
+    "helm-values",
+    "terraform"
   ],
+  "packageRules": [
+    {
+      "description": "Use OpenTofu registry for all Terraform/OpenTofu resources",
+      "matchDatasources": ["terraform-provider", "terraform-module"],
+      "registryUrls": ["https://registry.opentofu.org"]
+    }
+  ],
+  "terraform": {
+    "enabled": true,
+    "managerFilePatterns": [
+      "**/*.tf",
+      "**/*.tofu"
+    ]
+  },
   "kustomize": {
     "managerFilePatterns": [
       "/(^|/)kustomization\\.ya?ml(\\.j2)?$/"
