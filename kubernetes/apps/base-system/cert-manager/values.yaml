@@ -39,8 +39,8 @@ cainjector:
   resources:
     limits:
       cpu: 40m
-      memory: 72Mi
+      memory: 192Mi
     requests:
       cpu: 40m
-      memory: 72Mi
+      memory: 96Mi
   replicaCount: 1
