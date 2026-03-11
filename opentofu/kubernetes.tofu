@@ -3,7 +3,7 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "1.52.0"
+      version = "1.52.0" #renovate 
     }
     talos = {
       source  = "siderolabs/talos"
@@ -34,7 +34,7 @@ provider "hcloud" {
 
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
-  version = "3.2.0"
+  version = "3.26.1" # renovate: github-releases=hcloud-k8s/terraform-hcloud-kubernetes
 
   cluster_name              = "goingdark"
   hcloud_token              = var.hcloud_token
@@ -230,7 +230,6 @@ module "kubernetes" {
       contents = join("\n---\n", [
         file("${path.root}/../kubernetes/apps/base-system/cilium/announce.yaml"),
         file("${path.root}/../kubernetes/apps/base-system/cilium/ip-pool.yaml"),
-        file("${path.root}/../kubernetes/apps/base-system/cilium/resources/mail-ip-pool.yaml"),
         format(
           "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cilium-helm-values\n  namespace: kube-system\n  labels:\n    app.kubernetes.io/name: cilium-helm-values\n    app.kubernetes.io/managed-by: talos-inline\n  data:\n    values.yaml: |-\n%s\n",
           indent(6, trimspace(file("${path.root}/../kubernetes/apps/base-system/cilium/values.yaml")))

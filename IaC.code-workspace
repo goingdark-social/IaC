@@ -17,6 +17,10 @@
 		"github.copilot.chat.notebook.followCellExecution.enabled": true,
 		"github.copilot.chat.scopeSelection": true,
 		"github.copilot.chat.tools.memory.enabled": true,
-		"chat.useNestedAgentsMdFiles": true
+		"chat.useNestedAgentsMdFiles": true,
+		"terminal.integrated.env.linux": {
+		"KUBECONFIG": "${workspaceFolder}/opentofu/kubeconfig",
+		"TALOSCONFIG": "${workspaceFolder}/opentofu/talosconfig"
+		}
 	}
 }
