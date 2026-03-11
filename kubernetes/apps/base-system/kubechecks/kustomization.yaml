@@ -9,7 +9,6 @@ resources:
   - pdb.yaml
   - role.yaml
   - rolebinding.yaml
-  - network-policy.yaml
 
 helmCharts:
   - name: kubechecks
