@@ -8,6 +8,8 @@ goingdark.social infrastructure repository for Hetzner Cloud and Talos Linux wit
 - Keep one Kubernetes resource per file outside strategic patch files.
 - Keep container image references pinned to explicit versions.
 - Keep procedural runbooks, TODO lists, and troubleshooting flows in skills.
+- Do not create any files the user did not ask for 
+- Never create markdown documents (summaries, findings, analyses, or reports) unless the user explicitly asks for that deliverable.
 </Global_rules>
 
 <kubernetes>
