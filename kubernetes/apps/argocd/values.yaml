@@ -66,11 +66,23 @@ controller:
       effect: NoSchedule
   resources:
     requests:
-      cpu: 50m
-      memory: 256Mi
+      cpu: 200m
+      memory: 512Mi
     limits:
-      cpu: 300m
-      memory: 800Mi
+      cpu: 1000m
+      memory: 2Gi
+
+  # Provide a larger memory-backed /dev/shm to avoid container runtime default 64Mi limit
+  # which can cause kubeconfig write failures during server-side diff operations.
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 1Gi
+
+  volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
 
 dex:
   enabled: false
