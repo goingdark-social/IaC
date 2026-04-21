@@ -5,9 +5,10 @@ metadata:
   namespace: argocd
 spec:
   hard:
-    requests.cpu: "600m"
-    requests.memory: "2Gi"
-    limits.cpu: "2"
-    limits.memory: "4Gi"
+    # Increased quota to accommodate Argo CD server-side diff and controller resources
+    requests.cpu: "1500m"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
     pods: "15"
     persistentvolumeclaims: "5"
