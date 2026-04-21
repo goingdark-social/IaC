@@ -149,11 +149,11 @@ repoServer:
     enabled: false
   resources:
     requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 200m
+      cpu: 100m
       memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   tolerations:
     - key: node.cloudprovider.kubernetes.io/uninitialized
       operator: Exists
