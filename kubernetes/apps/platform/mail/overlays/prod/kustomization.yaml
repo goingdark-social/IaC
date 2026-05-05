@@ -5,7 +5,7 @@ namespace: stalwart
 
 images:
   - name: stalwartlabs/stalwart
-    newTag: v0.16.3
+    newTag: v0.16.4
 
 resources:
   - ../../base
