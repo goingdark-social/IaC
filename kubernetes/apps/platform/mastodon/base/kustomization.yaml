@@ -5,7 +5,7 @@ images:
   - name: ghcr.io/glitch-soc/mastodon
     newTag: v4.5.8
   - name: ghcr.io/glitch-soc/mastodon-streaming
-    newTag: v4.5.8
+    newTag: v4.5.9
 
 resources:
   - resources
