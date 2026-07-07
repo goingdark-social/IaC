@@ -42,7 +42,7 @@ spec:
           image: stalwartlabs/stalwart
           imagePullPolicy: IfNotPresent
           command: ["/usr/local/bin/stalwart"]
-          args: ["--config", "/opt/stalwart/etc/config.toml"]
+          args: ["--config", "/opt/stalwart/etc/config.json"]
           env:
             - name: HOSTNAME
               value: "mail.peekoff.com"
@@ -126,8 +126,8 @@ spec:
             - name: logs
               mountPath: /var/log/stalwart
             - name: config
-              mountPath: /opt/stalwart/etc/config.toml
-              subPath: config.toml
+              mountPath: /opt/stalwart/etc/config.json
+              subPath: config.json
               readOnly: true
             - name: secrets
               mountPath: /opt/stalwart/secrets

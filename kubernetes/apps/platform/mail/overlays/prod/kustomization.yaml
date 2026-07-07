@@ -5,12 +5,7 @@ namespace: stalwart
 
 images:
   - name: stalwartlabs/stalwart
-    # Pinned: v0.16.9 fails to start against this cluster's existing data
-    # ("Failed to parse data store settings ... expected value at line 1
-    # column 1"), reproduced independent of the k8s manifest - the same
-    # config/secrets work fine under v0.15.5. Do not bump past v0.15.5
-    # until that's root-caused deliberately.
-    newTag: v0.15.5
+    newTag: v0.16.9
 
 resources:
   - ../../base
@@ -19,7 +14,7 @@ resources:
 configMapGenerator:
   - name: stalwart-config
     files:
-      - files/config.toml
+      - files/config.json
 
 generatorOptions:
   disableNameSuffixHash: false
