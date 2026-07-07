@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - cluster.yaml
   - objectstore.yaml
+  - scheduledbackup.yaml
