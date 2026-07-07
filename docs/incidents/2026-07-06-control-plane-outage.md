@@ -72,10 +72,27 @@ This did **not** cause the apiserver outage (that controller is unrelated to sta
 
 **Fix:** remove the explicit `talos_extra_remote_manifests` block for gateway-api from `kubernetes.tofu` (lines ~223-225) and rely on the module's own `gateway_api_crds_enabled`/`gateway_api_crds_version` — do not maintain both.
 
+**Status: deferred, not yet fixed.** See "Resolution" below — this fix turned out to require the full Talos/Kubernetes version upgrade too, so it's being held until that upgrade is deliberately scheduled, since it's cosmetic (log noise) and not what caused the outage.
+
+## Resolution (2026-07-06)
+
+**Stability restored via `talosctl reboot -n 10.0.64.1` alone** — no `tofu apply` was needed or used to fix the actual outage. This rebooted `machined`, which cleared the wedged static-pod-rendering controller; `k8s.StaticPod` resources reappeared immediately, kube-apiserver came back up, and `kubectl get nodes` reported all three nodes `Ready` again.
+
+Before rebooting, a `tofu plan` was run to see what a routine apply would additionally do, given weeks of accumulated drift from the module bump (root cause #2). It revealed the module bump to v4.7.0 had silently changed the *default* `talos_version` (v1.11.6 → v1.12.8) and `kubernetes_version` (v1.33.10 → v1.33.13) inputs — nobody had pinned them explicitly, so a routine apply would have bundled an unplanned full OS + Kubernetes upgrade across every node into the same apply as the firewall/manifest fixes, gated behind a `talosctl health` check that was guaranteed to fail against the already-broken cluster. It also would have created a previously-unapplied `cluster_autoscaler` nodepool as a side effect. All of that was avoided by explicitly pinning `talos_version = "v1.11.6"` / `kubernetes_version = "v1.33.10"` in `kubernetes.tofu` and temporarily commenting out `cluster_autoscaler_nodepools`, to scope any apply down to just the intended changes.
+
+**New finding: the module version and the Talos OS version are no longer independent.** Attempting to apply the gateway-api manifest removal (with the OS pinned to v1.11.6) failed with:
+```
+rpc error: code = InvalidArgument desc = "LinkConfig" "v1alpha1": not registered
+```
+Module v4.7.0 unconditionally generates a `LinkConfig` machine-config document (for network interface setup) that Talos v1.11.6 doesn't recognize. In other words, **module v4.7.0 requires a newer Talos OS version to apply *any* machine configuration change**, not just the manifest fix — the two are now coupled. The apply failed atomically before touching the node, so the cluster was left healthy and untouched.
+
+Practical consequence: the redundant-manifest cleanup (root cause #4) can't be applied in isolation anymore. It'll be done together with the deliberate Talos v1.12.8 / Kubernetes v1.33.13 upgrade, once the cluster has been stable for a while and that upgrade is planned on its own (not as a byproduct of a routine apply).
+
 ## Action Items (durable, beyond the immediate fix)
 
-- [ ] Add a Renovate rule to require manual merge for major-version bumps of `hcloud-k8s/kubernetes/hcloud` (and other Terraform modules under `opentofu/`).
-- [ ] Remove the redundant `talos_extra_remote_manifests` gateway-api entry; rely solely on the module's built-in gateway-api CRD management.
+- [ ] Add a Renovate rule to require manual merge for major-version bumps of `hcloud-k8s/kubernetes/hcloud` (and other Terraform modules under `opentofu/`), including a check for whether the bump silently changes default `talos_version`/`kubernetes_version`/other floating defaults.
+- [ ] Remove the redundant `talos_extra_remote_manifests` gateway-api entry; rely solely on the module's built-in gateway-api CRD management. Do this as part of the next deliberate Talos/Kubernetes upgrade, not before (see Resolution above — it can no longer be applied in isolation).
+- [ ] Always pin `talos_version` and `kubernetes_version` explicitly in `kubernetes.tofu` going forward, rather than letting them float to the module's defaults — a module bump should never silently schedule an OS/Kubernetes upgrade.
 - [ ] Add alerting on Talos/Kubernetes control-plane health independent of the cluster itself (e.g. an external blackbox check hitting `:6443` and a Hetzner-side notification on firewall/network changes), so a wedged control plane is caught in minutes, not days.
 - [ ] Periodically confirm `firewall_api_source` reflects current expected source IPs (or consider a more dynamic mechanism) since a home IP change silently locks out cluster access with no alert.
 - [ ] After any Hetzner-side network event (`network.change_alias_ips` or similar in the audit log), proactively check `talosctl health` and `talosctl containers -k` for the control plane rather than waiting for user-facing symptoms.
