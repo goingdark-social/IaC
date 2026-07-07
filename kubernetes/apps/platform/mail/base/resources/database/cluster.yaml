@@ -8,7 +8,7 @@ spec:
   storage:
     size: 50Gi
   walStorage:
-    size: 10Gi
+    size: 30Gi
   postgresql:
     parameters: {}
   bootstrap:
