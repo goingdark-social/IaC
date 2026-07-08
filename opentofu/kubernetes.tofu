@@ -72,7 +72,7 @@ module "kubernetes" {
   ]
   # Core Components (enabled by default)
   cilium_enabled                   = true
-  talos_backup_s3_enabled          = true
+  talos_backup_enabled             = true
   talos_ccm_enabled                = true
   talos_coredns_enabled            = true
   hcloud_ccm_enabled               = true
@@ -206,6 +206,8 @@ module "kubernetes" {
   talos_public_ipv6_enabled = false
 
 
+
+  cluster_autoscaler_enabled = true
 
   cluster_autoscaler_nodepools = [
     {
