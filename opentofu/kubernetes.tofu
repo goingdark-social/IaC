@@ -3,11 +3,11 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "1.62.0"
+      version = "~> 1.65.0"
     }
     talos = {
       source  = "siderolabs/talos"
-      version = "0.11.0"
+      version = "~> 0.11.0"
     }
     helm = {
       source  = "hashicorp/helm"
@@ -34,7 +34,7 @@ provider "hcloud" {
 
 module "kubernetes" {
   source  = "hcloud-k8s/kubernetes/hcloud"
-  version = "4.7.0"
+  version = "5.2.0"
 
   cluster_name              = "goingdark"
   hcloud_token              = var.hcloud_token
@@ -111,6 +111,16 @@ module "kubernetes" {
       encrypted           = true
       defaultStorageClass = true
       reclaimPolicy       = "Retain"
+      extraParameters = {
+        "csi.storage.k8s.io/fstype" = "xfs"
+        "fsFormatOption"            = "-i nrext64=1"
+      }
+    },
+    {
+      name                = "hcloud-volumes-encrypted-xfs-scratch"
+      encrypted           = true
+      defaultStorageClass = false
+      reclaimPolicy       = "Delete"
       extraParameters = {
         "csi.storage.k8s.io/fstype" = "xfs"
         "fsFormatOption"            = "-i nrext64=1"
