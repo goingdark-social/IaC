@@ -25,8 +25,7 @@
         "/(^|/)kubernetes/apps/base-system/crds/kustomization\\.ya?ml$/"
       ],
       "matchStrings": [
-        "https://github\\.com/[^/]+/[^/]+/releases/download/(?<currentValue>[^/\\s]+)/\\S+\\s*#\\s*renovate:\\s*depName=(?<packageName>\\S+)",
-        "https://raw\\.githubusercontent\\.com/[^/]+/[^/]+/(?<currentValue>[^/\\s]+)/\\S+\\s*#\\s*renovate:\\s*depName=(?<packageName>\\S+)"
+        "https://(?:github\\.com/[^/]+/[^/]+/releases/download|raw\\.githubusercontent\\.com/[^/]+/[^/]+)/(?<currentValue>[^/\\s]+)/\\S+\\s*#\\s*renovate:\\s*depName=(?<packageName>\\S+)"
       ],
       "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver"
