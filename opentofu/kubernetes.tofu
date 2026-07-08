@@ -3,7 +3,7 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "1.65.0"
+      version = "1.62.0"
     }
     talos = {
       source  = "siderolabs/talos"
@@ -11,19 +11,19 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 3.1.1"
+      version = "~> 3.2.0"
     }
     http = {
       source  = "hashicorp/http"
-      version = "~> 3.5.0"
+      version = "~> 3.6.0"
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "~> 4.2.1"
+      version = "~> 4.3.0"
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.8.1"
+      version = "~> 3.9.0"
     }
   }
 }
@@ -39,6 +39,12 @@ module "kubernetes" {
   cluster_name              = "goingdark"
   hcloud_token              = var.hcloud_token
   cluster_delete_protection = false
+
+  # Pinned to what's actually running. Do NOT let these float with module
+  # version bumps (see docs/incidents/2026-07-06-control-plane-outage.md) -
+  # bump deliberately, separately, only once the cluster is confirmed stable.
+  talos_version      = "v1.11.6"
+  kubernetes_version = "v1.33.10"
 
   # Configure cluster access for public networking to allow bootstrap
   cluster_access = "public"
@@ -221,7 +227,7 @@ module "kubernetes" {
   cilium_encryption_type    = "wireguard"
 
   talos_extra_remote_manifests = [
-    "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml",
+    "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/standard-install.yaml",
   ]
 
   talos_extra_inline_manifests = [

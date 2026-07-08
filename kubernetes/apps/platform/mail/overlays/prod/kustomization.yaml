@@ -14,7 +14,7 @@ resources:
 configMapGenerator:
   - name: stalwart-config
     files:
-      - files/config.toml
+      - files/config.json
 
 generatorOptions:
   disableNameSuffixHash: false

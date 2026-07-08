@@ -1,0 +1,11 @@
+{
+  "@type": "PostgreSql",
+  "host": "stalwart-postgresql-rw.stalwart.svc.cluster.local",
+  "database": "stalwart",
+  "port": 5432,
+  "authUsername": "stalwart",
+  "authSecret": {
+    "@type": "File",
+    "filePath": "/opt/stalwart/db-secrets/password"
+  }
+}
