@@ -71,7 +71,7 @@ spec:
       emptyDir: {}
     - name: config
       configMap:
-        name: stalwart-config
+        name: stalwart-config-recovery
     - name: db-secrets
       secret:
         secretName: stalwart-postgresql-app

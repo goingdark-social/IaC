@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Manual-only overlay for the one-off v0.16 recovery-mode pod (see base/recovery/recovery-job.yaml).
+# NOT referenced by overlays/prod/kustomization.yaml and NOT part of the ArgoCD-synced
+# resource set on purpose: recovery mode must be a manually-triggered, foreground-observed
+# step (per Stalwart's own migration guidance), not something continuous GitOps reconciles.
+#
+# Usage: kubectl apply -k kubernetes/apps/platform/mail/overlays/prod/recovery
+#        kubectl delete -k kubernetes/apps/platform/mail/overlays/prod/recovery
+#
+# recovery-job.yaml mounts the stable-named stalwart-config-recovery ConfigMap (generated
+# by overlays/prod/kustomization.yaml from the same files/config.json as the hash-suffixed
+# stalwart-config-<hash> the StatefulSet uses), so this overlay needs no generator of its
+# own and can never point at a stale ConfigMap.
+
+namespace: stalwart
+
+resources:
+  - ../../../base/recovery
