@@ -9,12 +9,27 @@ kind: Kustomization
 # Usage: kubectl apply -k kubernetes/apps/platform/mail/overlays/prod/recovery
 #        kubectl delete -k kubernetes/apps/platform/mail/overlays/prod/recovery
 #
-# recovery-job.yaml mounts the stable-named stalwart-config-recovery ConfigMap (generated
-# by overlays/prod/kustomization.yaml from the same files/config.json as the hash-suffixed
-# stalwart-config-<hash> the StatefulSet uses), so this overlay needs no generator of its
-# own and can never point at a stale ConfigMap.
+# recovery-job.yaml mounts stalwart-config-recovery, generated below by kustomize's normal
+# configMapGenerator hashing. Kustomize's built-in nameReference transformer rewrites the
+# Pod's configMap.name to the live hashed name at build time, so re-applying always picks up
+# the current content and never needs manual patching (real restart-on-change, not a
+# disableNameSuffixHash stable name).
+#
+# config.json here is a real copy of ../files/config.json, not a symlink: kustomize's
+# load restriction (LoadRestrictionsRootOnly) resolves symlinks and rejects any file outside
+# this kustomization's own root, so a generator in this directory cannot read the parent
+# overlay's file directly. Folding base/recovery into overlays/prod/kustomization.yaml
+# instead (to share its generator) was rejected too - it would make `kubectl delete -k`
+# on this overlay also delete the live StatefulSet/database. Keep this copy in sync with
+# ../files/config.json if that file's DB connection settings ever change (rare - it's static
+# Postgres connection info).
 
 namespace: stalwart
 
 resources:
   - ../../../base/recovery
+
+configMapGenerator:
+  - name: stalwart-config-recovery
+    files:
+      - config.json

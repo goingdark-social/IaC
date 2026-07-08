@@ -225,8 +225,8 @@ module "kubernetes" {
 
   cilium_encryption_enabled = true
   cilium_encryption_type    = "wireguard"
-  
-    talos_extra_remote_manifests = [
+
+  talos_extra_remote_manifests = [
     "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/standard-install.yaml",
   ]
 

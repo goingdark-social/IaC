@@ -7,13 +7,29 @@
     "kubernetes",
     "kustomize",
     "helm-values",
-    "terraform"
+    "terraform",
+    "custom.regex"
   ],
   "packageRules": [
     {
       "description": "Use OpenTofu registry for all Terraform/OpenTofu resources",
       "matchDatasources": ["terraform-provider", "terraform-module"],
       "registryUrls": ["https://registry.opentofu.org"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track upstream GitHub release tags embedded in raw CRD manifest URLs, annotated with '# renovate: depName=owner/repo'",
+      "managerFilePatterns": [
+        "/(^|/)kubernetes/apps/base-system/crds/kustomization\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "https://github\\.com/[^/]+/[^/]+/releases/download/(?<currentValue>[^/\\s]+)/\\S+\\s*#\\s*renovate:\\s*depName=(?<packageName>\\S+)",
+        "https://raw\\.githubusercontent\\.com/[^/]+/[^/]+/(?<currentValue>[^/\\s]+)/\\S+\\s*#\\s*renovate:\\s*depName=(?<packageName>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
     }
   ],
   "terraform": {

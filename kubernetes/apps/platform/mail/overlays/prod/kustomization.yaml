@@ -15,15 +15,6 @@ configMapGenerator:
   - name: stalwart-config
     files:
       - files/config.json
-  - name: stalwart-config-recovery
-    files:
-      - files/config.json
-    options:
-      disableNameSuffixHash: true
-    # Stable-named twin of stalwart-config, always generated from the same source file.
-    # Used only by the manual recovery-mode pod (base/recovery/recovery-job.yaml, applied
-    # via overlays/prod/recovery), which otherwise cannot reference the hash-suffixed
-    # stalwart-config-<hash> name without being manually re-patched every time the hash changes.
 
 generatorOptions:
   disableNameSuffixHash: false
