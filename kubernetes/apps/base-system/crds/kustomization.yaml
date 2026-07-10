@@ -3,8 +3,5 @@ kind: Kustomization
 
 resources:
 - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/standard-install.yaml # renovate: depName=kubernetes-sigs/gateway-api
-- https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml # renovate: depName=kubernetes-sigs/gateway-api
-- https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/experimental/gateway.networking.k8s.io_udproutes.yaml # renovate: depName=kubernetes-sigs/gateway-api
-- https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.6.0/config/crd/experimental/gateway.networking.k8s.io_tcproutes.yaml # renovate: depName=kubernetes-sigs/gateway-api
 - https://raw.githubusercontent.com/external-secrets/external-secrets/v2.7.0/deploy/crds/bundle.yaml # renovate: depName=external-secrets/external-secrets
 - https://github.com/cert-manager/cert-manager/releases/download/v1.20.3/cert-manager.crds.yaml # renovate: depName=cert-manager/cert-manager
