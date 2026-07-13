@@ -1,0 +1,35 @@
+NC_DOMAIN: nextcloud.mellovy.com
+NAMESPACE: nextcloud
+TIMEZONE: Europe/Berlin
+
+APACHE_PORT: 11000
+APACHE_MAX_SIZE: 10737418240  # 10 GiB upload limit
+
+# Storage classes
+STORAGE_CLASS: hcloud-volumes-encrypted-xfs
+STORAGE_CLASS_DATA: hcloud-volumes-encrypted-xfs
+
+# Storage sizes — minimized; expand via Hetzner CSI resize as needed
+APACHE_STORAGE_SIZE: 1Gi
+DATABASE_STORAGE_SIZE: 1Gi
+DATABASE_DUMP_STORAGE_SIZE: 1Gi
+NEXTCLOUD_STORAGE_SIZE: 1Gi
+NEXTCLOUD_DATA_STORAGE_SIZE: 10Gi
+NEXTCLOUD_TRUSTED_CACERTS_STORAGE_SIZE: 1Gi
+REDIS_STORAGE_SIZE: 1Gi
+
+# Passwords — placeholders; actual values injected via ExternalSecret + kustomize patches
+NEXTCLOUD_PASSWORD: "PLACEHOLDER"
+DATABASE_PASSWORD: "PLACEHOLDER"
+REDIS_PASSWORD: "PLACEHOLDER"
+
+# All optional services disabled
+CLAMAV_ENABLED: "no"
+COLLABORA_ENABLED: "no"
+EUROOFFICE_ENABLED: "no"
+FULLTEXTSEARCH_ENABLED: "no"
+IMAGINARY_ENABLED: "no"
+ONLYOFFICE_ENABLED: "no"
+TALK_ENABLED: "no"
+TALK_RECORDING_ENABLED: "no"
+WHITEBOARD_ENABLED: "no"

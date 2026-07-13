@@ -6,3 +6,4 @@ resources:
   - cert-goingdark.yaml
   - gw-external.yaml
   - cert-peekoff-wildcard.yaml
+  - cert-mellovy-wildcard.yaml

@@ -1,0 +1,17 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cert-mellovy-wildcard
+  namespace: gateway
+spec:
+  dnsNames:
+    - "*.mellovy.com"
+    - mellovy.com
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: cloudflare-issuer
+  secretName: cert-mellovy-wildcard
+  usages:
+    - digital signature
+    - key encipherment

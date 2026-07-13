@@ -106,3 +106,54 @@ spec:
           - ServerSideApply=true
           - PruneLast=true
           - RespectIgnoreDifferences=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  namespace: argocd
+  name: mellovy
+  labels:
+    app.kubernetes.io/part-of: mellovy
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: '0'
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        revision: main
+        directories:
+          - path: kubernetes/apps/mellovy/*
+  template:
+    metadata:
+      name: 'mellovy-{{path.basename}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/component: 'mellovy-{{path.basename}}'
+        app.kubernetes.io/part-of: mellovy
+      annotations:
+        argocd.argoproj.io/sync-wave: '0'
+    spec:
+      project: mellovy
+      source:
+        repoURL: https://github.com/goingdark-social/IaC.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - RespectIgnoreDifferences=true

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - generators.yaml
+  - externalsecret.yaml
+  - pushsecret.yaml
+  - httproute.yaml
+
+helmCharts:
+  - name: nextcloud-aio-helm-chart
+    releaseName: nextcloud-aio
+    namespace: nextcloud
+    version: 13.3.1
+    repo: https://nextcloud.github.io/all-in-one/
+    valuesFile: helm-values.yaml
