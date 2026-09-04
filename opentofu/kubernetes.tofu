@@ -3,7 +3,7 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "~> 1.66.0"
+      version = "1.65.0"
     }
     talos = {
       source  = "siderolabs/talos"
@@ -57,9 +57,11 @@ module "kubernetes" {
   ]
   worker_nodepools = [
     # Primary general-purpose worker nodepool (larger instance type)
-    { name = "worker", type = "cx43", location = "hel1", count = 1 },
+    # Pinned to its existing legacy subnet to avoid migrating live nodes to
+    # the module's newer shared-worker-subnet layout.
+    { name = "worker", type = "cx43", location = "hel1", count = 1, subnet = "10.0.65.0/25" },
     # Secondary worker nodepool (smaller instance type) for mixed workloads / cost optimization
-    { name = "worker-secondary", type = "cx43", location = "hel1", count = 1 }
+    { name = "worker-secondary", type = "cx43", location = "hel1", count = 1, subnet = "10.0.65.128/25" }
   ]
   worker_config_patches = [
     {
