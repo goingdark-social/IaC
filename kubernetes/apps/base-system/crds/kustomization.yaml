@@ -3,5 +3,5 @@ kind: Kustomization
 
 resources:
 - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.2/standard-install.yaml # renovate: depName=kubernetes-sigs/gateway-api
-- https://raw.githubusercontent.com/external-secrets/external-secrets/v2.7.0/deploy/crds/bundle.yaml # renovate: depName=external-secrets/external-secrets
+- https://raw.githubusercontent.com/external-secrets/external-secrets/v2.10.0/deploy/crds/bundle.yaml # renovate: depName=external-secrets/external-secrets
 - https://github.com/cert-manager/cert-manager/releases/download/v1.21.1/cert-manager.crds.yaml # renovate: depName=cert-manager/cert-manager
