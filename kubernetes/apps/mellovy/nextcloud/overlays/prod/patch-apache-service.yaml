@@ -1,0 +1,10 @@
+# Override Apache service type from LoadBalancer (chart default) to ClusterIP.
+# Traffic enters via the Gateway API HTTPRoute; no direct external LB needed.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud-aio-apache
+  namespace: nextcloud
+spec:
+  type: ClusterIP
+  externalTrafficPolicy: null

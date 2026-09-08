@@ -55,3 +55,27 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - protocol: HTTPS
+      port: 443
+      name: https-mellovy-apex
+      hostname: "mellovy.com"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: cert-mellovy-wildcard
+            namespace: gateway
+      allowedRoutes:
+        namespaces:
+          from: All
+    - protocol: HTTPS
+      port: 443
+      name: https-mellovy-wildcard
+      hostname: "*.mellovy.com"
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: cert-mellovy-wildcard
+            namespace: gateway
+      allowedRoutes:
+        namespaces:
+          from: All
